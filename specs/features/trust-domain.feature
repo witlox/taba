@@ -1,30 +1,107 @@
+@security @governance
 Feature: Trust domain management
-  Trust domains are governance units requiring multi-party creation.
+  Trust domains are governance units defining authorization boundaries.
+  Creation requires multi-party agreement (INV-S10). Role assignments
+  are scoped, unique (INV-S8), and optionally time-bounded. Cross-domain
+  roles require explicit policy -- no implicit inheritance.
 
-  Scenario: Trust domain creation requires policy resolution
-    Given manager A proposes trust domain "clinical-trial-X"
-    And manager B requests access for their team
-    When the proposals are submitted
-    Then the solver detects a governance conflict (competing scope claims)
-    And requires explicit policy resolution before the trust domain is created
+  # --- Creation ---
 
-  Scenario: Role assignment within trust domain
-    Given trust domain "clinical-trial-X" exists
-    And an operator with governance scope in that domain
-    When the operator assigns author A workload scope in the domain
-    Then author A can create workload units in "clinical-trial-X"
-    And author A cannot create units in other trust domains
-
-  Scenario: Trust domain with time-bounded access
-    Given a trust domain for external collaborator access
-    And a role assignment with expiry "2026-12-31"
-    When the expiry date passes
-    Then the role assignment is revoked
-    And the collaborator can no longer author units in the domain
+  Scenario: Trust domain creation requires 2+ distinct authors (INV-S10)
+    Given author "alice" with governance scope in the root trust domain
+    And author "bob" with governance scope in the root trust domain
+    When "alice" submits a TrustDomain governance unit "pharma-trials" listing required signers ["alice", "bob"]
+    And "bob" cosigns the TrustDomain governance unit "pharma-trials"
+    Then the solver verifies 2 distinct cryptographic signatures are present
+    And trust domain "pharma-trials" is created in the composition graph
+    And a governance unit records the creation with both author signatures
 
   @security
-  Scenario: Trust domain cannot be created by single author
-    Given an author with governance scope
-    When the author unilaterally submits a trust domain unit
-    Then the solver detects this requires multi-party agreement
-    And the trust domain is not created until policy resolves it
+  Scenario: Single author cannot create trust domain unilaterally (INV-S10)
+    Given author "alice" with governance scope in the root trust domain
+    When "alice" submits a TrustDomain governance unit "secret-lab" listing required signers ["alice"]
+    Then the solver rejects the trust domain creation
+    And the error is "TrustDomainRequiresMultiParty: minimum 2 distinct signers required"
+    And no governance unit is persisted for "secret-lab"
+
+  Scenario: Trust domain creation with exactly the threshold of signers
+    Given 3 authors "alice", "bob", "carol" with governance scope
+    When "alice" submits a TrustDomain governance unit "multi-org" listing required signers ["alice", "bob", "carol"]
+    And "bob" cosigns the TrustDomain governance unit "multi-org"
+    And "carol" cosigns the TrustDomain governance unit "multi-org"
+    Then the solver verifies 3 distinct cryptographic signatures are present
+    And trust domain "multi-org" is created in the composition graph
+
+  # --- Role assignment ---
+
+  Scenario: Role assignment within trust domain (happy path)
+    Given trust domain "pharma-trials" exists with authors "alice" and "bob"
+    And "alice" has governance scope in "pharma-trials"
+    When "alice" creates a RoleAssignment governance unit granting "carol" workload scope in "pharma-trials"
+    And "bob" cosigns the RoleAssignment governance unit
+    Then "carol" can create workload units in "pharma-trials"
+    And "carol" cannot create policy units in "pharma-trials"
+    And "carol" cannot create units in any other trust domain
+
+  @security
+  Scenario: Role scope uniqueness -- duplicate (type_scope, trust_domain) rejected (INV-S8)
+    Given trust domain "pharma-trials" exists
+    And "carol" already has workload scope in "pharma-trials"
+    When a governance author attempts to assign "dave" workload scope in "pharma-trials" with identical type_scope tuple
+    Then the role assignment is rejected
+    And the error is "ScopeOverlap: (workload, pharma-trials) already assigned to carol"
+    And no RoleAssignment governance unit is persisted
+
+  # --- Time-bounded roles ---
+
+  Scenario: Time-bounded role assignment grants access until expiry
+    Given trust domain "pharma-trials" exists
+    And a RoleAssignment governance unit granting "extern-1" data scope in "pharma-trials" with expiry "2026-12-31T23:59:59Z"
+    When the current time is "2026-06-15T10:00:00Z"
+    Then "extern-1" can create data units in "pharma-trials"
+    And the role assignment shows remaining validity of approximately 199 days
+
+  Scenario: Expired role revokes authoring ability
+    Given trust domain "pharma-trials" exists
+    And "extern-1" has data scope in "pharma-trials" with expiry "2026-12-31T23:59:59Z"
+    When the current time advances past "2026-12-31T23:59:59Z"
+    And "extern-1" attempts to create a data unit in "pharma-trials"
+    Then the unit is rejected with error "ScopeExpired: role assignment expired at 2026-12-31T23:59:59Z"
+    And the signature verification fails at the scope validity check (INV-S3 clause b)
+
+  Scenario: Expired author's existing units remain valid but cannot be modified
+    Given "extern-1" created data unit "dataset-42" in "pharma-trials" at "2026-06-15T10:00:00Z"
+    And "extern-1" role expired at "2026-12-31T23:59:59Z"
+    When the current time is "2027-01-15T10:00:00Z"
+    Then data unit "dataset-42" remains valid in the composition graph
+    And data unit "dataset-42" signature verification passes (key valid at creation time)
+    But "extern-1" cannot submit modifications or new versions of "dataset-42"
+
+  # --- Cross-domain ---
+
+  @security
+  Scenario: Cross-domain role requires explicit policy, no implicit inheritance
+    Given trust domain "pharma-trials" exists with "alice" having governance scope
+    And trust domain "finance-ops" exists with "bob" having governance scope
+    And "carol" has workload scope in "pharma-trials"
+    When "carol" attempts to create a workload unit in "finance-ops"
+    Then the unit is rejected with error "ScopeViolation: carol has no scope in trust domain finance-ops"
+    And no implicit role inheritance from "pharma-trials" to "finance-ops" is applied
+
+  Scenario: Cross-domain role granted via explicit policy
+    Given trust domain "pharma-trials" and trust domain "shared-data" both exist
+    And a policy unit authored by governance holders of both domains grants "carol" data scope in "shared-data"
+    When "carol" creates a data unit in "shared-data"
+    Then the unit is accepted
+    And the policy unit is recorded in both trust domains' governance lineage
+
+  # --- Bootstrap ---
+
+  @security
+  Scenario: Shamir root key signs first governance unit at bootstrap
+    Given a completed Shamir ceremony producing root key with public key "pk_root_abc123"
+    When the root key signs the first TrustDomain governance unit "root-domain" with signers ["ceremony-witness-1", "ceremony-witness-2"]
+    Then the governance unit signature is verified against "pk_root_abc123"
+    And "root-domain" becomes the root trust domain seeding the composition graph
+    And the root key material is zeroized after signing
+    And the ceremony completion is recorded as a governance unit in the graph
