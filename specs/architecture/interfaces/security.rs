@@ -79,6 +79,9 @@ pub enum SecurityError {
     KeyError { reason: String },
     /// Declassification requires multi-party signing (INV-S9).
     DeclassificationDenied { reason: String },
+    /// Author's public key not locally available. Caller should buffer the
+    /// unit and retry when keys arrive via gossip.
+    KeyNotFound { key: KeyId },
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +130,10 @@ pub trait Verifier {
     ///
     /// This method is synchronous and MUST NOT perform network I/O. All
     /// required key material and revocation state must be locally available.
+    ///
+    /// If the author's key is not locally available, returns
+    /// `SecurityError::KeyNotFound` — the caller should buffer the unit
+    /// and retry when keys arrive via gossip.
     fn verify(
         &self,
         unit: &Unit,
@@ -185,7 +192,14 @@ pub trait TaintComputer {
     ///
     /// Returns `SecurityError::BrokenProvenance` if the provenance chain
     /// is incomplete (references to units not yet in the local graph).
-    async fn compute_taint(
+    ///
+    /// This is intentionally synchronous — taint traversal is in-memory only
+    /// (the graph and provenance are local). No I/O justifies async here.
+    ///
+    /// For declassification policies encountered during traversal, also
+    /// re-verifies that all signers are still active (not revoked as of
+    /// query timestamp) per INV-S9.
+    fn compute_taint(
         &self,
         data_unit: &UnitId,
     ) -> Result<Classification, SecurityError>;

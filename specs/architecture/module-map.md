@@ -227,6 +227,19 @@ ContextMismatch | WalFailed | CompactionFailed | HierarchyViolation)
 - `snapshot` -- immutable graph snapshot for solver consumption
 - `query` -- unit filtering, policy validity check at query time (INV-C5)
 
+### Bootstrap special case
+The initial governance unit from the Shamir ceremony (CeremonyCompleted) is
+inserted without normal signature verification — it is trusted by the ceremony
+protocol itself. This is the only unit that bypasses the verification gate.
+The ceremony produces a signed root governance unit; the graph accepts it via
+a dedicated `insert_bootstrap(unit)` method that requires the ceremony's
+public key as a parameter (not the normal author key flow).
+
+### Governance unit replication
+Governance units are actively replicated (full copies on N nodes), not just
+erasure-coded. taba-graph decides which units are governance (by type) and
+signals this to taba-erasure via the shard distribution interface.
+
 ### Does NOT own
 - Signature computation (delegates to taba-security; owns the gate that calls it)
 - Composition resolution or placement (that is taba-solver)

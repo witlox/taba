@@ -21,7 +21,9 @@ use uuid::Uuid;
 pub struct UnitId(pub Uuid);
 
 /// Identity of a node in the taba cluster.
-/// Derived from the node's Ed25519 public key at join time.
+/// Deterministically derived: NodeId = SHA-256(Ed25519_public_key_bytes),
+/// truncated to 128 bits, encoded as UUID v8. This derivation is platform-
+/// independent and must produce identical results on all architectures.
 /// Used as tiebreaker in partition resolution (lexicographic ordering, INV-C3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NodeId(pub Uuid);

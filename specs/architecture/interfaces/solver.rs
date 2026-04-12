@@ -90,9 +90,15 @@ pub enum SolverError {
     /// Circular recovery dependency detected (INV-K5).
     CyclicDependency { cycle: RecoveryCycle },
     /// Tolerance declarations cannot be met (latency, resource, etc.).
-    ToleranceViolation { unit: UnitId, reason: String },
+    ToleranceViolation { unit: UnitId, constraint: String, reason: String },
     /// Policy supersession chain is broken.
     BrokenSupersession { reason: String },
+    /// Security error during taint computation or capability check.
+    Security { reason: String },
+    /// Policy conflict requiring human judgment (FM-10: legal vs consent).
+    PolicyConflict { units: Vec<UnitId>, reason: String },
+    /// Graph snapshot is stale — solver should re-snapshot and retry.
+    StaleSnapshot { expected_generation: u64, actual_generation: u64 },
     /// Internal error (should not happen in correct implementation).
     InternalError { reason: String },
 }
@@ -188,7 +194,8 @@ pub trait PlacementScorer {
     /// - Scaling parameters (INV-K4)
     /// - Existing placements on the node (spread vs. pack)
     ///
-    /// Returns Ppm(0) if the node cannot host the unit at all.
+    /// Returns `Err` with specific constraint failure if the node cannot
+    /// host the unit at all. Returns `Ok(Ppm)` with score otherwise.
     /// Higher scores are better. Scores are deterministic given the same
     /// inputs.
     fn score(
@@ -197,7 +204,7 @@ pub trait PlacementScorer {
         node: &NodeId,
         graph: &GraphSnapshot,
         membership: &MembershipSnapshot,
-    ) -> Ppm;
+    ) -> Result<Ppm, SolverError>;
 
     /// Score all candidate nodes for a unit, returning them sorted by score
     /// (descending). Ties broken by lexicographically lowest NodeId.

@@ -16,12 +16,14 @@ pub struct Unit(/* opaque */);
 /// A placement assigned to this node by the solver.
 pub struct LocalPlacement {
     pub unit: UnitId,
-    pub desired_state: UnitState,
+    pub desired_state: RuntimeState,
 }
 
 /// State of a unit as seen by the local reconciler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UnitState {
+/// Note: this is RUNTIME state (what's running on this node), NOT lifecycle
+/// state (Declared -> Composed -> Placed etc. defined in core::UnitState).
+pub enum RuntimeState {
     /// Placement received, not yet started.
     Pending,
     /// Unit is starting (container, microVM, Wasm, etc.).
@@ -66,8 +68,8 @@ pub enum DegradedReason {
 /// Drift between desired and actual state for a single unit.
 pub struct Drift {
     pub unit: UnitId,
-    pub desired: UnitState,
-    pub actual: UnitState,
+    pub desired: RuntimeState,
+    pub actual: RuntimeState,
 }
 
 /// WAL entry types (INV-C4, DL-008).
@@ -168,7 +170,8 @@ pub trait Reconciler {
 pub trait WalManager {
     /// Append an entry to the WAL atomically.
     ///
-    /// The entry is durable after this call returns. If the write fails
+    /// The entry is durable after this call returns — method returns only
+    /// after fsync() or equivalent durability guarantee. If the write fails
     /// (disk full, I/O error), the node should enter degraded mode.
     ///
     /// Returns the WAL position of the appended entry.

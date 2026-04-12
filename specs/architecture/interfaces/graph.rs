@@ -20,8 +20,17 @@ pub struct Classification(/* opaque */);
 /// Contains one or more units and their relationships.
 pub struct GraphDelta(/* opaque */);
 
-/// Opaque handle to a consistent point-in-time snapshot of the graph.
-pub struct GraphSnapshot(/* opaque */);
+/// Consistent point-in-time snapshot of the graph.
+///
+/// Immutable — concurrent mutations do not affect it. Includes a generation
+/// counter to detect staleness. The solver should check `is_current()` before
+/// applying placement results.
+pub struct GraphSnapshot {
+    /// Monotonically increasing generation counter. Incremented on every
+    /// mutation (insert, merge, supersede, archive, compact).
+    pub generation: u64,
+    /* ... opaque internal state ... */
+}
 
 /// A policy supersession chain: ordered sequence of policy units for a
 /// single conflict tuple, from oldest to newest.
@@ -68,6 +77,14 @@ pub enum GraphError {
     PersistenceError { reason: String },
     /// Query references an archived or compacted unit.
     Archived { id: UnitId },
+    /// Inserting this unit would create a cyclic recovery dependency (INV-K5).
+    WouldCreateCycle { unit: UnitId, cycle: Vec<UnitId> },
+    /// Compaction failed (partially or fully).
+    CompactionFailed { units_attempted: u64, units_failed: u64 },
+    /// Author scope violation (INV-S5, INV-S8).
+    ScopeViolation { author: AuthorId, reason: String },
+    /// Declassification policy missing required multi-party signatures (INV-S9).
+    DeclassificationDenied { policy: UnitId, reason: String },
 }
 
 // ---------------------------------------------------------------------------
@@ -91,12 +108,19 @@ pub trait Graph {
     /// buffering per INV-C4). When a pending unit's references are later
     /// satisfied, it is automatically promoted.
     ///
-    /// WAL-before-effect: the insertion is persisted to WAL before becoming
-    /// visible to queries (INV-C4).
+    /// WAL-before-effect: the insertion is fsync'd to WAL before becoming
+    /// visible to queries (INV-C4). The WAL write guarantees durability —
+    /// method returns only after fsync() or equivalent.
+    ///
+    /// For policy units: validates INV-C7 (no duplicate non-revoked policy
+    /// for the same conflict tuple) and INV-S9 (declassification policies
+    /// require multi-party signing) before accepting.
     ///
     /// Returns `GraphError::SignatureRejected` if the defense-in-depth check
     /// fails. Returns `GraphError::MemoryLimitExceeded` if the graph is at
     /// capacity (triggers degraded mode per INV-R6).
+    /// Returns `GraphError::PolicyChainError` if a duplicate policy exists.
+    /// Returns `GraphError::WouldCreateCycle` if recovery deps would cycle.
     async fn insert(&self, unit: Unit) -> Result<(), GraphError>;
 
     /// Merge a remote delta into the local graph.
@@ -144,8 +168,15 @@ pub trait Graph {
     /// Take a consistent point-in-time snapshot for the solver.
     ///
     /// The snapshot is immutable — concurrent mutations do not affect it.
-    /// Used by `solver::Solver::solve` as input.
+    /// Used by `solver::Solver::solve` as input. Includes a generation
+    /// counter for staleness detection.
+    ///
+    /// Snapshot is taken AFTER all pending signature verifications complete —
+    /// no unverified units are included.
     async fn snapshot(&self) -> Result<GraphSnapshot, GraphError>;
+
+    /// Check whether a snapshot is still current (no mutations since it was taken).
+    fn is_snapshot_current(&self, snapshot: &GraphSnapshot) -> bool;
 
     /// Return current graph statistics (unit counts, memory usage).
     fn stats(&self) -> GraphStats;
