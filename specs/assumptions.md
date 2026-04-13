@@ -135,3 +135,45 @@ requires migration ceremonies that are harder than starting fresh.
 **Review**: Continuously during analyst and architect phases. Each new feature
 must document its progressive disclosure path and verify the upgrade is
 non-destructive.
+
+## A14: Logical clock is sufficient for causal ordering
+**Status**: Design decision (load-bearing)
+**Rationale**: A Lamport-style logical clock provides causal ordering without
+NTP dependency. Every system action increments locally; inter-node
+communication syncs via `max(local, remote) + 1`. This eliminates clock skew
+as a correctness concern for signature validity, key revocation, and conflict
+resolution. Wall clock is used only for duration-based operations (retention,
+compliance).
+**Breaks if**: The system needs partial ordering beyond happens-before (e.g.,
+concurrent event detection for conflict resolution). Would need vector clocks
+or hybrid logical clocks (HLC). Lamport clocks cannot detect concurrency —
+they only establish "definitely before" relationships.
+**Review**: During implementer phase — verify that "definitely before" is
+sufficient for all correctness-critical operations (key revocation, signature
+validity, supersession chains). If concurrency detection is needed, evaluate
+HLC as an upgrade path.
+
+## A15: Tombstone-based compaction preserves provenance integrity
+**Status**: Design decision
+**Rationale**: Tombstones retain unit identity and references while removing
+content. This preserves the provenance graph shape (INV-D1) without the
+storage cost of full units. For full details, the archive provides retrieval.
+**Breaks if**: A correctness-critical operation requires full unit content
+(not just identity/references) from a compacted unit. Would need the archive
+to be mandatory (not optional) for those unit types.
+**Review**: During architect phase — identify which operations require full
+unit content vs. identity/references only.
+
+## A16: Compaction eligibility determinism is achievable
+**Status**: Design assumption
+**Rationale**: All nodes can determine compaction eligibility from graph state
+alone (task terminated, retention expired, policy superseded). These are
+objective facts visible to all nodes with the same graph state. Compaction
+timing varies (local pressure), but all nodes converge on the same tombstones
+via CRDT merge.
+**Breaks if**: Compaction eligibility depends on node-local state (e.g.,
+"compact if my memory exceeds X"). That's eviction, not compaction. The
+distinction must be maintained: compaction = graph-level deterministic,
+eviction = node-level local.
+**Review**: During implementer phase — verify all compaction rules are
+derivable from graph state only.

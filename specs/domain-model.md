@@ -23,9 +23,13 @@ The fundamental primitive. A self-describing, signed, typed entity carrying
 capability declarations, behavioral contracts, and security requirements.
 
 **Types**: Workload | Data | Policy | Governance
+**Subtypes**: Service (indefinite) | BoundedTask (lifecycle-limited)
 **States**: Declared → Composed → Placed → Running → Draining → Terminated
 **Identity**: UnitId (globally unique, immutable after creation)
 **Signed by**: AuthorId (cryptographic signature, verified on graph merge)
+**Validity window**: optional. If omitted, unit is valid indefinitely (until
+key revocation or explicit termination). If set, unit has a bounded lifecycle
+(logical clock range and/or wall-time deadline).
 
 ### Workload Unit
 A compute process. Runtime-agnostic (container, microVM, Wasm, native process —
@@ -56,6 +60,27 @@ prescribe the runtime mechanism.
 Provenance links versions: "v1.2 was built from commit abc123 which descends
 from v1.1 at def456." The composition graph IS the version history.
 
+**Workload subtypes**:
+- Service: long-running, indefinite lifetime. No validity window. Terminated
+  only explicitly or by key revocation.
+- BoundedTask: lifecycle-limited. Terminates on completion, failure, or
+  deadline (logical clock range or wall time). A service can spawn bounded
+  tasks at runtime with delegated authority.
+
+**Spawning**: a running service can spawn bounded tasks. The spawned task:
+- Is a full unit in the graph (signed, provenance-tracked, solver-placed)
+- Inherits the parent's trust context (trust domain, author scope)
+- Has a bounded lifecycle (auto-terminates on completion/failure/deadline)
+- Links to the parent via provenance ("spawned by web-api v1.3")
+- Max spawn depth: 4 (service → task → sub-task → cleanup). Deeper nesting
+  requires explicit governance override. Enforced at graph merge.
+
+**Bounded task termination triggers**:
+- Completion: task finishes successfully → auto-terminates
+- Failure: task crashes or exceeds retry limit → failure semantics apply
+- Deadline: logical clock range exceeded or wall-time deadline passed →
+  auto-terminates regardless of state
+
 ### Data Unit
 A dataset carrying constraints. Hierarchical: parent contains children.
 Granularity is demand-driven — children exist only where constraints diverge
@@ -67,6 +92,16 @@ provenance (which unit produced it, from what inputs, when),
 retention (duration, legal basis), consent scope (what it may be used for,
 expressed as purpose qualifier on provided capabilities),
 storage requirements (encryption, replication, jurisdiction)
+
+**Retention modes**:
+- Persistent (default): governed by retention policy (wall-time, compliance-driven).
+  Tombstoned on retention expiry.
+- Ephemeral: auto-removed when the producing bounded task terminates.
+  No tombstone by default; governance can mandate tombstone for audit trail.
+- Local-only: never enters the composition graph. Node-local scratch data.
+  No CRDT overhead, no provenance, no audit. Governance can restrict
+  local-only for classified data above `public` (requires explicit policy,
+  same pattern as declassification).
 
 **Inheritance rules**: children inherit parent constraints by default.
 Children can narrow (add restrictions) freely. Children can widen (remove
@@ -262,6 +297,37 @@ escape hatch when all authors with a given scope have left.
 **Audit**: ceremony events recorded as governance units in the graph.
 **Memory safety**: all key material zeroed after use (zeroize crate).
 
+### Logical Clock
+Monotonically increasing counter for causal ordering across the cluster.
+Every system action increments the local counter. On inter-node communication
+(gossip, graph merge), nodes sync: `local = max(local, remote) + 1`.
+
+**Dual clock model**:
+- Logical clock: authoritative for ordering, causality, key revocation,
+  signature validity. If event A caused event B, A's logical clock < B's.
+  No NTP dependency, no clock skew, no timezone conversion.
+- Wall clock: authoritative for duration-based operations (retention policies,
+  compliance deadlines). Informational for human-readable audit trails.
+
+Every event records the triple: `(logical_clock, wall_time, timezone)`.
+The system chooses which clock based on operation type.
+
+**Key revocation**: uses logical clock. "Key revoked at LC 50000" means
+units signed by that author with LC > 50000 are rejected. The gossip
+convergence window (not clock skew) is the real exposure. Governance can
+configure the revocation grace period as policy.
+
+**Clock capability**: nodes report clock quality as a capability:
+- `clock:ntp` (seconds accuracy), `clock:ptp` (microseconds),
+  `clock:gps` (nanoseconds), `clock:unsync` (no sync)
+- `tz:Europe/Amsterdam` (timezone for display)
+- Governance can require minimum clock quality for environments
+  (e.g., prod requires `clock:ntp` or better for retention compliance)
+
+**Local drift detection**: each node records `(logical_clock, wall_clock)`
+pairs. Comparing with peers via gossip detects outlier wall clocks without
+depending on them for correctness.
+
 ### Operational Modes
 System-wide state affecting which operations are permitted.
 
@@ -346,6 +412,79 @@ selection mechanism.
 declares which transitions auto-promote and which require human approval.
 Solo dev default: all auto. Regulated default: test→prod requires sign-off.
 
+### Graph Compaction
+Reclaims space in the active graph while preserving provenance integrity.
+Two distinct operations:
+
+**Compaction** (graph-level, deterministic eligibility):
+All nodes agree on WHAT is eligible for compaction based on graph state
+(task terminated, retention expired, policy superseded). Produces a
+CRDT-compatible tombstone that merges across all nodes. Tombstones are
+monotonic: once tombstoned, always tombstoned. Timing varies per node;
+result converges via CRDT.
+
+**Eviction** (node-level, local pressure):
+Node under memory pressure drops full unit content locally. NOT a tombstone —
+the unit is still live in the graph. Content reconstructable from peers
+(erasure coding) or archive. This is a cache operation, not a lifecycle event.
+
+**Tombstone**: minimal record replacing a compacted unit:
+- UnitId, AuthorId, unit type (preserved identity)
+- Created-at and terminated-at logical clock values
+- Termination reason (completed | expired | failed | superseded)
+- References: what the unit consumed/produced (preserves provenance graph)
+- Original digest (SHA256, for verification if full unit retrieved from archive)
+
+Tombstones preserve the **shape** of the provenance graph without the content.
+INV-D1 (unbroken provenance chain) is maintained.
+
+**Compaction priority** (least valuable first):
+
+| Priority | What | Trigger | Treatment |
+|----------|------|---------|-----------|
+| 1 | Ephemeral data (retention: ephemeral) | Producing task terminates | Remove entirely (no tombstone, unless governance mandates) |
+| 2 | Decision trails past retention | Retention period expires (INV-O2) | Remove |
+| 3 | Terminated bounded tasks | Task completed/failed/expired | Tombstone |
+| 4 | Superseded policies | Successor stable | Tombstone |
+| 5 | Terminated services | No active data dependents | Tombstone |
+| 6 | Expired data units | Retention period (wall time) exceeded | Tombstone |
+
+**Never compacted**:
+- Governance units (trust domains, role assignments) — authority structure
+- Active policies (non-superseded, resolving active conflicts)
+- Root ceremony chain — bootstrap trust anchor, ever
+- Live data's provenance references — producing workload gets tombstoned
+  (not deleted), preserving the reference chain
+
+**Compaction priority mirrors reconstruction priority (inverse)**:
+Most important things are last to compact and first to reconstruct after failure.
+`governance > policy > data constraints > workload` (INV-R1).
+
+**Compaction triggers**:
+1. Memory pressure: auto at 80% of limit (INV-R6), compacts in priority order
+2. Retention expiry: periodic scan (wall-time-based)
+3. Task completion: ephemeral data + bounded tasks auto-eligible immediately
+4. Operator command: `taba compact` or fleet-wide governance command
+5. Background periodic: configurable interval
+
+### Archival
+Optional cold storage for full unit content before tombstoning. Operator-
+configured, pluggable backend.
+
+**Archive interface** (trait):
+- `write(unit_id, digest, content) → Result`
+- `read(digest) → Result<content>`
+- Built-in backends: local path, S3-compatible object store
+- No archive configured: tombstones only, original content gone
+
+**Governance control**: trust domains can require archival for specific unit
+types or classification levels. "Retain full records for 7 years" →
+archival mandatory before compaction for covered units.
+
+**Retrieval**: "show me the full details of tombstoned workload W" →
+retrieve from archive by digest, verify integrity against tombstone's
+`original_digest`.
+
 ## Aggregate Boundaries
 
 - **Unit + its declarations** = one aggregate (atomic creation/update)
@@ -369,3 +508,7 @@ Solo dev default: all auto. Regulated default: test→prod requires sign-off.
 - Node **caches** Artifacts (P2P distribution)
 - Data Unit **contains** Data Unit (hierarchical)
 - Solver Run **produces** Decision Trail (queryable graph event)
+- Service **spawns** BoundedTask (delegated authority, provenance-linked)
+- BoundedTask **produces** Ephemeral Data (auto-removed on task completion)
+- Compaction **tombstones** Unit (preserves identity + references, removes content)
+- Archival **preserves** Unit content (cold storage, retrievable by digest)

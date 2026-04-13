@@ -12,9 +12,13 @@ capability declarations, composition is refused until explicit policy resolves i
 Unsigned or wrongly-signed units are rejected on merge. Signature verification
 is synchronous and blocks merge — no unit enters graph state before verification
 completes. Signatures bind context: Sign(key, hash(unit || trust_domain_id ||
-cluster_id || validity_window)). A unit is valid iff: (a) signature is
-cryptographically valid, (b) author had valid scope at creation time, and
-(c) author's key was not revoked before the unit's creation timestamp.
+cluster_id || logical_clock || validity_window?)). A unit is valid iff:
+(a) signature is cryptographically valid, (b) author had valid scope at
+creation time, and (c) author's key was not revoked before the unit's creation
+logical clock. Key revocation uses logical clock (not wall time) for causal
+correctness — no clock skew exposure. The validity_window is optional: omitted
+for services (valid indefinitely), set for bounded tasks (logical clock range
+and/or wall-time deadline).
 
 **INV-S4**: Taint propagation: if input data unit has classification C, output
 data unit inherits C unless explicit policy declassifies. Taint is computed at
@@ -223,3 +227,77 @@ Governance units can set trust-domain-wide retention policy.
 declares no health check, the node uses OS-level process monitoring (is the
 process alive?). If a health check is declared, the node uses it. The node
 never skips health monitoring — default is always active.
+
+## Logical Clock Invariants
+
+**INV-T1**: Every system action (unit insertion, policy creation, solver run,
+gossip message send/receive) increments the node's logical clock. On inter-node
+communication, the receiving node sets its clock to `max(local, remote) + 1`.
+The logical clock is monotonically increasing per node.
+
+**INV-T2**: Causal ordering is authoritative for all correctness decisions
+(signature validity, key revocation, conflict resolution). Wall clock is
+authoritative only for duration-based operations (retention, compliance
+deadlines). Every event records the triple: `(logical_clock, wall_time, tz)`.
+
+**INV-T3**: Key revocation uses logical clock. A key revoked at logical clock
+L means units signed by that author with creation logical clock > L are
+rejected. The gossip convergence window is the real exposure for revocation
+propagation. Governance can configure a revocation grace period as policy.
+
+## Workload Lifecycle Invariants
+
+**INV-W1**: Services (no validity window) are valid indefinitely until
+explicitly terminated or their author's key is revoked. The solver treats
+them as permanent placements.
+
+**INV-W2**: Bounded tasks auto-terminate when ANY termination trigger fires:
+completion (exit code 0), failure (exit code non-zero after retry exhaustion),
+or deadline (logical clock range exceeded or wall-time deadline passed).
+Terminated bounded tasks are eligible for compaction.
+
+**INV-W3**: Spawn depth is enforced at graph merge. A unit declaring a spawn
+parent is rejected if the resulting depth exceeds 4 (default) or the
+governance-configured maximum. Spawn depth is computed by traversing the
+spawn provenance chain.
+
+**INV-W4**: Spawned bounded tasks inherit the parent service's trust context
+(trust domain, author scope). The spawning service must have authority to
+create units of the spawned type within its scope.
+
+## Data Lifecycle Invariants
+
+**INV-D4**: Ephemeral data (retention: ephemeral) is auto-removed when the
+producing bounded task terminates. No tombstone by default. Governance can
+mandate tombstone for ephemeral data via trust-domain-level policy.
+
+**INV-D5**: Local-only data (never enters graph) with classification above
+`public` requires explicit policy authorization. This prevents bypassing the
+audit trail for classified data. Same authorization pattern as declassification
+(INV-S9).
+
+## Compaction Invariants
+
+**INV-G1**: Compaction eligibility is deterministic. Given the same graph
+state, all nodes agree on which units are eligible for compaction. Compaction
+TIMING is local (each node compacts when it needs to), but the RESULT
+converges via CRDT (tombstones are monotonic).
+
+**INV-G2**: Tombstones preserve provenance graph structure. A tombstone retains
+UnitId, AuthorId, type, logical clock range, termination reason, references
+(consumed/produced), and original digest. INV-D1 (unbroken provenance chain)
+is maintained through tombstones.
+
+**INV-G3**: Governance units, active policies, and root ceremony chain are
+never compacted. Compacting these would orphan the authority structure or
+leave conflicts unresolved.
+
+**INV-G4**: Eviction (node-local memory relief) does not create tombstones.
+Evicted content is reconstructable from peers (erasure coding) or archive.
+Eviction is a cache operation, not a lifecycle event. The unit remains live
+in the graph.
+
+**INV-G5**: Compaction priority order (least valuable first): ephemeral data →
+decision trails → terminated bounded tasks → superseded policies → terminated
+services → expired data. This mirrors reconstruction priority (INV-R1) in
+reverse.

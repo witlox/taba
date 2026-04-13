@@ -219,3 +219,72 @@ can retry.
 **Degradation**: Developer remains on Tier 0 until upgrade succeeds.
 **Unacceptable**: Tier 0 trust domain invalidated by a failed upgrade attempt.
 Existing units requiring re-signing.
+
+## FM-20: Compaction removes unit still referenced by live data
+**Component**: Composition Graph / Compaction
+**Trigger**: Bug in compaction eligibility logic marks a unit as eligible
+while live data still references it
+**Expected response**: Should not happen (INV-G1, INV-G2). Tombstone
+preserves references, so provenance chain remains intact even if compacted.
+If full removal occurs (ephemeral data), the referencing unit's provenance
+query returns "referenced unit removed (ephemeral)."
+**Degradation**: Provenance query returns a gap (removed unit) instead of
+full details. Archive retrieval not possible (was ephemeral, not archived).
+**Unacceptable**: Silent provenance corruption. Live data with broken
+references and no indication.
+**Mitigation**: Compaction eligibility validation checks reference graph
+before removing. Governance can mandate tombstones (not removal) for all
+ephemeral data in regulated trust domains.
+
+## FM-21: Archival backend unavailable during compaction
+**Component**: Archival / Compaction
+**Trigger**: S3 unreachable, local disk full, archive backend returns error
+when compaction attempts to archive a unit before tombstoning
+**Expected response**: Compaction is blocked for units requiring archival
+(governance-mandated). Units remain as full units in the active graph until
+archival succeeds. Compaction of units not requiring archival proceeds
+normally (tombstone without archive).
+**Degradation**: Graph grows because mandatory-archive units cannot be
+compacted. Memory pressure increases. If persistent, may trigger degraded
+mode (INV-R6).
+**Unacceptable**: Tombstoning without archival when governance requires it.
+Silent data loss of units that should have been archived.
+
+## FM-22: Bounded task exceeds deadline without terminating
+**Component**: Node Operations / Workload Lifecycle
+**Trigger**: Bounded task hits its logical clock or wall-time deadline but
+the process is still running (hung, deadlocked, or long-running)
+**Expected response**: Node forcefully terminates the task process. Task
+status updated to "terminated (deadline exceeded)" in the graph. Ephemeral
+data produced by the task is auto-removed (INV-D4). Spawning service is
+notified of deadline termination.
+**Degradation**: Task output may be incomplete. Partial results handled by
+the spawning service's failure semantics.
+**Unacceptable**: Bounded task running indefinitely past its deadline.
+Resource leak from unterminated processes.
+
+## FM-23: Spawn chain exceeds maximum depth
+**Component**: Composition Graph / Security
+**Trigger**: A bounded task attempts to spawn a sub-task that would exceed
+the maximum spawn depth (default 4)
+**Expected response**: The spawned unit is rejected at graph merge (INV-W3)
+with error "spawn depth exceeded." The parent task is notified and can
+handle the rejection per its failure semantics.
+**Degradation**: The sub-task is not created. Parent task must handle the
+work itself or report failure.
+**Unacceptable**: Unlimited spawn depth allowing resource exhaustion attacks.
+
+## FM-24: Logical clock divergence between nodes
+**Component**: Distribution / Logical Clock
+**Trigger**: Node isolated from gossip for extended period, its logical clock
+falls significantly behind the cluster. On reconnection, clock jumps forward
+by a large delta.
+**Expected response**: Clock sync on first gossip message:
+`local = max(local, remote) + 1`. The jump is logged but harmless — logical
+clock is monotonic and the large gap doesn't affect correctness.
+**Degradation**: Units created during isolation have low logical clock values.
+They are still valid (causal ordering is preserved within the isolation
+period). On reconnection, causal relationships between isolated and
+non-isolated events are properly ordered.
+**Unacceptable**: Logical clock going backward. Clock sync producing
+duplicate values across nodes.
