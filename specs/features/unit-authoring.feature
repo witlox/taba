@@ -158,3 +158,52 @@ Feature: Unit authoring
     Then the unit is accepted into the composition graph
     And the capability "needs:postgres-compatible" has purpose qualifier "analytics"
     And the capability "provides:report-output" has purpose qualifier "compliance"
+
+  # --- Bounded task authoring ---
+
+  @lifecycle
+  Scenario: Author creates bounded task with logical clock validity window
+    # INV-W1, INV-W2: bounded tasks have validity windows
+    Given alice authors a bounded task unit "nightly-backup":
+      | field             | value                     |
+      | artifact.type     | oci                       |
+      | artifact.ref      | acme/backup:v1            |
+      | artifact.digest   | sha256:backup123          |
+      | validity_window   | LC 5000..LC 6000          |
+    When alice signs the unit binding trust_domain "acme-prod"
+    Then the unit is accepted with subtype "bounded_task"
+    And the validity window is recorded as logical clock range LC 5000..LC 6000
+    And the unit will auto-terminate if the cluster logical clock exceeds LC 6000
+
+  Scenario: Author creates bounded task with wall-time deadline
+    Given alice authors a bounded task unit "quarterly-report":
+      | field                | value                     |
+      | artifact.type        | native                    |
+      | artifact.ref         | acme/report-gen:v2        |
+      | wall_time_deadline   | 2026-04-14T00:00:00Z      |
+    When alice signs the unit
+    Then the unit is accepted with wall-time deadline recorded
+    And the unit will auto-terminate after "2026-04-14T00:00:00Z"
+
+  Scenario: Service unit authored without validity window (indefinite)
+    # INV-W1: services are valid indefinitely
+    Given alice authors a service workload unit "web-api":
+      | field           | value           |
+      | artifact.type   | oci             |
+      | artifact.ref    | acme/api:v3     |
+    And alice does NOT declare a validity_window
+    When alice signs the unit
+    Then the unit is accepted with subtype "service" (default)
+    And no validity window is recorded
+    And the unit is valid indefinitely until terminated or key revoked
+
+  # --- Git-native versioning ---
+
+  @versioning
+  Scenario: Unit version references git commit SHA
+    Given alice authors workload unit "web-api" at version "abc123def" (git commit)
+    And the previous version "web-api" at "789fed012" exists in the graph
+    When alice signs the new version
+    Then the unit is accepted with version = "abc123def"
+    And provenance links: "abc123def" versioned-from "789fed012"
+    And the composition graph records the version lineage

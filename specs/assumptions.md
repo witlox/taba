@@ -177,3 +177,26 @@ distinction must be maintained: compaction = graph-level deterministic,
 eviction = node-level local.
 **Review**: During implementer phase — verify all compaction rules are
 derivable from graph state only.
+
+## A17: Bridge nodes are sufficient for cross-domain discovery
+**Status**: Design decision
+**Rationale**: Bridge nodes (participating in multiple domains) naturally
+gossip cross-domain capability advertisements. This avoids a global discovery
+service. Manual configuration covers bootstrapping.
+**Breaks if**: Organizations need to discover capabilities in domains with no
+shared nodes and no operator relationship. Would need a federation registry
+or global gossip channel.
+**Review**: After Phase 3 milestone — validate that bridge-based discovery
+scales for realistic multi-org topologies.
+
+## A18: Fail-open cache is acceptable for cross-domain queries
+**Status**: Design decision (with governance override)
+**Rationale**: Once bilateral policy authorizes cross-domain access, the
+security decision is made. Serving stale cached results when a bridge is
+down is preferable to blocking the workload. Governance can override for
+freshness-sensitive data.
+**Breaks if**: Stale cross-domain data causes correctness issues that are
+hard to detect (e.g., stale policy resolution from another domain). Would
+need mandatory freshness or cache TTL governance.
+**Review**: During architect phase — identify which cross-domain query types
+are freshness-sensitive by default.

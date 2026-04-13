@@ -114,3 +114,51 @@ Feature: Shamir key ceremony
     And the Shamir share bytes held in memory are overwritten with zeros
     And a memory audit confirms no residual key material remains
     And only the public key "pk_root" persists for future verification
+
+  # --- Tier 0: Solo ceremony (taba init) ---
+
+  @tier0
+  Scenario: Tier 0 solo ceremony via taba init -- one command, immediately operational
+    Given an operator runs "taba init" on a fresh machine
+    When the initialization completes
+    Then a single Ed25519 keypair is generated (no Shamir, no shares)
+    And the key serves as BOTH the node identity AND the author identity
+    And a self-signed trust domain governance unit "solo-domain" is created
+    And a root role assignment grants the author full scope in "solo-domain"
+    And "solo-domain" is inserted as the first unit in the composition graph
+    And the node is immediately operational: can author, compose, and place units
+    And no ceremony state machine was involved (no shares, no witnesses)
+
+  @tier0
+  Scenario: Tier 0 trust domain is fully functional for solo developer
+    Given a Tier 0 trust domain "solo-domain" bootstrapped via "taba init"
+    And author "alice" is the sole author with full scope
+    When alice authors a workload unit "web-api"
+    And alice authors a data unit "config-db"
+    And the solver evaluates composition
+    Then all operations succeed without multi-party signing
+    And units are signed with alice's single key
+    And the composition graph functions identically to a Tier 1+ domain
+
+  # --- Ceremony upgrade path ---
+
+  @tier0
+  Scenario: Tier 0 upgrades to Tier 1 non-destructively (FM-19)
+    Given a Tier 0 trust domain "solo-domain" with author "alice"
+    And "solo-domain" contains 10 existing units authored by alice
+    When alice initiates a Shamir ceremony for a new trust domain "team-domain"
+    And the ceremony completes with 5 shares, threshold 3
+    Then "team-domain" is created as a NEW trust domain alongside "solo-domain"
+    And "solo-domain" remains fully operational with all 10 existing units
+    And alice can migrate units from "solo-domain" to "team-domain" incrementally
+    And existing units in "solo-domain" do NOT require re-signing
+
+  @tier0
+  Scenario: Failed Tier 0 → Tier 1 upgrade does not invalidate existing domain
+    Given a Tier 0 trust domain "solo-domain" with author "alice"
+    When alice initiates a Shamir ceremony for upgrade
+    And the ceremony fails at share 2 of 3 (network error)
+    Then the ceremony is cancelled and share material zeroized
+    And "solo-domain" remains fully operational (unaffected by failed upgrade)
+    And alice can retry the upgrade at any time
+    And no units in "solo-domain" were affected

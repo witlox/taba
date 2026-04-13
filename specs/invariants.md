@@ -301,3 +301,35 @@ in the graph.
 decision trails → terminated bounded tasks → superseded policies → terminated
 services → expired data. This mirrors reconstruction priority (INV-R1) in
 reverse.
+
+## Cross-Trust-Domain Invariants
+
+**INV-X1**: Cross-domain composition requires bilateral policy — explicit
+authorization in BOTH the consuming and providing trust domains. Neither
+domain can unilaterally access the other. Absence of policy in either domain
+= fail closed (INV-S2 across boundaries).
+
+**INV-X2**: Cross-domain forwarding queries return read-only views. Query
+results are NOT merged into the querying domain's graph. The querying domain
+references the foreign unit by ID only. Foreign unit content stays in its
+home domain.
+
+**INV-X3**: Cross-domain query results are cached by default with fail-open
+semantics (serve stale if bridge unavailable). Governance can override to
+fail-closed for freshness-sensitive data. Cache freshness is a governance
+policy, not a structural constraint.
+
+**INV-X4**: Bridge nodes are emergent by default (any node in multiple
+domains). Governance can restrict bridging to explicitly designated nodes.
+When governance restricts, non-designated multi-domain nodes hold both graphs
+locally but do NOT serve forwarding queries.
+
+**INV-X5**: Cross-domain capability advertisements are governance units
+(CrossDomainCapability) propagated via bridge nodes' gossip. A domain only
+discovers another domain's capabilities through a bridge or operator
+configuration. No global discovery mechanism.
+
+**INV-X6**: When no bridge exists between two domains that need to compose,
+the solver surfaces this as an unresolved capability (same mechanism as
+any unmatched need). The system does not automatically create bridges.
+Operator must admit a node to both domains to establish the bridge.

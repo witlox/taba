@@ -105,3 +105,48 @@ Feature: Trust domain management
     And "root-domain" becomes the root trust domain seeding the composition graph
     And the root key material is zeroized after signing
     And the ceremony completion is recorded as a governance unit in the graph
+
+  # --- Break-glass recovery ---
+
+  @security
+  Scenario: Break-glass recovery via root key when all policy authors leave (FM-18)
+    Given trust domain "acme-prod" bootstrapped with Shamir ceremony
+    And author "carol" was the sole policy-scope author in "acme-prod"
+    And carol's key has been revoked (left the organization)
+    And no other author has policy scope
+    When the root key is reconstructed via Shamir ceremony (3 of 5 shares)
+    Then the root key can author a new RoleAssignment governance unit
+    And a new author "eve" is assigned policy scope in "acme-prod"
+    And eve can now create policies to resolve pending conflicts
+    And existing policies authored by carol remain valid (signed before revocation)
+    And the root key material is zeroized after the role assignment
+
+  Scenario: Break-glass recovery in Tier 0 (solo key is root key)
+    Given a Tier 0 trust domain "solo-domain" with author "alice"
+    And alice is the sole author with all scopes
+    And alice's laptop is lost (key compromised)
+    When alice uses a backup of the Tier 0 root key
+    Then alice can revoke the compromised key
+    And create a new author identity with the root key
+    And existing units signed before revocation remain valid
+    And units signed by the compromised key after revocation are rejected
+
+  # --- Role succession with overlapping scopes ---
+
+  @governance
+  Scenario: Multiple policy authors prevent succession gap (INV-S8a)
+    Given authors "carol" and "dan" both have policy scope in "acme-prod"
+    And carol has authored 5 active policies
+    When carol's key is revoked (leaves the org)
+    Then carol's existing policies remain valid (signed before revocation)
+    And dan can continue authoring new policies (no succession gap)
+    And dan can supersede carol's policies if needed
+    And the system is never locked out of policy authoring
+
+  Scenario: Scope uniqueness still enforced for workload authors (INV-S8)
+    Given author "alice" has scope (type: workload, trust_domain: "acme-prod")
+    And a role assignment attempts to give "frank" identical scope
+    When the governance unit for frank's assignment is submitted
+    Then it is rejected: "scope uniqueness violation for state-producing type"
+    And alice remains the sole workload-scope author in "acme-prod"
+    But frank CAN be assigned policy scope (overlapping allowed for decision types)

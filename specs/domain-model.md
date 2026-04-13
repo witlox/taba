@@ -272,6 +272,112 @@ inheritance across domain boundaries — cross-domain roles require explicit pol
 tags as governance policy, declaring promotion gates and auto-promote rules.
 Solo dev: everything auto-promotes. Regulated: explicit gates per environment.
 
+**Cross-domain capability advertisement**: a trust domain can publish
+capabilities it is willing to share with other domains via a governance unit
+(CrossDomainCapability). Bridge nodes gossip these advertisements across
+domain boundaries. External domains discover available capabilities through
+bridge nodes or operator-configured seed nodes.
+
+### Cross-Trust-Domain Forwarding
+
+When the graph is sharded by trust domain (Phase 3+), cross-domain
+interactions require a forwarding protocol. This is not a separate subsystem —
+it emerges from bridge nodes, bilateral policy, and the existing gossip/solver
+infrastructure.
+
+#### Bridge Nodes
+
+A bridge node is any node that participates in multiple trust domains. It
+holds graph shards for each domain and can serve cross-domain forwarding
+queries.
+
+**Emergent bridges** (default): any node admitted to domains A and B is
+automatically a bridge. No special designation needed. Bridges emerge
+naturally as teams share infrastructure.
+
+**Explicit bridges** (governance override): when control matters, governance
+units in each domain can designate specific nodes as authorized bridges.
+Non-designated nodes in both domains hold both graphs locally but do NOT
+serve forwarding queries. This constrains the blast radius of bridge
+compromise.
+
+**Bridge as composition need**: when no bridge exists between domains A and B,
+the solver surfaces this as an unresolved capability: "cross-domain
+composition requires a bridge between A and B." This is the same mechanism
+as any unresolved need — it's infrastructure-as-composition.
+
+**Bridge redundancy**: the system surfaces alerts when a single bridge is the
+only link between domains. Operator decides whether to admit additional
+nodes. No automatic bridge creation.
+
+**Bridge security**: a compromised bridge has visibility into all domains it
+participates in. This is standard node compromise (FM-04) with wider blast
+radius — a reason to be intentional about which nodes bridge domains.
+Governance can require stronger attestation for bridge nodes (e.g., mandatory
+TPM) but this is policy, not a structural requirement.
+
+#### Cross-Domain Composition
+
+Workload W in domain A needs a capability that only exists in domain B.
+
+1. Solver in domain A detects unresolved need for capability C
+2. Solver checks cross-domain capability advertisements (gossiped by bridges)
+3. Domain B advertises capability C via CrossDomainCapability governance unit
+4. Solver creates a cross-domain composition request
+
+**Bilateral policy** (mutual consent): cross-domain composition requires
+policy in BOTH domains:
+- Domain A: "I authorize workload W to consume capability C from domain B"
+- Domain B: "I authorize domain A to access capability C under conditions X"
+
+Neither domain can unilaterally access the other. Same fail-closed principle
+(INV-S2) across boundaries. No implicit cross-domain access.
+
+#### Forwarding Query Protocol
+
+```
+1. Solver on node-1 (domain A) needs unit info from domain B
+2. Gossip: "who is a bridge for domain B?"
+3. node-3 (bridge) responds
+4. node-1 sends signed forwarding query to node-3
+5. node-3 executes query against local domain B graph
+6. node-3 returns signed result (proof of query execution)
+7. node-1 verifies node-3's signature and domain B membership
+8. Solver uses result for composition/placement
+```
+
+**Query results are read-only views**: not merged into domain A's graph.
+Domain A references domain B's units by ID but does not hold the full unit.
+
+**Caching**: query results are cached in the querying domain. Default: fail
+open (serve stale cache if bridge unavailable). Governance can require strict
+freshness for sensitive cross-domain data — cached result rejected if bridge
+unreachable, query blocks until bridge returns (fail closed for freshness).
+
+**Bridge unavailable**: if no bridge exists or all bridges are down, cross-
+domain references enter pending state (causal buffering, same as INV-C4).
+Existing compositions with cached results continue operating (fail open).
+New cross-domain compositions cannot start.
+
+#### Inter-Domain Discovery
+
+**Via bridge nodes** (auto): bridge nodes naturally gossip cross-domain
+capability advertisements. A node in domain A learns about domain B's
+capabilities through a shared bridge node.
+
+**Via configuration** (manual): operators can configure known domains and
+seed nodes. Useful for bootstrapping before a bridge exists, or for
+connecting domains that don't share any nodes yet.
+
+**Progressive disclosure**:
+
+| Complexity | Cross-domain model |
+|-----------|-------------------|
+| Solo dev / small team | Single trust domain. No cross-domain. |
+| Multi-team in one org | Shared nodes are natural bridges. Auto-discovery. |
+| Multi-org | Explicit bridge governance. Bilateral policy. |
+| Regulated cross-org | All above + certification + strict cache freshness. |
+
 ### Root Key (Progressive Ceremony)
 The root of all authority. Ceremony tier determines the key management model.
 

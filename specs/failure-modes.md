@@ -288,3 +288,47 @@ period). On reconnection, causal relationships between isolated and
 non-isolated events are properly ordered.
 **Unacceptable**: Logical clock going backward. Clock sync producing
 duplicate values across nodes.
+
+## FM-25: Bridge node failure isolates cross-domain composition
+**Component**: Cross-Trust-Domain / Distribution
+**Trigger**: The only bridge node between domains A and B fails (crash,
+network partition, decommission)
+**Expected response**: Existing cross-domain compositions with cached results
+continue operating (fail open, INV-X3). New cross-domain compositions cannot
+start (bridge unavailable). Solver surfaces "no bridge between A and B" as
+an unresolved capability. Operator alerted.
+**Degradation**: Cross-domain freshness degrades (stale cache only). New
+cross-domain work blocked until bridge restored or new bridge admitted.
+**Unacceptable**: Silent failure of existing cross-domain compositions.
+Automatic bridge creation without operator decision.
+
+## FM-26: Compromised bridge node exposes multiple domains
+**Component**: Security / Cross-Trust-Domain
+**Trigger**: Attacker gains control of a bridge node participating in
+domains A and B
+**Expected response**: Standard node compromise response (FM-04): attacker
+cannot inject false units (signature verification), cannot poison gossip
+(signed messages). Blast radius is wider: attacker can observe graph state
+of BOTH domains. Eviction via gossip removes the bridge.
+**Degradation**: Temporary data exposure across domains until bridge evicted.
+Cross-domain compositions disrupted (bridge lost).
+**Unacceptable**: Attacker using bridge to inject units across domain
+boundaries. Cross-domain policy bypass.
+**Mitigation**: Governance can restrict bridges to explicitly designated
+nodes (INV-X4). Intentional bridge selection reduces exposure.
+
+## FM-27: Stale cross-domain cache serves outdated policy resolution
+**Component**: Cross-Trust-Domain / Solver
+**Trigger**: Domain B updates a policy that affects a cross-domain
+composition with domain A. Bridge is down. Domain A's solver uses stale
+cached policy resolution from domain B.
+**Expected response**: Default (fail open): stale cache served. Composition
+continues with outdated policy. When bridge recovers, cache refreshed and
+solver re-evaluates. If policy change would have blocked the composition,
+the composition is terminated on refresh.
+**Degradation**: Temporary operation under stale policy. Window = bridge
+downtime.
+**Unacceptable**: Permanent operation under stale policy. No re-evaluation
+on bridge recovery. Stale cache overriding governance-mandated freshness.
+**Mitigation**: Governance can require fail-closed freshness (INV-X3
+override), which blocks on bridge unavailability instead of serving stale.
