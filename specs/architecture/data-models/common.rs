@@ -55,14 +55,56 @@ pub struct ShardId(pub Uuid);
 // Timestamp
 // ---------------------------------------------------------------------------
 
-/// Monotonic logical timestamp used throughout the system.
-/// Combines wall-clock and a logical counter for causal ordering.
+/// Wall-clock timestamp for duration-based operations (retention, compliance).
+/// NOT used for causal ordering — use LogicalClock for that (INV-T2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Timestamp {
-    /// Milliseconds since Unix epoch (wall clock).
+pub struct WallTime {
+    /// Milliseconds since Unix epoch.
     pub millis: u64,
-    /// Logical counter for ordering events at the same millisecond.
-    pub counter: u64,
+}
+
+/// Lamport-style logical clock for causal ordering (INV-T1).
+/// Monotonically increasing per node. On inter-node communication:
+/// `local = max(local, remote) + 1`.
+/// Authoritative for ordering, key revocation, signature validity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct LogicalClock(pub u64);
+
+impl LogicalClock {
+    /// Advance the clock on local event.
+    pub fn tick(&mut self) { self.0 += 1; }
+    /// Sync with a remote clock (max + 1).
+    pub fn sync(&mut self, remote: LogicalClock) {
+        self.0 = self.0.max(remote.0) + 1;
+    }
+}
+
+/// Every event records this triple (INV-T2).
+/// Logical clock is authoritative for ordering.
+/// Wall time + timezone are authoritative for retention/compliance.
+/// Wall time + timezone are informational for human display.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DualClockEvent {
+    pub logical_clock: LogicalClock,
+    pub wall_time: WallTime,
+    pub timezone: String,
+}
+
+/// Legacy compatibility alias. Use DualClockEvent for new code.
+pub type Timestamp = DualClockEvent;
+
+/// Clock quality reported by the node (INV-N1 capability).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum ClockQuality {
+    /// NTP-synced (seconds accuracy).
+    Ntp,
+    /// PTP-synced (microseconds accuracy).
+    Ptp,
+    /// GPS-disciplined (nanoseconds accuracy).
+    Gps,
+    /// No synchronization.
+    Unsync,
 }
 
 // ---------------------------------------------------------------------------
@@ -92,15 +134,28 @@ pub struct SignedPpm(pub i64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Version(pub u64);
 
-/// Validity window for signatures and units.
-/// A unit is valid only within this window (INV-S3).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// Validity window for bounded tasks and delegation tokens.
+/// Optional on services (omitted = valid indefinitely per INV-W1).
+/// Set on bounded tasks (auto-terminate on deadline per INV-W2).
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidityWindow {
-    /// Earliest time this unit/signature is valid.
-    pub not_before: Timestamp,
-    /// Latest time this unit/signature is valid.
-    pub not_after: Timestamp,
+    /// Logical clock range for causal validity (authoritative).
+    pub lc_range: Option<(LogicalClock, LogicalClock)>,
+    /// Wall-time deadline for human/compliance purposes.
+    pub wall_time_deadline: Option<WallTime>,
 }
+
+/// Identity of a delegation token.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct DelegationTokenId(pub Uuid);
+
+/// Identity of a policy unit (used for promotion policy dedup).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct PolicyId(pub Uuid);
+
+/// SHA256 content hash for artifact integrity and dedup (INV-A1).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ContentDigest(pub String);
 
 // ---------------------------------------------------------------------------
 // Configuration types
@@ -135,6 +190,17 @@ pub struct ClusterConfig {
 
     /// Number of independent witnesses required before declaring a node failed (INV-R3).
     pub witness_count: u8,
+
+    /// Maximum spawn depth for bounded tasks (INV-W3, default 4).
+    pub max_spawn_depth: u8,
+
+    /// Optional revocation grace window in logical clock delta (INV-S3).
+    /// None = pure causal model (default).
+    pub revocation_grace_window: Option<u64>,
+
+    /// Fleet command rate limit: minimum logical clock delta between
+    /// commands of the same type (F-A314).
+    pub fleet_command_rate_limit_lc: u64,
 }
 
 /// Per-node local configuration.
@@ -151,4 +217,23 @@ pub struct NodeConfig {
 
     /// Whether TPM attestation is required on this node (A5).
     pub require_tpm: bool,
+
+    /// Environment tag for this node (env:dev, env:test, env:prod).
+    pub environment: Option<String>,
+
+    /// Custom freeform tags (INV-N4).
+    pub custom_tags: Vec<(String, String)>,
+
+    /// Archive backend configuration (None = no archival, tombstones only).
+    pub archive_backend: Option<ArchiveBackendConfig>,
+}
+
+/// Configuration for the archive backend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum ArchiveBackendConfig {
+    /// Local filesystem path.
+    LocalPath { path: String },
+    /// S3-compatible object store.
+    S3 { endpoint: String, bucket: String, region: String },
 }
