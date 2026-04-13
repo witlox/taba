@@ -41,13 +41,18 @@ above it in the topological order.
 Level 0:  taba-common
 Level 1:  taba-core
 Level 2:  taba-security
-Level 3:  taba-graph, taba-solver       (parallel)
-Level 4:  taba-erasure, taba-gossip     (parallel)
+Level 3:  taba-graph, taba-solver, taba-observe  (parallel)
+Level 4:  taba-erasure, taba-gossip              (parallel)
 Level 5:  taba-node
 Level 6:  taba-cli
 
 Dev-only: taba-test-harness (all levels)
 ```
+
+Note: taba-observe is at Level 3 because it depends on taba-common, taba-core,
+and taba-security (for trail types and solver replay). It does NOT depend on
+taba-graph directly — decision trails are persisted via taba-node which
+provides the graph integration.
 
 ### Precise dependency edges
 
@@ -57,13 +62,14 @@ taba-core       -> taba-common
 taba-security   -> taba-common, taba-core
 taba-graph      -> taba-common, taba-core, taba-security
 taba-solver     -> taba-common, taba-core, taba-security
+taba-observe    -> taba-common, taba-core, taba-security
 taba-erasure    -> taba-common, taba-security
 taba-gossip     -> taba-common, taba-security
 taba-node       -> taba-common, taba-core, taba-security, taba-graph,
-                   taba-solver, taba-erasure, taba-gossip
-taba-cli        -> taba-common, taba-core, taba-node
+                   taba-solver, taba-observe, taba-erasure, taba-gossip
+taba-cli        -> taba-common, taba-core, taba-observe, taba-node
 taba-test-harness -> taba-common, taba-core, taba-security, taba-graph,
-                     taba-solver (dev-dependency only)
+                     taba-solver, taba-observe (dev-dependency only)
 ```
 
 ---
@@ -94,9 +100,9 @@ Step 2:  taba-core                            (solo, needs common)
 Step 3:  taba-security, taba-test-harness*    (parallel; security needs core;
                                                harness needs core)
 Step 4:  taba-graph, taba-solver,             (parallel; all need security)
-         taba-erasure, taba-gossip
+         taba-observe, taba-erasure, taba-gossip
 Step 5:  taba-node                            (needs everything from Step 4)
-Step 6:  taba-cli                             (needs node)
+Step 6:  taba-cli                             (needs node, observe)
 ```
 
 *taba-test-harness can build incrementally starting at Step 3, adding
@@ -145,6 +151,19 @@ resolution and placement.
 ### taba-solver -> taba-security
 Solver calls TaintComputer to compute inherited classifications at query
 time (INV-S4). Calls ScopeChecker when evaluating policy validity.
+
+### taba-observe -> taba-common
+Observe uses identity types (UnitId, NodeId), LogicalClock, DualClockEvent,
+Ppm for metric values, config for observe parameters.
+
+### taba-observe -> taba-core
+Observe needs unit types (for decision trail recording), Artifact, Capability,
+PromotionPolicy, HealthCheck, Tombstone types for structured events.
+
+### taba-observe -> taba-security
+Observe calls solver replay which needs SecurityError types. Also needs
+AuthorId for audit trails. Does NOT perform signing/verification — delegates
+to taba-security when needed.
 
 ### taba-erasure -> taba-common
 Erasure uses NodeId for shard distribution, config for erasure parameters
@@ -231,6 +250,7 @@ core           x    x    x    x    x    x    x
 security            x    x    x    x    X    x    (X = advanced features)
 graph               x    x    x    x    x    x
 solver              x    x    x    x    x    x
+observe              x    x    x    x    x    x    (decision trails from M2)
 erasure                       x    x    x    x
 gossip                        x    x    x    x
 node                     x    x    x    x    x
@@ -269,11 +289,15 @@ after gossip delivers the message.
 ### Cross-crate trait pattern
 
 Several traits are defined in one crate and implemented in another:
+- `GraphSnapshot` trait: defined in taba-core, implemented in taba-graph.
+  Wrapped in Arc for concurrent immutable access (A006).
+- `MembershipSnapshot` type: defined in taba-core, populated by taba-gossip.
+- `Wal` trait: defined in taba-core, implemented in taba-node (disk) and
+  taba-test-harness (in-memory). taba-graph CALLS Wal, never implements it.
+  This avoids a circular dependency (A003).
 - `CompositionGraph` trait: defined in taba-graph, implemented there
 - `Solver` trait: defined in taba-solver, implemented there
 - `Signer`/`Verifier` traits: defined in taba-security, implemented there
-- `Wal` trait: defined in taba-graph, implemented in taba-node (disk) and
-  taba-test-harness (in-memory)
 - `ShardStore` trait: defined in taba-node, implemented there and in
   taba-test-harness (in-memory)
 - `MembershipService` trait: defined in taba-gossip, implemented there and

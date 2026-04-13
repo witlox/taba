@@ -1,7 +1,11 @@
 # Enforcement Map
 
-Maps every invariant (INV-S1 through INV-R6) to the crate, trait method,
-runtime check, timing, and violation response that enforces it.
+Maps every invariant to the crate, trait method, runtime check, timing,
+and violation response that enforces it.
+
+Covers: INV-S1–S10, INV-S8a, INV-C1–C7, INV-K1–K5, INV-D1–D5,
+INV-R1–R6, INV-E1–E3, INV-N1–N5, INV-A1–A2, INV-O1–O3, INV-T1–T3,
+INV-W1–W4a, INV-G1–G5, INV-X1–X6. (59 invariants total.)
 
 ## Legend
 
@@ -76,3 +80,108 @@ runtime check, timing, and violation response that enforces it.
 | **INV-R4**: Shard reconstructability threshold | taba-erasure | `ErasureCodec::check_threshold(available_shards, k, n)` | Compute k = ceil(N * (1 - R/100)). If actual failures > floor(N - k), enter degraded mode and surface operator alert. | On node failure detection and periodically during health checks | `ErasureError::ThresholdExceeded`, `ErasureError::InsufficientShards`. System enters degraded mode. Operator alert. |
 | **INV-R5**: Suspected nodes stay in placement pool | taba-gossip, taba-solver | `Solver::score_placement(unit, node)` with `NodeHealth::Unknown` handling | Suspected nodes remain in pool with health='unknown'. Solver deprioritizes them (lower score) but does not remove. Only SWIM multi-probe consensus confirms failure and triggers removal. | On placement (solver considers suspected nodes as last resort). On gossip protocol probe cycle. | No error -- behavioral: solver avoids suspected nodes when alternatives exist. `GossipError::NodeUnreachable` tracks probe failures. |
 | **INV-R6**: Graph memory limit with auto-compaction | taba-graph, taba-node | `MemoryMonitor::check_usage(graph)`, `Compactor::compact(graph, target_bytes)` | Monitor active graph memory. At 80% of `ClusterConfig::graph_memory_limit_bytes`, trigger auto-compaction. At 100%, node enters degraded mode: refuses new placements. Governance units are fully replicated (not just erasure-coded). | Periodic (memory monitor interval). On every graph mutation (lightweight size check). | `GraphError::MemoryLimitExceeded`, `NodeError::DegradedMode`. At 80%: compaction runs. At 100%: new placements refused until compaction completes. |
+
+---
+
+## Environment & Promotion Invariants (INV-E1 through INV-E3)
+
+| Invariant | Crate | Trait::method | Check | When | On Violation |
+|-----------|-------|---------------|-------|------|-------------|
+| **INV-E1**: Promotion policy gates placement by env | taba-solver | `PromotionEvaluator::evaluate(unit, promotions, gates)`, `CapabilityFilter::filter(unit, nodes, promotions)` | Workload can only be placed on nodes whose env tag matches a promotion policy. Exception: env:dev uses author affinity (no promotion needed). | On placement (solver evaluation) | `SolverError::NoCapableNode` with detail "no promotion policy for env:X". Unit not placed. |
+| **INV-E2**: Promotions are cumulative | taba-solver | `PromotionEvaluator::evaluate()` | Promotion to env:prod does NOT remove from env:test. Environments are independent targets. Solver evaluates each environment independently. | On placement (solver evaluation) | Structural — solver evaluates each env separately. No violation error. |
+| **INV-E3**: No PromotionGate = all auto | taba-solver | `PromotionEvaluator::evaluate()` | If no PromotionGate governance unit exists, all transitions default to auto-promote. Zero config = full auto. | On promotion evaluation | Structural — default behavior when governance unit absent. |
+
+---
+
+## Node Capability Invariants (INV-N1 through INV-N5)
+
+| Invariant | Crate | Trait::method | Check | When | On Violation |
+|-----------|-------|---------------|-------|------|-------------|
+| **INV-N1**: Auto-discovery on startup, cached | taba-node | `CapabilityDiscoverer::discover()`, `CapabilityDiscoverer::refresh()` | Node probes system for capabilities at startup. Cache is authoritative until refresh. Fleet refresh via governance OperationalCommand. | On node startup. On `taba refresh`. On fleet RefreshCapabilities command. | `NodeError::CapabilityDiscoveryFailed`. Node starts with empty capability set (no workloads placed). |
+| **INV-N2**: Capabilities are hard constraints | taba-solver | `CapabilityFilter::filter(unit, nodes, promotions)` | Binary match: artifact.type must match node runtime capability. No fallback. | On placement (solver capability filter) | `SolverError::NoCapableNode`. Unit not placed. |
+| **INV-N3**: Resources are soft constraints | taba-solver | `ResourceRanker::rank(unit, nodes, resources)` | Among capability-matched nodes, rank by resource availability. Ppm arithmetic, versioned snapshots. | On placement (after capability filter) | No error — ranking always produces an ordering. Worst-fit node still valid if capabilities match. |
+| **INV-N4**: Custom tags match like capabilities | taba-solver | `CapabilityFilter::filter()` | Freeform key:value tags checked identically to auto-discovered capabilities in solver matching. | On placement (capability filter) | Same as INV-N2 — `SolverError::NoCapableNode` if required tag not found. |
+| **INV-N5**: Placement-on-failure defaults by env | taba-solver, taba-node | `Solver::handle_node_failure(unit, env)`, `Reconciler::reconcile()` | env:dev defaults to leave-dead. Other envs default to auto-replace. Per-unit `placement_on_failure` overrides. | On node failure detection (gossip → solver re-evaluation) | Behavioral — not an error. Dev workloads left, prod workloads re-placed. |
+
+---
+
+## Artifact Distribution Invariants (INV-A1 through INV-A2)
+
+| Invariant | Crate | Trait::method | Check | When | On Violation |
+|-----------|-------|---------------|-------|------|-------------|
+| **INV-A1**: SHA256 digest verification | taba-node | `ArtifactFetcher::fetch(ref, digest)` | After fetching artifact (from peer or external), compute SHA256 and compare to expected digest. Mismatch = reject, report to graph. | On artifact fetch (before workload execution) | `NodeError::ArtifactDigestMismatch`. Artifact rejected. Retry from different source. Report to graph. |
+| **INV-A2**: Peer cache first | taba-node | `ArtifactFetcher::fetch()` | Check peer cache before external source. Optimization, not security boundary — INV-A1 digest verification is the integrity guarantee. | On artifact fetch | Behavioral — if peer has artifact, skip external download. |
+
+---
+
+## Observability Invariants (INV-O1 through INV-O3)
+
+| Invariant | Crate | Trait::method | Check | When | On Violation |
+|-----------|-------|---------------|-------|------|-------------|
+| **INV-O1**: Every solver run produces decision trail | taba-observe | `DecisionTrailRecorder::record(snapshot, membership, result, version)` | Node calls recorder after each solver invocation. Trail persisted to graph via WAL. | After every solver run | `ObserveError::TrailNotFound` if recording fails. Alert. Solver continues (observability failure does not block placement). |
+| **INV-O2**: Trail retention since last compaction | taba-observe, taba-graph | `DecisionTrailQuery::query_by_range()`, `Compactor::compact()` | Default retention = since last compaction. Unit `decision_retention` or governance policy can extend. Compaction respects retention. | On compaction sweep and trail query | `ObserveError::TrailCompacted` if querying beyond retention. |
+| **INV-O3**: Progressive health checks | taba-node | `HealthCheckOrchestrator::run_checks()` | Default: OS-level process monitoring. If HealthCheck declared: execute that instead. Node never skips monitoring. | Periodic (configurable interval per workload) | Health failure reported to graph as `HealthStatus`. Triggers failure semantics (restart, re-place). |
+
+---
+
+## Logical Clock Invariants (INV-T1 through INV-T3)
+
+| Invariant | Crate | Trait::method | Check | When | On Violation |
+|-----------|-------|---------------|-------|------|-------------|
+| **INV-T1**: Monotonic logical clock, sync on communication | taba-common | `LogicalClock::tick()`, `LogicalClock::sync(remote)` | Every system action increments. On inter-node communication: `local = max(local, remote) + 1`. | On every action and every gossip/merge message | Structural — u64 overflow at 1.8×10^19 events. No practical violation. |
+| **INV-T2**: Dual clock model | taba-common | `DualClockEvent` triple recorded on every event | Logical clock for ordering, wall clock for retention/compliance. Both recorded. System chooses by operation type. | On every event | Structural — type system enforces recording both clocks. |
+| **INV-T3**: Causal revocation | taba-security | `KeyManager::is_revoked_in_local_graph(author)` | Check if revocation governance unit exists in local graph. No clock comparison. Optional grace window fallback. | On unit merge (pre-merge gate) | `SecurityError::KeyRevoked`. Unit rejected. |
+
+---
+
+## Workload Lifecycle Invariants (INV-W1 through INV-W4a)
+
+| Invariant | Crate | Trait::method | Check | When | On Violation |
+|-----------|-------|---------------|-------|------|-------------|
+| **INV-W1**: Services valid indefinitely | taba-core | `UnitHeader::validity` = None | No validity window → no automatic expiry. Terminated only explicitly or by drained placement. Key revocation does NOT invalidate existing services. | Structural (type: validity is Option) | N/A — services never auto-expire. |
+| **INV-W2**: Bounded tasks auto-terminate | taba-node | `Reconciler::reconcile()`, deadline check in reconciliation loop | Check three triggers: completion (exit 0), failure (retries exhausted), deadline (LC range or wall time). Any trigger → terminate. | On task exit, on periodic reconciliation (deadline check) | Task transitions to Terminated. Ephemeral data eligible for removal (INV-D4). |
+| **INV-W3**: Spawn depth enforced at merge | taba-graph, taba-core | `Graph::merge()` pre-check, `SpawnContext::spawn_depth` validation | On merge: traverse spawn provenance chain, compute depth. Reject if > max (default 4). | On graph merge of spawned task unit | `GraphError::SpawnDepthExceeded`. Unit rejected. |
+| **INV-W4**: Delegation token signing | taba-security | `DelegationValidator::validate(token, spawned_unit_lc)` | Verify: (a) token signature valid, (b) LC range covers spawned task, (c) spawn count ≤ max, (d) token not revoked, (e) parent active. | On graph merge of delegation-signed unit | `SecurityError::DelegationExpired`, `DelegationSpawnLimitExceeded`, `DelegationTokenForged`. Unit rejected. |
+| **INV-W4a**: No governance via delegation | taba-security | `DelegationValidator::check_governance_block(token, unit_type)` | Spawned tasks cannot create policy, governance, or declassification units. Hard block at merge. | On graph merge of delegation-signed unit with policy/governance type | `SecurityError::DelegationGovernanceBlocked`. Unit rejected. |
+
+---
+
+## Data Lifecycle Invariants (INV-D4 through INV-D5)
+
+| Invariant | Crate | Trait::method | Check | When | On Violation |
+|-----------|-------|---------------|-------|------|-------------|
+| **INV-D4**: Ephemeral data reference check | taba-graph | `Compactor::remove_ephemeral(data_unit)` | On producing task termination: check downstream references. Has refs → tombstone. No refs → full remove. Governance can mandate tombstone for all. | On bounded task termination | Behavioral — no error. Reference check determines treatment. |
+| **INV-D5**: Local-only requires policy for classified data | taba-core, taba-security | `RetentionValidator::validate_local_only(data_unit)` | If retention = LocalOnly and classification > Public, require explicit policy authorization. | On unit creation / validation | `CoreError::LocalOnlyRequiresPolicy`. Unit rejected without policy. |
+
+---
+
+## Compaction Invariants (INV-G1 through INV-G5)
+
+| Invariant | Crate | Trait::method | Check | When | On Violation |
+|-----------|-------|---------------|-------|------|-------------|
+| **INV-G1**: Compaction eligibility deterministic | taba-graph | `Compactor::compute_eligible(graph)` | Given same graph state, all nodes agree on eligible units. Eligibility derived from graph state only (terminated status, retention expiry, supersession). | On compaction sweep | Structural — same algorithm on same input = same output. |
+| **INV-G2**: Tombstones preserve provenance | taba-graph | `Compactor::tombstone(unit)` | Tombstone retains UnitId, AuthorId, type, LC range, termination reason, references, original digest. | On compaction (tombstone creation) | Structural — Tombstone struct includes required fields. |
+| **INV-G3**: Governance never compacted | taba-graph | `Compactor::is_exempt(unit)` | Skip governance units, active policies, root ceremony chain during compaction sweep. | On compaction sweep | Structural — exemption check before tombstoning. |
+| **INV-G4**: Eviction ≠ compaction | taba-node | `MemoryManager::evict(unit)` | Eviction drops content locally without tombstone. Unit remains live. Content recoverable from peers. | On local memory pressure (node-specific) | Behavioral — eviction is transparent to graph state. |
+| **INV-G5**: Compaction priority order | taba-graph | `Compactor::compact(graph, target_bytes)` | Priority: ephemeral → trails → terminated tasks → superseded policies → terminated services → expired data. Mirrors reconstruction priority inverse. | On compaction sweep | Structural — priority ordering in compaction algorithm. |
+
+---
+
+## Cross-Trust-Domain Invariants (INV-X1 through INV-X6)
+
+| Invariant | Crate | Trait::method | Check | When | On Violation |
+|-----------|-------|---------------|-------|------|-------------|
+| **INV-X1**: Bilateral policy for cross-domain | taba-gossip, taba-solver | `CrossDomainGossip::validate_bilateral(query)`, `CapabilityFilter::filter()` | Before executing forwarding query, verify bilateral policy in both domains. Missing either side = fail closed. | On cross-domain forwarding query | `GossipError::BilateralPolicyMissing`. Query rejected. Composition blocked. |
+| **INV-X2**: Read-only cross-domain views | taba-gossip | `CrossDomainGossip::forward_query()` returns `ForwardingResult` | Query results NOT merged into querying domain's graph. Reference by UnitId only. | On forwarding query response | Structural — ForwardingResult is a read-only type, not a mergeable unit. |
+| **INV-X3**: Fail-open cache default | taba-gossip | `CrossDomainGossip::query_with_cache(cache_policy)` | Default: serve stale if bridge down. Governance override: fail closed for freshness. | On cross-domain query with bridge unavailable | Behavioral — cache served (default) or `GossipError::BridgeUnavailable` (strict mode). |
+| **INV-X4**: Emergent bridge default | taba-gossip | `CrossDomainGossip::discover_bridges(target_domain)` | Any node in multiple domains is a bridge. Governance can restrict to designated only. | On bridge discovery | Behavioral — gossip queries all multi-domain nodes (or designated only). |
+| **INV-X5**: Cross-domain capability via governance | taba-gossip | `CrossDomainGossip::propagate_advertisement(capability_def)` | Bridge nodes relay CrossDomainCapability governance units across boundaries. | On governance unit merge (bridge detects cross-domain advertisement) | Behavioral — bridge gossips the advertisement to other domains. |
+| **INV-X6**: No bridge = unresolved capability | taba-solver, taba-gossip | `CapabilityFilter::filter()`, `CrossDomainGossip::discover_bridges()` | If no bridge to target domain, solver surfaces as unresolved. No auto-creation. | On cross-domain composition attempt | `SolverError::NoCapableNode` with detail "no bridge to domain X". Alert raised. |
+
+---
+
+## INV-S8a: Overlapping Scopes for Decision-Making Types
+
+| Invariant | Crate | Trait::method | Check | When | On Violation |
+|-----------|-------|---------------|-------|------|-------------|
+| **INV-S8a**: Overlapping policy/governance scopes | taba-security | `ScopeValidator::check_uniqueness(author, scope, existing, unit_type)` | For policy/governance types: skip uniqueness check (overlapping permitted). For workload/data: enforce INV-S8 (strict uniqueness). | On role assignment creation | Structural — check branches on unit_type. |

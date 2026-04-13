@@ -590,6 +590,185 @@ it is a no-op).
 
 ---
 
+### ObserveEvent (NEW)
+
+Events produced by the observability subsystem.
+
+```rust
+/// Events emitted by taba-observe.
+/// These are local events consumed by the graph (for persistence)
+/// and integration exporters (for external systems).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ObserveEvent {
+    /// A decision trail was recorded for a solver run (INV-O1).
+    DecisionTrailRecorded {
+        trail_id: u64,
+        graph_snapshot_id: String,
+        placements_count: u32,
+        conflicts_count: u32,
+        timestamp: DualClockEvent,
+    },
+
+    /// Health check result for a workload (INV-O3).
+    HealthCheckCompleted {
+        unit_id: UnitId,
+        node_id: NodeId,
+        healthy: bool,
+        check_type: String,
+        timestamp: DualClockEvent,
+    },
+
+    /// Capability change detected on a node after re-probe (INV-N1).
+    CapabilityChanged {
+        node_id: NodeId,
+        added: Vec<String>,
+        removed: Vec<String>,
+        trigger: String, // "startup", "manual_refresh", "fleet_refresh"
+        timestamp: DualClockEvent,
+    },
+
+    /// Drift detected between desired and actual state.
+    DriftDetected {
+        unit_id: UnitId,
+        node_id: NodeId,
+        expected: String,
+        actual: String,
+        timestamp: DualClockEvent,
+    },
+
+    /// Promotion policy applied to a workload version.
+    PromotionApplied {
+        unit_id: UnitId,
+        version: String,
+        environment: String,
+        author: AuthorId,
+        timestamp: DualClockEvent,
+    },
+
+    /// Bounded task spawned by a service.
+    TaskSpawned {
+        parent_service: UnitId,
+        child_task: UnitId,
+        delegation_token_id: u64,
+        spawn_depth: u8,
+        timestamp: DualClockEvent,
+    },
+
+    /// Bounded task terminated.
+    TaskTerminated {
+        unit_id: UnitId,
+        reason: String, // "completed", "failed", "deadline_exceeded"
+        timestamp: DualClockEvent,
+    },
+
+    /// Compaction completed.
+    CompactionCompleted {
+        units_tombstoned: u32,
+        units_removed: u32,
+        bytes_freed: u64,
+        timestamp: DualClockEvent,
+    },
+
+    /// Ephemeral data removed or tombstoned (INV-D4).
+    EphemeralDataHandled {
+        data_unit_id: UnitId,
+        action: String, // "removed" or "tombstoned"
+        had_references: bool,
+        timestamp: DualClockEvent,
+    },
+
+    /// Cross-domain forwarding query executed.
+    CrossDomainQueryExecuted {
+        querying_domain: TrustDomainId,
+        target_domain: TrustDomainId,
+        bridge_node: NodeId,
+        cached: bool,
+        timestamp: DualClockEvent,
+    },
+
+    /// Alert dispatched via webhook.
+    AlertDispatched {
+        event_type: String,
+        target_url: String,
+        success: bool,
+        timestamp: DualClockEvent,
+    },
+}
+```
+
+**Producer**: `taba-observe` (aggregates from all contexts).
+**Consumers**: `taba-graph` (DecisionTrailRecorded persisted as graph event),
+integration exporters (Prometheus, OpenTelemetry, webhook).
+**Channel**: `tokio::broadcast` (multiple consumers).
+**Ordering**: none guaranteed across events. Decision trails are causally
+ordered by logical clock.
+**Delivery**: at-most-once. Observability events are informational — dropped
+events do not affect system correctness.
+
+---
+
+### GossipMessage additions (NEW)
+
+New gossip message variants for the analyst-session concepts:
+
+```rust
+// Added to GossipMessage enum:
+
+    /// Node capability advertisement (INV-N1).
+    /// Sent on startup, refresh, and periodically on significant change.
+    CapabilityAdvertisement {
+        from: NodeId,
+        capabilities: NodeCapabilitySet,
+        logical_clock: u64,
+    },
+
+    /// Node resource snapshot (INV-N3).
+    /// Sent periodically (configurable interval).
+    ResourceSnapshot {
+        from: NodeId,
+        memory_available_bytes: u64,
+        cpu_load_ppm: u64,
+        disk_available_bytes: u64,
+        gpu_available: u32,
+        logical_clock: u64,
+    },
+
+    /// Cross-domain capability advertisement relay (INV-X5).
+    /// Sent by bridge nodes to relay advertisements across domain boundaries.
+    CrossDomainAdvertisement {
+        from: NodeId, // bridge node
+        source_domain: TrustDomainId,
+        capability: CapabilityRef,
+        conditions: String,
+    },
+
+    /// Cross-domain forwarding query (INV-X2).
+    ForwardingQuery {
+        from: NodeId,
+        target_domain: TrustDomainId,
+        query_type: String,
+        query_payload: Vec<u8>,
+        request_id: u64,
+    },
+
+    /// Cross-domain forwarding response.
+    ForwardingResponse {
+        from: NodeId, // bridge node
+        request_id: u64,
+        result: Vec<u8>, // serialized read-only view
+    },
+
+    /// Fleet-wide operational command (governance).
+    FleetCommand {
+        from: NodeId,
+        command_type: String, // "refresh_capabilities", etc.
+        governance_unit_id: UnitId,
+        logical_clock: u64,
+    },
+```
+
+---
+
 ## Ordering guarantees summary
 
 | Event type | Ordering | Mechanism |

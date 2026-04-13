@@ -40,9 +40,14 @@ trust domain management.
 |---------|-------------|-----------|-----|
 | `SignatureInvalid { unit_id, author_id, reason }` | Cryptographic signature verification failed. Unit rejected at merge gate (INV-S3). | Fatal | FM-04, FM-05 |
 | `SignatureContextMismatch { unit_id, expected_cluster, actual_cluster }` | Unit signed for a different cluster/trust domain (cross-cluster replay). | Fatal | FM-04 |
-| `AuthorKeyRevoked { author_id, revoked_at, unit_created_at }` | Author's key was revoked before the unit's creation timestamp (INV-S3c). | Fatal | FM-05 |
+| `AuthorKeyRevoked { author_id, revoked_at, unit_created_at }` | Author's key revocation governance unit was merged into local graph before this unit arrived (INV-S3 causal model). | Fatal | FM-05 |
 | `AuthorScopeExceeded { author_id, unit_type, trust_domain }` | Author attempted to create a unit outside their (type scope x trust domain scope) (INV-S5). | Fatal | FM-05 |
-| `ScopeDuplicate { author_a, author_b, scope }` | Two distinct authors have identical (unit_type_scope, trust_domain_scope) tuples (INV-S8). | Fatal | -- |
+| `ScopeDuplicate { author_a, author_b, scope }` | Two distinct authors have identical (unit_type_scope, trust_domain_scope) tuples for state-producing types (INV-S8). OK for policy/governance (INV-S8a). | Fatal | -- |
+| `DelegationExpired { token_id, lc_range, current_lc }` | Delegation token LC range exceeded (INV-W4). | Fatal | -- |
+| `DelegationSpawnLimitExceeded { token_id, max, current }` | Token's max_spawns exceeded (INV-W4). | Fatal | -- |
+| `DelegationTokenForged { token_id, reason }` | Delegation token signature invalid (INV-W4). | Fatal | FM-04 |
+| `DelegationGovernanceBlocked { token_id, attempted_type }` | Spawned task attempted governance authority via delegation (INV-W4a). | Fatal | -- |
+| `DelegationRevoked { token_id }` | Delegation token has been revoked. | Fatal | -- |
 | `CapabilityDenied { unit_id, capability, reason }` | Unit tried to access a capability it did not declare or that policy denied (INV-S1). | Fatal | -- |
 | `SecurityConflictUnresolved { units, capability }` | Incompatible capability declarations with no policy resolution. Composition refused (INV-S2). | Fatal | FM-10 |
 | `TaintWidening { data_unit_id, parent_classification, child_classification }` | Child data unit attempts to widen (weaken) classification without policy (INV-S7). | Fatal | -- |
@@ -84,6 +89,9 @@ Unit lifecycle, composition, and aggregate management.
 | `RetentionExpired { data_unit_id, expired_at }` | Data unit retention period has elapsed (INV-D2). Eligible for compaction. | Fatal (expected) | -- |
 | `PolicyConflict { conflict_tuple, existing_policy, new_policy }` | Two non-revoked policies resolve the same conflict (INV-C7). New must supersede. | Fatal | FM-10 |
 | `OrphanedPolicy { policy_id, references }` | Policy references a non-existent conflict. Eligible for archival (INV-C5). | Fatal | -- |
+| `SpawnDepthExceeded { unit_id, depth, max }` | Spawned task exceeds max spawn depth (INV-W3). | Fatal | FM-23 |
+| `LocalOnlyRequiresPolicy { data_unit_id, classification }` | Local-only data with classification > Public requires explicit policy (INV-D5). | Fatal | -- |
+| `PromotionPolicyCollision { policy_a, policy_b, env }` | Two conflicting promotion policies for same env/unit (INV-S8a). | Fatal | FM-14 |
 | `Security { source: SecurityError }` | Propagated from taba-security. | Inherits | -- |
 | `Common { source: CommonError }` | Propagated from taba-common. | Inherits | -- |
 
@@ -114,6 +122,8 @@ CRDT graph operations, merge, query, and WAL persistence.
 | `CompactionFailed { reason }` | Auto-compaction could not free sufficient memory. | Fatal | FM-08 |
 | `InsertionOrderDependence { unit_ids, reason }` | Detected composition result differing by insertion order (INV-C6). Internal bug. | Fatal | FM-06 |
 | `QueryError { query, reason }` | Graph query failed (malformed query, internal state inconsistency). | Fatal | -- |
+| `SpawnDepthExceeded { unit_id, depth, max }` | Spawned task depth exceeds max at merge (INV-W3). | Fatal | FM-23 |
+| `ArchivalFailed { unit_id, backend, reason }` | Archive write failed for mandatory-archive unit (FM-21). Compaction blocked. | Retryable | FM-21 |
 | `Security { source: SecurityError }` | Propagated from taba-security (signature verification at merge gate). | Inherits | -- |
 | `Core { source: CoreError }` | Propagated from taba-core (unit validation). | Inherits | -- |
 
@@ -190,6 +200,9 @@ SWIM-based membership protocol, peer communication, and failure detection.
 | `BootstrapFailed { seed_nodes, reason }` | Cannot contact any seed node during initial join. | Retryable (after network check) | -- |
 | `VersionAnnounceMismatch { node_id, solver_version }` | Peer announces a different solver version. Flagged for version skew handling (FM-12). | Retryable (during upgrade) | FM-12 |
 | `PartitionDetected { reachable_nodes, unreachable_nodes }` | Gossip topology suggests network partition (FM-03). Informational. | Retryable (heal expected) | FM-03 |
+| `BilateralPolicyMissing { consuming_domain, providing_domain }` | Cross-domain forwarding rejected: no bilateral policy (INV-X1). | Fatal | FM-25 |
+| `BridgeUnavailable { target_domain }` | No bridge available to target domain (INV-X6). | Retryable (bridge may join) | FM-25 |
+| `FleetCommandRateLimited { command_type, retry_after_lc }` | Fleet command rate limit exceeded (F-A314). | Retryable | -- |
 | `Security { source: SecurityError }` | Propagated from taba-security (message signature verification). | Inherits | -- |
 
 **User-facing messages (CLI-visible):**
@@ -218,6 +231,11 @@ Node lifecycle, local state management, operational mode transitions.
 | `Gossip { source: GossipError }` | Propagated from taba-gossip. | Inherits | -- |
 | `Erasure { source: ErasureError }` | Propagated from taba-erasure. | Inherits | -- |
 | `Solver { source: SolverError }` | Propagated from taba-solver. | Inherits | -- |
+| `ArtifactFetchFailed { artifact_ref, reason }` | Artifact could not be fetched from any source (FM-15). | Retryable | FM-15 |
+| `ArtifactDigestMismatch { expected, actual }` | Fetched artifact SHA256 does not match expected digest (INV-A1). | Fatal | FM-15 |
+| `CapabilityDiscoveryFailed { reason }` | Auto-discovery could not probe system capabilities (INV-N1). | Retryable | FM-17 |
+| `SpawnFailed { service_id, reason }` | Bounded task spawn failed (delegation or depth). | Fatal | FM-22, FM-23 |
+| `Observe { source: ObserveError }` | Propagated from taba-observe. | Inherits | -- |
 
 **User-facing messages (CLI-visible):**
 
@@ -250,6 +268,27 @@ matches on `CliError` and prints:
 - The human-readable message (from the variant's user-facing table above)
 - A suggestion for next steps
 - The exit code (non-zero for fatal, specific codes for retryable)
+
+---
+
+## taba-observe: `ObserveError`
+
+Decision trail recording, solver replay, and integration export.
+
+| Variant | Description | Retryable | FM |
+|---------|-------------|-----------|-----|
+| `TrailNotFound { trail_id }` | Decision trail does not exist for the given ID. | Fatal | -- |
+| `TrailCompacted { trail_id }` | Trail was compacted beyond retention window (INV-O2). | Fatal | -- |
+| `ReplayFailed { trail_id, reason }` | Solver replay could not reconstruct inputs from trail. | Fatal | -- |
+| `ReplayDivergence { trail_id, expected_hash, actual_hash }` | Replay produced different output than recorded (determinism regression FM-11). | Fatal | FM-11 |
+| `ExportFailed { target, reason }` | Integration export failed (Prometheus, OTEL, webhook). | Retryable | -- |
+
+**User-facing messages (CLI-visible):**
+
+| Variant | User message |
+|---------|-------------|
+| `TrailCompacted` | `Info: Decision trail {trail_id} has been compacted (beyond retention window). Increase decision_retention on the unit or trust domain to retain longer.` |
+| `ReplayDivergence` | `Critical: Solver replay for trail {trail_id} produced different results. This indicates a determinism regression. Investigate immediately.` |
 
 ---
 
@@ -286,6 +325,9 @@ taba-erasure::ErasureError
 taba-gossip::GossipError
   └── wrapped by taba-node::NodeError::Gossip
 
+taba-observe::ObserveError
+  └── wrapped by taba-node::NodeError::Observe
+
 taba-node::NodeError
   └── wrapped by taba-cli::CliError::Node
 ```
@@ -313,20 +355,34 @@ CommonError
 
 ## Failure Mode Coverage
 
-Every failure mode (FM-01 through FM-13) is covered by at least one error variant.
+Every failure mode (FM-01 through FM-27) is covered by at least one error variant.
 
 | FM | Primary Error(s) | Crate(s) |
 |----|-------------------|----------|
 | FM-01: Single node failure | `GossipError::NodeUnreachable`, `ErasureError::ShardCorrupted` | taba-gossip, taba-erasure |
 | FM-02: Multiple node failures | `ErasureError::InsufficientShards`, `ErasureError::ThresholdExceeded`, `NodeError::DegradedMode` | taba-erasure, taba-node |
 | FM-03: Network partition | `GossipError::PartitionDetected` | taba-gossip |
-| FM-04: Compromised node | `SecurityError::SignatureInvalid`, `GossipError::MessageSignatureInvalid`, `ErasureError::SignatureVerificationPostReconstruct` | taba-security, taba-gossip, taba-erasure |
+| FM-04: Compromised node | `SecurityError::SignatureInvalid`, `GossipError::MessageSignatureInvalid`, `ErasureError::SignatureVerificationPostReconstruct`, `SecurityError::DelegationTokenForged` | taba-security, taba-gossip, taba-erasure |
 | FM-05: Compromised author | `SecurityError::AuthorKeyRevoked`, `SecurityError::AuthorScopeExceeded` | taba-security |
 | FM-06: Wrong solver placement | `SolverError::DeterminismViolation`, `GraphError::CrdtViolation`, `GraphError::InsertionOrderDependence` | taba-solver, taba-graph |
 | FM-07: WAL corruption/disk full | `GraphError::WalWriteFailed`, `GraphError::WalCorrupted`, `GraphError::WalReplayFailed` | taba-graph |
 | FM-08: Graph unbounded growth | `GraphError::MemoryLimitExceeded`, `GraphError::CompactionFailed`, `NodeError::DegradedMode` | taba-graph, taba-node |
 | FM-09: Gossip false positive | `GossipError::FalsePositiveDetected`, `GossipError::InsufficientWitnesses` | taba-gossip |
 | FM-10: Conflicting legal requirements | `SolverError::ConflictDetected`, `SecurityError::SecurityConflictUnresolved`, `CoreError::PolicyConflict` | taba-solver, taba-security, taba-core |
-| FM-11: Solver determinism regression | `SolverError::DeterminismViolation`, `SolverError::FloatingPointDetected` | taba-solver |
+| FM-11: Solver determinism regression | `SolverError::DeterminismViolation`, `SolverError::FloatingPointDetected`, `ObserveError::ReplayDivergence` | taba-solver, taba-observe |
 | FM-12: Solver version skew | `SolverError::VersionSkew`, `GossipError::VersionAnnounceMismatch` | taba-solver, taba-gossip |
 | FM-13: Cascading reconstruction storm | `ErasureError::ReconstructionBackpressure`, `ErasureError::ReconstructionFailed` | taba-erasure |
+| FM-14: Promotion policy collision | `CoreError::PromotionPolicyCollision` | taba-core |
+| FM-15: Artifact unavailable | `NodeError::ArtifactFetchFailed`, `NodeError::ArtifactDigestMismatch` | taba-node |
+| FM-16: Dev node offline | Behavioral (INV-N5 leave-dead default) | taba-solver |
+| FM-17: Stale capability discovery | `NodeError::CapabilityDiscoveryFailed` | taba-node |
+| FM-18: Role succession gap | `SecurityError::AuthorKeyRevoked` (break-glass via root key) | taba-security |
+| FM-19: Tier 0→1 upgrade failure | `SecurityError::CeremonyError` | taba-security |
+| FM-20: Compaction removes referenced unit | `GraphError::CompactionFailed` (reference check prevents) | taba-graph |
+| FM-21: Archive backend unavailable | `GraphError::ArchivalFailed` | taba-graph |
+| FM-22: Bounded task deadline exceeded | Behavioral (node forcefully terminates) | taba-node |
+| FM-23: Spawn depth exceeded | `CoreError::SpawnDepthExceeded`, `GraphError::SpawnDepthExceeded` | taba-core, taba-graph |
+| FM-24: Logical clock divergence | Behavioral (clock sync on reconnection) | taba-common |
+| FM-25: Bridge failure isolates domains | `GossipError::BridgeUnavailable` | taba-gossip |
+| FM-26: Compromised bridge | `SecurityError::SignatureInvalid` (standard + wider blast radius) | taba-security |
+| FM-27: Stale cross-domain cache | `GossipError::BilateralPolicyMissing` (strict mode) | taba-gossip |

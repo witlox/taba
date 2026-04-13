@@ -135,3 +135,49 @@ Feature: Conflict resolution
     And "patient-records" access is restricted to audit-only
     And the data unit is neither deleted nor fully accessible
     And the conflict resolution is logged with full rationale for compliance audit
+
+  # --- Promotion policy collisions ---
+
+  @promotion
+  Scenario: Two policy authors create same-decision promotion policies (dedup)
+    # INV-S8a: overlapping policy scopes permitted
+    Given author "carol" with policy scope in "acme-prod"
+    And author "dan" with policy scope in "acme-prod"
+    And both carol and dan independently author promotion policies for "web-api" to env:prod
+    And both policies have resolution = "approve"
+    When both policies are merged into the graph
+    Then the solver detects two non-revoked policies for the same conflict tuple
+    And both have the same decision (approve)
+    And the solver deduplicates: lexicographically lowest PolicyId is canonical
+    And "web-api" is promoted to env:prod (the redundant policy is flagged, not blocking)
+
+  Scenario: Two policy authors create conflicting promotion policies (fail closed)
+    # FM-14: different decisions fail closed
+    Given carol authors promotion policy "promo-approve" for "web-api" to env:prod with resolution = "approve"
+    And dan authors promotion policy "promo-deny" for "web-api" to env:prod with resolution = "deny"
+    When both policies are merged into the graph
+    Then the solver detects conflicting policies for the same conflict tuple
+    And the solver fails closed: "web-api" is NOT promoted to env:prod
+    And the conflict is surfaced: "conflicting promotion policies: promo-approve vs promo-deny"
+    And resolution requires: one author supersedes the other, OR governance resolves
+
+  Scenario: Conflicting promotion policy resolved via explicit supersession
+    Given conflicting promotion policies "promo-approve" and "promo-deny" exist
+    When carol authors "promo-approve-v2" explicitly superseding "promo-deny"
+    And "promo-approve-v2" is signed and merged
+    Then "promo-deny" is superseded (INV-C7)
+    And "promo-approve-v2" is the active policy
+    And "web-api" is promoted to env:prod
+
+  # --- Partition-induced policy conflicts ---
+
+  @resilience
+  Scenario: Partition sides create conflicting policies, resolved on heal
+    Given a network partition separates the cluster into side-A and side-B
+    And on side-A, carol authors policy "policy-A" resolving conflict-X with "allow"
+    And on side-B, dan authors policy "policy-B" resolving conflict-X with "deny"
+    When the partition heals and CRDT merge completes
+    Then both "policy-A" and "policy-B" exist in the graph
+    And the solver detects conflicting policies for conflict-X
+    And fails closed (INV-S2): conflict-X is unresolved until explicit supersession
+    And an alert surfaces the partition-induced policy conflict for operator resolution

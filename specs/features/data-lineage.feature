@@ -191,3 +191,65 @@ Feature: Data lineage
     Then the pending reference is resolved
     And the WAL records Promoted("remote-output")
     And provenance query for "remote-output" now returns the complete chain including "remote-input"
+
+  # --- Ephemeral data lineage ---
+
+  @lifecycle
+  Scenario: Ephemeral data has provenance during its lifetime
+    # INV-D4: ephemeral data exists in graph until producing task terminates
+    Given bounded task "etl-pipeline" produces ephemeral data unit "temp-staging"
+    And "temp-staging" has provenance: produced-by "etl-pipeline", input "raw-data"
+    When a consumer queries provenance of "temp-staging" while "etl-pipeline" is running
+    Then the full provenance chain is returned: raw-data → etl-pipeline → temp-staging
+    And taint propagation applies normally (if "raw-data" is PII, "temp-staging" inherits PII)
+
+  Scenario: Unreferenced ephemeral data fully removed -- provenance unavailable
+    Given bounded task "etl-pipeline" produced ephemeral data "temp-staging"
+    And NO downstream unit consumed or references "temp-staging"
+    And "etl-pipeline" has completed and reference check found no references
+    And "temp-staging" was fully removed (INV-D4: no refs → remove)
+    When a consumer queries provenance of "temp-staging"
+    Then the query returns "unit not found (ephemeral, no downstream references, removed)"
+
+  Scenario: Referenced ephemeral data tombstoned -- provenance preserved
+    Given bounded task "etl-pipeline" produced ephemeral data "temp-staging"
+    And workload "aggregator" consumed "temp-staging" and produced "report"
+    And "etl-pipeline" has completed and reference check found "aggregator"
+    And "temp-staging" was tombstoned (INV-D4: has refs → tombstone)
+    When a consumer queries provenance of "report"
+    Then the chain returns: ... → temp-staging (tombstoned) → aggregator → report
+    And the tombstone preserves the reference links (INV-G2)
+    And INV-D1 (unbroken provenance) is satisfied
+
+  Scenario: Governance-mandated tombstone preserves ephemeral provenance
+    Given governance in "acme-prod" declares: ephemeral_data_tombstone = true
+    And bounded task "audit-etl" produces ephemeral data "temp-audit"
+    When "audit-etl" completes and "temp-audit" is tombstoned (not removed)
+    Then provenance query for "temp-audit" returns the tombstone's references
+    And the chain is: input → audit-etl → temp-audit (tombstoned)
+    And audit trail is preserved despite the data content being gone
+
+  # --- Provenance through compaction ---
+
+  @compaction
+  Scenario: Provenance chain intact after producing workload is tombstoned
+    # INV-G2: tombstones preserve provenance graph structure
+    Given workload "data-processor" produced data unit "output-dataset"
+    And "data-processor" has been terminated and tombstoned
+    When a consumer queries provenance of "output-dataset"
+    Then the chain returns: inputs → data-processor (tombstoned) → output-dataset
+    And the tombstone includes the reference to "output-dataset"
+    And if full details of "data-processor" are needed, archive retrieval is available
+
+  # --- Cross-domain lineage ---
+
+  @cross-domain
+  Scenario: Provenance query traverses trust domain boundary
+    Given data unit "enriched-orders" in "acme-prod" was produced by composition
+    And the composition included capability "payment-api" from "partner-payments"
+    And a bridge node exists between "acme-prod" and "partner-payments"
+    When an operator queries full provenance of "enriched-orders"
+    Then local provenance from "acme-prod" graph is returned directly
+    And cross-domain provenance issues a forwarding query to the bridge
+    And the bridge returns provenance from "partner-payments" (read-only, INV-X2)
+    And the full cross-domain chain is assembled for display

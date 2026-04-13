@@ -40,16 +40,18 @@ pub enum Unit {
 pub struct UnitHeader {
     /// Globally unique, immutable identifier.
     pub id: UnitId,
-    /// Author who signed this unit.
+    /// Author who signed this unit (or delegation token for spawned tasks).
     pub author: AuthorId,
     /// Trust domain this unit belongs to.
     pub trust_domain: TrustDomainId,
-    /// When this unit was created.
-    pub created_at: Timestamp,
-    /// Validity window for the unit and its signature.
-    pub validity: ValidityWindow,
+    /// When this unit was created (dual clock).
+    pub created_at: DualClockEvent,
+    /// Validity window. Optional for services (INV-W1), set for bounded tasks (INV-W2).
+    pub validity: Option<ValidityWindow>,
     /// Current lifecycle state.
     pub state: UnitState,
+    /// Git-native version ref (commit SHA or tag). Optional for non-git sources (A9).
+    pub version: Option<String>,
 }
 
 /// Lifecycle states of a unit from authoring to termination.
@@ -75,12 +77,16 @@ pub enum UnitState {
 // ---------------------------------------------------------------------------
 
 /// A compute process with full behavioral contracts.
-/// Runtime-agnostic: the isolation mechanism (container, microVM, Wasm,
-/// native process) is itself a declared capability.
+/// Runtime-agnostic: the solver matches artifact.type to node runtime
+/// capabilities (INV-N2).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkloadUnit {
     /// Common unit metadata.
     pub header: UnitHeader,
+    /// Service (indefinite) or BoundedTask (lifecycle-limited).
+    pub kind: WorkloadKind,
+    /// Artifact packaging: OCI image, native binary, Wasm module, K8s manifest.
+    pub artifact: Artifact,
     /// Capabilities this workload requires from the environment.
     pub needs: Vec<Capability>,
     /// Capabilities this workload exposes to other units.
@@ -97,6 +103,118 @@ pub struct WorkloadUnit {
     pub recovery_relationships: Vec<RecoveryRelationship>,
     /// How this workload recovers state after restart.
     pub state_recovery: StateRecovery,
+    /// What to do when the hosting node fails (INV-N5).
+    pub placement_on_failure: Option<PlacementOnFailure>,
+    /// Optional health check endpoint (INV-O3, progressive).
+    pub health_check: Option<HealthCheck>,
+    /// If this is a spawned bounded task, the parent service and delegation token.
+    pub spawn_context: Option<SpawnContext>,
+}
+
+/// Whether a workload is a long-running service or a bounded task.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum WorkloadKind {
+    /// Long-running, indefinite lifetime. No validity window (INV-W1).
+    Service,
+    /// Lifecycle-limited. Auto-terminates on completion/failure/deadline (INV-W2).
+    BoundedTask,
+}
+
+/// Artifact packaging for a workload unit.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Artifact {
+    /// Type of artifact (determines which runtime capability is needed).
+    pub artifact_type: ArtifactType,
+    /// Content reference (OCI image tag, binary URL, file path, etc.).
+    pub artifact_ref: String,
+    /// SHA256 content hash for integrity and dedup (INV-A1).
+    pub digest: ContentDigest,
+    /// Additional runtime requirements (e.g., ["windows", "dotnet-4.8"]).
+    pub requires: Vec<String>,
+}
+
+/// Artifact type — matched against node runtime capabilities by the solver.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum ArtifactType {
+    /// OCI container image (Docker, Podman).
+    Oci,
+    /// Native binary or package installer (MSI, RPM, DEB).
+    Native,
+    /// WebAssembly module.
+    Wasm,
+    /// Kubernetes manifest (pod spec).
+    K8sManifest,
+}
+
+/// What happens when the hosting node fails (INV-N5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PlacementOnFailure {
+    /// Solver re-places the workload to another eligible node.
+    Replace,
+    /// Workload is left dead (not re-placed). Dev default.
+    LeaveDead,
+}
+
+/// Health check declaration for progressive monitoring (INV-O3).
+/// Default (None): OS-level process monitoring. Declared: explicit check.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthCheck {
+    /// Type of health check.
+    pub check_type: HealthCheckType,
+    /// How often to run the check.
+    pub interval: Duration,
+    /// Maximum time to wait for a response.
+    pub timeout: Duration,
+}
+
+/// Type of health check (progressive disclosure).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum HealthCheckType {
+    /// HTTP GET to a path. 2xx = healthy.
+    Http { path: String, port: u16 },
+    /// TCP connect to a port. Success = healthy.
+    Tcp { port: u16 },
+    /// Execute a command. Exit 0 = healthy.
+    Command { command: String },
+}
+
+/// Context for a spawned bounded task (INV-W4).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpawnContext {
+    /// The parent service that spawned this task.
+    pub spawned_by: UnitId,
+    /// The delegation token authorizing this spawn.
+    pub delegation_token_id: DelegationTokenId,
+    /// Depth in the spawn chain (1 = direct spawn from service, max 4 per INV-W3).
+    pub spawn_depth: u8,
+}
+
+/// Delegation token for spawned task signing (INV-W4).
+/// Pre-signed by the author at service placement time.
+/// The node uses this token to sign spawned tasks — it never holds the
+/// author's private key.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DelegationToken {
+    /// Unique identifier for this token.
+    pub id: DelegationTokenId,
+    /// The service this token authorizes spawning for.
+    pub service_id: UnitId,
+    /// The node authorized to use this token.
+    pub node_id: NodeId,
+    /// Trust domain scope.
+    pub trust_domain: TrustDomainId,
+    /// Logical clock range during which this token is valid.
+    pub valid_lc_range: (LogicalClock, LogicalClock),
+    /// Maximum number of tasks this token can spawn.
+    pub max_spawns: u32,
+    /// Current spawn count (tracked by the node, verified at merge).
+    pub current_spawns: u32,
+    /// Author's signature over this token.
+    pub author_signature: Vec<u8>,
+    /// Whether this token has been revoked.
+    pub revoked: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -185,8 +303,10 @@ pub enum PolicyResolution {
 // Governance unit
 // ---------------------------------------------------------------------------
 
-/// Trust domain definitions, role scope assignments, and certification
-/// attestations. Created through multi-party agreement (INV-S6, INV-S10).
+/// Trust domain definitions, role scope assignments, certification
+/// attestations, operational commands, and promotion gates.
+/// Created through multi-party agreement (INV-S6, INV-S10) or
+/// self-signed in Tier 0.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GovernanceUnit {
     /// Defines a trust domain boundary.
@@ -195,6 +315,14 @@ pub enum GovernanceUnit {
     RoleAssignment(RoleAssignment),
     /// Attests that a composition meets a standard.
     Certification(Certification),
+    /// Fleet-wide administrative instruction (refresh-capabilities, etc.).
+    OperationalCommand(OperationalCommand),
+    /// Declares auto-promote vs human-approval per environment transition.
+    PromotionGate(PromotionGateDef),
+    /// Publishes a capability for cross-domain consumption (INV-X5).
+    CrossDomainCapability(CrossDomainCapabilityDef),
+    /// Key revocation (causal model, INV-S3).
+    KeyRevocation(KeyRevocationDef),
 }
 
 /// Trust domain boundary definition.
@@ -455,16 +583,32 @@ pub struct Provenance {
     pub governing_policies: Vec<UnitId>,
 }
 
-/// Retention policy for a data unit (INV-D2).
-/// Expired data units are eligible for compaction.
+/// Retention policy for a data unit (INV-D2, INV-D4).
+/// Determines lifecycle: persistent, ephemeral, or local-only.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetentionPolicy {
-    /// How long to retain this data.
+    /// Retention mode (persistent/ephemeral/local-only).
+    pub mode: RetentionMode,
+    /// How long to retain this data (wall time, for persistent mode).
     pub duration: Option<Duration>,
-    /// Legal basis for retention (e.g., "GDPR Art. 6(1)(f)", "contractual obligation").
+    /// Legal basis for retention (e.g., "GDPR Art. 6(1)(f)").
     pub legal_basis: String,
     /// Whether retention is mandatory (must keep) or permissive (may delete).
     pub mandatory: bool,
+}
+
+/// Data retention mode (progressive disclosure).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum RetentionMode {
+    /// Default. Governed by duration + legal basis. Tombstoned on expiry.
+    Persistent,
+    /// Auto-removed when producing bounded task terminates.
+    /// Reference check: has refs → tombstone, no refs → full remove (INV-D4).
+    Ephemeral,
+    /// Never enters graph. Node-local scratch only.
+    /// Requires policy for classification > Public (INV-D5).
+    LocalOnly,
 }
 
 /// What a data unit may be used for.
@@ -550,4 +694,177 @@ pub struct TaintResult {
     pub declassified: bool,
     /// The policy that authorized declassification, if any.
     pub declassification_policy: Option<UnitId>,
+}
+
+// ---------------------------------------------------------------------------
+// New governance subtypes
+// ---------------------------------------------------------------------------
+
+/// Fleet-wide administrative instruction propagated via gossip.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationalCommand {
+    pub header: UnitHeader,
+    pub command_type: OperationalCommandType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum OperationalCommandType {
+    /// All nodes re-probe their capabilities.
+    RefreshCapabilities,
+    /// Operator-triggered degraded mode.
+    EnterDegraded { reason: String },
+}
+
+/// Environment promotion gate for a trust domain (INV-E3).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromotionGateDef {
+    pub header: UnitHeader,
+    pub transitions: Vec<PromotionTransition>,
+}
+
+/// A single environment transition rule.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromotionTransition {
+    pub from_env: String,
+    pub to_env: String,
+    pub mode: PromotionMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PromotionMode {
+    /// CI or automation can promote automatically.
+    Auto,
+    /// Human must explicitly approve.
+    HumanApproval,
+}
+
+/// Promotion policy: gates workload placement by environment (INV-E1).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromotionPolicy {
+    /// The policy unit wrapping this promotion.
+    pub header: UnitHeader,
+    /// The workload unit being promoted.
+    pub unit_ref: UnitId,
+    /// The version being promoted (git ref or content-addressable ID).
+    pub version: String,
+    /// The target environment (e.g., "test", "prod").
+    pub target_environment: String,
+    /// Human-readable rationale.
+    pub rationale: String,
+}
+
+/// Cross-domain capability advertisement (INV-X5).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossDomainCapabilityDef {
+    pub header: UnitHeader,
+    /// The capability being advertised.
+    pub provides: Capability,
+    /// Conditions for cross-domain access.
+    pub conditions: String,
+}
+
+/// Key revocation governance unit (causal model per INV-S3).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyRevocationDef {
+    pub header: UnitHeader,
+    /// The author whose key is being revoked.
+    pub revoked_author: AuthorId,
+    /// Logical clock at which revocation was issued.
+    pub revocation_lc: LogicalClock,
+    /// Reason for revocation.
+    pub reason: String,
+}
+
+// ---------------------------------------------------------------------------
+// Tombstone (graph compaction, INV-G2)
+// ---------------------------------------------------------------------------
+
+/// Minimal record replacing a compacted unit in the graph.
+/// Preserves provenance graph structure without content.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Tombstone {
+    /// Original unit ID (preserved).
+    pub unit_id: UnitId,
+    /// Original author ID (preserved).
+    pub author_id: AuthorId,
+    /// Original unit type.
+    pub unit_type: TombstoneUnitType,
+    /// When the original unit was created.
+    pub created_at_lc: LogicalClock,
+    /// When the unit was terminated/compacted.
+    pub terminated_at_lc: LogicalClock,
+    /// Why the unit was terminated.
+    pub termination_reason: TerminationReason,
+    /// References: what the unit consumed/produced (preserves provenance graph).
+    pub references: Vec<UnitId>,
+    /// SHA256 of the original unit content (for archive retrieval).
+    pub original_digest: ContentDigest,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum TombstoneUnitType { Workload, Data, Policy }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum TerminationReason {
+    Completed,
+    Failed,
+    DeadlineExceeded,
+    Superseded,
+    RetentionExpired,
+    Drained,
+}
+
+// ---------------------------------------------------------------------------
+// Node capabilities (INV-N1 through INV-N5)
+// ---------------------------------------------------------------------------
+
+/// Complete capability set for a node, auto-discovered + operator-declared.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeCapabilitySet {
+    pub arch: String,
+    pub os: String,
+    pub privilege: PrivilegeLevel,
+    pub runtimes: Vec<RuntimeCapability>,
+    pub ports_privileged: bool,
+    pub storage: Vec<String>,
+    pub environment: Option<String>,
+    pub author_affinity: Option<AuthorId>,
+    pub clock_quality: ClockQuality,
+    pub timezone: String,
+    pub custom_tags: Vec<(String, String)>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PrivilegeLevel { Root, User }
+
+/// Runtime capability that a node can execute (INV-N2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum RuntimeCapability {
+    /// Docker/Podman with root daemon.
+    Oci,
+    /// Rootless Docker/Podman (userspace).
+    OciRootless,
+    /// Kubernetes API access (schedule pods).
+    K8s,
+    /// WebAssembly runtime (wasmtime/wasmer).
+    Wasm,
+    /// Native binary/package execution.
+    Native,
+}
+
+/// Dynamic resource snapshot reported by a node (INV-N3).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceSnapshot {
+    pub node_id: NodeId,
+    pub logical_clock: LogicalClock,
+    pub memory_total_bytes: u64,
+    pub memory_available_bytes: u64,
+    pub cpu_cores: u32,
+    /// CPU load as Ppm (0 = idle, 1_000_000 = fully loaded).
+    pub cpu_load_ppm: Ppm,
+    pub disk_available_bytes: u64,
+    pub gpu_available: u32,
 }

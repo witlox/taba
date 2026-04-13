@@ -25,6 +25,12 @@ pub struct GraphDelta(/* opaque */);
 /// Immutable — concurrent mutations do not affect it. Includes a generation
 /// counter to detect staleness. The solver should check `is_current()` before
 /// applying placement results.
+///
+/// IMMUTABILITY CONTRACT (A006): GraphSnapshot is wrapped in Arc<> at
+/// creation time. Once taken, the snapshot is frozen — concurrent graph
+/// mutations do not affect it. The solver holds an Arc<GraphSnapshot>
+/// and can safely compute placements while the graph continues to receive
+/// merges. Type defined in taba-core (A009). Implemented by taba-graph.
 pub struct GraphSnapshot {
     /// Monotonically increasing generation counter. Incremented on every
     /// mutation (insert, merge, supersede, archive, compact).
@@ -44,8 +50,11 @@ pub struct ProvenanceLink {
     pub producer: UnitId,
     pub inputs: Vec<UnitId>,
     pub output: UnitId,
-    pub timestamp: u64,
+    /// Dual clock event (INV-T2). Logical clock for ordering, wall time for display.
+    pub timestamp: DualClockEvent,
 }
+
+pub struct DualClockEvent(/* from taba-common */);
 
 /// Statistics about graph size and health.
 pub struct GraphStats {
@@ -268,4 +277,62 @@ pub trait MergePolicy {
     /// Used in property tests to verify CRDT laws. Two states are equivalent
     /// if they contain the same set of unit identity tuples.
     fn is_equivalent(&self, a: &GraphSnapshot, b: &GraphSnapshot) -> bool;
+}
+
+// ---------------------------------------------------------------------------
+// Memory monitoring and compaction (A024, INV-R6, INV-G1-G5)
+// ---------------------------------------------------------------------------
+
+/// Monitors graph memory usage and triggers compaction (INV-R6).
+///
+/// Auto-compaction at 80% of limit. Degraded mode at 100%.
+pub trait MemoryMonitor {
+    /// Check current memory usage against configured limit.
+    ///
+    /// Returns (current_bytes, limit_bytes, pressure_pct).
+    fn check_usage(&self) -> (u64, u64, u8);
+
+    /// Returns true if memory usage exceeds 80% of limit (compaction trigger).
+    fn is_compaction_needed(&self) -> bool;
+
+    /// Returns true if memory usage exceeds 100% of limit (degraded trigger).
+    fn is_degraded_needed(&self) -> bool;
+}
+
+/// Compaction engine for the graph (INV-G1 through INV-G5).
+///
+/// Compaction eligibility is deterministic: same graph state = same eligible
+/// units on all nodes (INV-G1). Tombstones preserve provenance (INV-G2).
+/// Governance units are exempt (INV-G3). Priority order per INV-G5.
+pub trait Compactor {
+    /// Compute which units are eligible for compaction in the current graph.
+    ///
+    /// Deterministic: same graph state = same result on any node.
+    fn compute_eligible(&self) -> Vec<(UnitId, CompactionAction)>;
+
+    /// Execute compaction, freeing at least `target_bytes` of memory.
+    ///
+    /// Processes eligible units in priority order (INV-G5):
+    /// ephemeral → trails → terminated tasks → superseded policies →
+    /// terminated services → expired data.
+    ///
+    /// For ephemeral data: reference check (INV-D4) — no refs → remove,
+    /// has refs → tombstone.
+    ///
+    /// For archival-mandated units: archive first, then tombstone (FM-21).
+    /// Returns ArchivalFailed if archive backend unavailable and unit
+    /// requires archival.
+    ///
+    /// Returns (units_compacted, bytes_freed).
+    async fn compact(&self, target_bytes: u64) -> Result<(u64, u64), GraphError>;
+}
+
+/// Action for a compactable unit.
+pub enum CompactionAction {
+    /// Fully remove (no tombstone). For unreferenced ephemeral data.
+    Remove,
+    /// Replace with tombstone (preserves references).
+    Tombstone,
+    /// Archive to cold storage first, then tombstone.
+    ArchiveAndTombstone,
 }

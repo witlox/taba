@@ -38,12 +38,22 @@ Owns: membership, failure detection, shard distribution, reconstruction.
 Produces: membership view, shard assignments.
 Consumes: node join/leave events.
 
+### 9. Cross-Trust-Domain Forwarding (taba-bridge)
+Owns: cross-domain query routing, capability advertisement propagation,
+forwarding query execution, result caching.
+Produces: cross-domain query results, capability advertisements, bridge
+availability status.
+Consumes: solver forwarding requests, bilateral policy from both domains,
+cross-domain capability governance units.
+Depends on: bridge nodes (emergent or governance-designated).
+
 ## Interaction contracts
 
 ### Unit Management → Composition Graph
 - **Insert unit**: validated unit submitted for graph insertion.
   Graph verifies signature synchronously (calls Security) before accepting.
-  Signature binds context (trust_domain_id, cluster_id, validity_window).
+  Signature binds context (trust_domain_id, cluster_id, logical_clock,
+  validity_window?).
   Units with unsatisfied references enter pending queue (causal buffering).
   Failure: rejection with typed error (InvalidSignature | ScopeViolation |
   KeyRevoked | ContextMismatch).
@@ -81,6 +91,80 @@ Consumes: node join/leave events.
   Failure: verification failure → reject. Capability denied → logged.
   Gossip signature invalid → message dropped, node flagged for investigation.
 
+### 7. Artifact Distribution (taba-artifact)
+Owns: artifact fetching, peer cache, content addressing, P2P distribution.
+Produces: cached artifacts available for node execution, fetch status events.
+Consumes: artifact references from workload units, peer discovery from gossip.
+
+### 8. Observability (taba-observe)
+Owns: decision trail recording, solver replay, health check orchestration,
+structured event emission, integration export (OpenTelemetry, Prometheus).
+Produces: decision trail events, health status, structured logs, metric
+endpoints.
+Consumes: solver run outputs, node resource reports, workload health checks.
+Cross-cuts: every context emits structured events that Observability collects.
+
+### Solver → Cross-Trust-Domain Forwarding
+- **Cross-domain query**: solver in domain A detects unresolved capability
+  that matches a cross-domain advertisement from domain B. Solver issues a
+  signed forwarding query to a bridge node.
+  Bridge executes query against domain B's local graph, returns signed result.
+  Result cached in domain A (fail-open default, fail-closed if governance
+  requires freshness).
+  Failure: no bridge available → unresolved capability (pending).
+
+### Cross-Trust-Domain Forwarding ↔ Distribution (Gossip)
+- **Capability advertisement**: bridge nodes gossip CrossDomainCapability
+  governance units across domain boundaries. Nodes in domain A learn about
+  domain B's published capabilities through shared bridge nodes.
+- **Bridge discovery**: nodes query gossip for "who is a bridge for domain X?"
+  Bridge nodes respond with their domain membership.
+
+### Cross-Trust-Domain Forwarding ↔ Security
+- **Bilateral policy check**: before executing a forwarding query, the bridge
+  verifies bilateral policy exists in both domains. Missing policy in either
+  domain = reject query (INV-X1).
+- **Forwarding query signing**: queries and results are signed by the
+  requesting node and bridge node respectively. Signature verification
+  on both ends.
+
+## Interaction contracts (new)
+
+### Solver → Artifact Distribution
+- **Placement decided**: solver assigns unit to node. Node's reconciliation
+  loop triggers artifact fetch. Fetch order: peer cache → external source.
+  Artifact digest verified after fetch (INV-A1).
+  Failure: fetch failure → retry with backoff → report to graph → solver
+  re-places if persistent.
+
+### Node Operations → Artifact Distribution
+- **Artifact needed**: node requests artifact by digest. Artifact Distribution
+  checks peer cache (local, then peers via gossip-discovered inventory).
+  Falls back to external source (registry URL, HTTP endpoint) if no peer
+  has it.
+  Failure: all sources exhausted → report unavailable to graph.
+
+### Artifact Distribution ↔ Distribution (Gossip)
+- **Peer cache inventory**: nodes advertise cached artifact digests via gossip
+  (lightweight bloom filter or digest list, not full artifacts). Other nodes
+  query peers for specific digests before hitting external sources.
+
+### Observability → Solver
+- **Decision trail**: after every solver run, Observability records inputs
+  (graph snapshot ID, node membership snapshot) and outputs (placements,
+  conflicts, solver version) as a decision trail entry in the graph (INV-O1).
+
+### Observability → Node Operations
+- **Health check orchestration**: Observability drives health check execution
+  based on workload unit declarations. Default: OS-level process monitoring.
+  Progressive: HTTP probe, TCP check, custom command. Results reported to
+  graph as health status.
+
+### Node Operations → Observability
+- **Resource snapshots**: nodes periodically report resource state (memory,
+  CPU, disk, GPU availability) to Observability. Advertised via gossip for
+  solver resource ranking (INV-N3).
+
 ## Failure at context boundaries
 
 | Boundary | Failure mode | Response |
@@ -89,9 +173,18 @@ Consumes: node join/leave events.
 | Unit → Graph | Author scope insufficient | Reject unit, typed error |
 | Graph → Solver | Graph snapshot stale | Solver operates on available snapshot, reconciles on next update |
 | Solver → Node | Node cannot start workload | Health status updated in graph, solver re-places |
+| Solver → Node | Artifact fetch failed | Retry with backoff, re-place if persistent (FM-15) |
+| Solver → Node | Capability mismatch at runtime | Mark capability suspect, re-place, alert operator (FM-17) |
 | Distribution → Graph | Not enough nodes for erasure | Degraded mode, reduced redundancy, operator alert |
 | Security → Graph | Key revoked mid-merge | Reject units signed after revocation timestamp, existing pre-revocation units remain valid (INV-S3) |
 | Security → Graph | Forged unit detected | Reject, quarantine sending node for investigation |
 | Distribution → Graph | Gossip message unsigned/invalid | Drop message, flag sender for investigation |
 | Solver → Solver | Cyclic recovery dependencies | Report unresolvable conflict, require policy (INV-K5) |
 | Solver → Solver | Conflicting policies for same conflict | Use supersession chain, latest non-revoked wins (INV-C7) |
+| Solver → Solver | Conflicting promotion policies | Same decision: dedup by lowest PolicyId. Different: fail closed (FM-14) |
+| Artifact → Node | Digest mismatch after fetch | Reject artifact, report to graph, retry from different source |
+| Governance → Fleet | Operational command propagation | Signed, gossiped. Nodes that miss it catch up on next gossip round. |
+| Solver → Bridge | No bridge for target domain | Unresolved capability, pending state. Alert operator (FM-25) |
+| Solver → Bridge | Bridge available, no bilateral policy | Fail closed. Reject cross-domain composition (INV-X1) |
+| Bridge → Solver | Stale cache, bridge down | Fail open: serve stale (default). Fail closed if governance requires freshness (FM-27) |
+| Bridge → Security | Compromised bridge | Standard node compromise with wider blast radius. Evict via gossip (FM-26) |

@@ -140,3 +140,195 @@ reconstructions and alert operator.
 **Degradation**: Temporarily reduced redundancy. If failures exceed erasure
 threshold during reconstruction, system enters Degraded mode.
 **Unacceptable**: Reconstruction storm causing additional node failures.
+
+## FM-14: Promotion policy collision (different decisions)
+**Component**: Policy / Solver
+**Trigger**: Two policy authors simultaneously create conflicting promotion
+policies for the same workload version (one approves, one denies)
+**Expected response**: Both policies enter graph via CRDT merge (merge is
+permissive). Solver detects conflicting policies for same conflict tuple at
+query time. Fails closed (INV-S2) — workload is not promoted until conflict
+is resolved via explicit supersession or governance unit.
+**Degradation**: Promotion blocked for the affected workload version until
+human resolution. Other workloads unaffected.
+**Unacceptable**: Silent winner selection. Implicit resolution of policy
+disagreement. Workload placed in prod while a deny policy exists.
+
+## FM-15: Artifact unavailable at placement time
+**Component**: Artifact Distribution / Node Operations
+**Trigger**: Node is assigned a workload but cannot fetch the artifact (registry
+down, peer cache miss, air-gapped without push, digest mismatch)
+**Expected response**: Node reports fetch failure to graph as health status.
+Solver does not re-place immediately (transient failure). Retry with
+exponential backoff. If persistent, node marks workload as failed and solver
+re-places to another node.
+**Degradation**: Delayed workload start. If artifact is genuinely unavailable
+(deleted from registry, never pushed), workload remains unplaced.
+**Unacceptable**: Running a workload with unverified artifact (digest
+mismatch). Silent failure with no health status update.
+
+## FM-16: Dev node goes offline
+**Component**: Node / Solver
+**Trigger**: Developer closes laptop, dev box loses power, network disconnect
+**Expected response**: Gossip detects node failure per normal SWIM protocol.
+For `env:dev` workloads: default is leave-dead (INV-N5) — solver does not
+re-place. Workloads on the offline dev node simply stop. Developer restarts
+them when the node returns.
+**Degradation**: Dev workloads unavailable until node returns. No impact on
+test/prod.
+**Unacceptable**: Dev node failure triggering prod re-placement. Dev workloads
+consuming cluster resources after developer has gone home.
+
+## FM-17: Capability auto-discovery returns stale results
+**Component**: Node Operations
+**Trigger**: Docker daemon removed but socket file remains. K8s API endpoint
+cached but cluster decommissioned. Runtime upgraded but old version detected.
+**Expected response**: Workload placement fails at runtime (node cannot
+actually execute the artifact despite advertising the capability). Node
+reports runtime failure to graph. Solver re-places to another node.
+Operator alerted to capability mismatch.
+**Degradation**: One failed placement attempt + re-placement delay.
+**Unacceptable**: Repeated placement on the same node with stale capabilities.
+Solver must mark the capability as suspect after runtime failure.
+**Mitigation**: `taba refresh` or fleet-wide refresh to re-probe. Auto-
+discovery should verify capabilities (not just detect presence) where
+possible.
+
+## FM-18: Role succession gap (all policy authors leave)
+**Component**: Governance / Security
+**Trigger**: All authors with policy scope in a trust domain have their keys
+revoked or leave the organization without transferring scope
+**Expected response**: No new policies can be authored. Existing policies
+remain valid (signed before revocation). System continues operating with
+existing policy set. Break-glass: root key (Shamir ceremony, or Tier 0 solo
+key) can re-assign policy roles to new authors.
+**Degradation**: New conflicts cannot be resolved until new policy authors
+are assigned. Workloads with existing policies continue normally.
+**Unacceptable**: System permanently locked out of policy authoring. Root
+key unable to recover.
+
+## FM-19: Tier 0 → Tier 1 upgrade failure
+**Component**: Governance / Ceremony
+**Trigger**: Solo developer attempts to upgrade from self-signed trust domain
+to multi-party Shamir ceremony but the migration fails (network issue, key
+generation error, ceremony aborted)
+**Expected response**: Original Tier 0 trust domain remains fully operational.
+Upgrade is non-destructive — the new Tier 1 trust domain is created alongside,
+not replacing. Failed ceremony is cleaned up (key material zeroized). Developer
+can retry.
+**Degradation**: Developer remains on Tier 0 until upgrade succeeds.
+**Unacceptable**: Tier 0 trust domain invalidated by a failed upgrade attempt.
+Existing units requiring re-signing.
+
+## FM-20: Compaction removes unit still referenced by live data
+**Component**: Composition Graph / Compaction
+**Trigger**: Bug in compaction eligibility logic marks a unit as eligible
+while live data still references it
+**Expected response**: Should not happen (INV-G1, INV-G2). Tombstone
+preserves references, so provenance chain remains intact even if compacted.
+If full removal occurs (ephemeral data), the referencing unit's provenance
+query returns "referenced unit removed (ephemeral)."
+**Degradation**: Provenance query returns a gap (removed unit) instead of
+full details. Archive retrieval not possible (was ephemeral, not archived).
+**Unacceptable**: Silent provenance corruption. Live data with broken
+references and no indication.
+**Mitigation**: Compaction eligibility validation checks reference graph
+before removing. Governance can mandate tombstones (not removal) for all
+ephemeral data in regulated trust domains.
+
+## FM-21: Archival backend unavailable during compaction
+**Component**: Archival / Compaction
+**Trigger**: S3 unreachable, local disk full, archive backend returns error
+when compaction attempts to archive a unit before tombstoning
+**Expected response**: Compaction is blocked for units requiring archival
+(governance-mandated). Units remain as full units in the active graph until
+archival succeeds. Compaction of units not requiring archival proceeds
+normally (tombstone without archive).
+**Degradation**: Graph grows because mandatory-archive units cannot be
+compacted. Memory pressure increases. If persistent, may trigger degraded
+mode (INV-R6).
+**Unacceptable**: Tombstoning without archival when governance requires it.
+Silent data loss of units that should have been archived.
+
+## FM-22: Bounded task exceeds deadline without terminating
+**Component**: Node Operations / Workload Lifecycle
+**Trigger**: Bounded task hits its logical clock or wall-time deadline but
+the process is still running (hung, deadlocked, or long-running)
+**Expected response**: Node forcefully terminates the task process. Task
+status updated to "terminated (deadline exceeded)" in the graph. Ephemeral
+data produced by the task is auto-removed (INV-D4). Spawning service is
+notified of deadline termination.
+**Degradation**: Task output may be incomplete. Partial results handled by
+the spawning service's failure semantics.
+**Unacceptable**: Bounded task running indefinitely past its deadline.
+Resource leak from unterminated processes.
+
+## FM-23: Spawn chain exceeds maximum depth
+**Component**: Composition Graph / Security
+**Trigger**: A bounded task attempts to spawn a sub-task that would exceed
+the maximum spawn depth (default 4)
+**Expected response**: The spawned unit is rejected at graph merge (INV-W3)
+with error "spawn depth exceeded." The parent task is notified and can
+handle the rejection per its failure semantics.
+**Degradation**: The sub-task is not created. Parent task must handle the
+work itself or report failure.
+**Unacceptable**: Unlimited spawn depth allowing resource exhaustion attacks.
+
+## FM-24: Logical clock divergence between nodes
+**Component**: Distribution / Logical Clock
+**Trigger**: Node isolated from gossip for extended period, its logical clock
+falls significantly behind the cluster. On reconnection, clock jumps forward
+by a large delta.
+**Expected response**: Clock sync on first gossip message:
+`local = max(local, remote) + 1`. The jump is logged but harmless — logical
+clock is monotonic and the large gap doesn't affect correctness.
+**Degradation**: Units created during isolation have low logical clock values.
+They are still valid (causal ordering is preserved within the isolation
+period). On reconnection, causal relationships between isolated and
+non-isolated events are properly ordered.
+**Unacceptable**: Logical clock going backward. Clock sync producing
+duplicate values across nodes.
+
+## FM-25: Bridge node failure isolates cross-domain composition
+**Component**: Cross-Trust-Domain / Distribution
+**Trigger**: The only bridge node between domains A and B fails (crash,
+network partition, decommission)
+**Expected response**: Existing cross-domain compositions with cached results
+continue operating (fail open, INV-X3). New cross-domain compositions cannot
+start (bridge unavailable). Solver surfaces "no bridge between A and B" as
+an unresolved capability. Operator alerted.
+**Degradation**: Cross-domain freshness degrades (stale cache only). New
+cross-domain work blocked until bridge restored or new bridge admitted.
+**Unacceptable**: Silent failure of existing cross-domain compositions.
+Automatic bridge creation without operator decision.
+
+## FM-26: Compromised bridge node exposes multiple domains
+**Component**: Security / Cross-Trust-Domain
+**Trigger**: Attacker gains control of a bridge node participating in
+domains A and B
+**Expected response**: Standard node compromise response (FM-04): attacker
+cannot inject false units (signature verification), cannot poison gossip
+(signed messages). Blast radius is wider: attacker can observe graph state
+of BOTH domains. Eviction via gossip removes the bridge.
+**Degradation**: Temporary data exposure across domains until bridge evicted.
+Cross-domain compositions disrupted (bridge lost).
+**Unacceptable**: Attacker using bridge to inject units across domain
+boundaries. Cross-domain policy bypass.
+**Mitigation**: Governance can restrict bridges to explicitly designated
+nodes (INV-X4). Intentional bridge selection reduces exposure.
+
+## FM-27: Stale cross-domain cache serves outdated policy resolution
+**Component**: Cross-Trust-Domain / Solver
+**Trigger**: Domain B updates a policy that affects a cross-domain
+composition with domain A. Bridge is down. Domain A's solver uses stale
+cached policy resolution from domain B.
+**Expected response**: Default (fail open): stale cache served. Composition
+continues with outdated policy. When bridge recovers, cache refreshed and
+solver re-evaluates. If policy change would have blocked the composition,
+the composition is terminated on refresh.
+**Degradation**: Temporary operation under stale policy. Window = bridge
+downtime.
+**Unacceptable**: Permanent operation under stale policy. No re-evaluation
+on bridge recovery. Stale cache overriding governance-mandated freshness.
+**Mitigation**: Governance can require fail-closed freshness (INV-X3
+override), which blocks on bridge unavailability instead of serving stale.

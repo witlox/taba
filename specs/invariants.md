@@ -12,9 +12,29 @@ capability declarations, composition is refused until explicit policy resolves i
 Unsigned or wrongly-signed units are rejected on merge. Signature verification
 is synchronous and blocks merge — no unit enters graph state before verification
 completes. Signatures bind context: Sign(key, hash(unit || trust_domain_id ||
-cluster_id || validity_window)). A unit is valid iff: (a) signature is
-cryptographically valid, (b) author had valid scope at creation time, and
-(c) author's key was not revoked before the unit's creation timestamp.
+cluster_id || logical_clock || validity_window?)). A unit is valid iff:
+(a) signature is cryptographically valid, and (b) author had valid scope at
+creation time.
+
+**Key revocation model** (causal, not clock-comparison):
+- Revocation is a graph operation. A revocation governance unit is signed,
+  merged, and propagated via priority gossip.
+- Once a revocation unit is merged into a node's local graph, that node
+  rejects any subsequent units from the revoked author.
+- Units from the revoked author that arrived BEFORE the revocation was
+  locally merged are accepted (they were valid when received). No
+  retroactive rejection — this avoids graph state divergence.
+- The security window is gossip propagation time (seconds to tens of
+  seconds). This is the inherent boundary in a P2P system — no clock
+  scheme can shrink it below propagation delay.
+- **Grace window fallback**: governance can configure a revocation grace
+  period (logical clock delta). Units from a revoked author with
+  creation_LC > revocation_LC + grace_window are rejected even if they
+  arrived before the local revocation merge. This catches slow-propagation
+  edge cases. Default: no grace window (pure causal model).
+
+The validity_window is optional: omitted for services (valid indefinitely),
+set for bounded tasks (logical clock range and/or wall-time deadline).
 
 **INV-S4**: Taint propagation: if input data unit has classification C, output
 data unit inherits C unless explicit policy declassifies. Taint is computed at
@@ -33,9 +53,18 @@ widen only with explicit policy. Direction: narrowing = adding restrictions
 restrictions (child less restrictive than parent, requires policy).
 Classification lattice: public ⊂ internal ⊂ confidential ⊂ PII.
 
-**INV-S8**: No two distinct authors can have identical (unit_type_scope,
-trust_domain_scope) tuples. Role assignment governance units must validate
-non-overlap before persisting. This is the enforcement mechanism for A1.
+**INV-S8**: Scope uniqueness is type-dependent. For state-producing unit
+types (workload, data), no two distinct authors can have identical
+(unit_type_scope, trust_domain_scope) tuples. Role assignment governance
+units must validate non-overlap before persisting. This is the enforcement
+mechanism for A1.
+
+**INV-S8a**: For decision-making unit types (policy, governance), overlapping
+scopes are permitted. Conflict resolution is structural: policy collisions
+are handled by supersession chain (INV-C7) and deterministic dedup (same
+decision → lowest PolicyId is canonical; different decisions → fail closed).
+This enables role succession and eliminates single points of failure for
+policy authoring.
 
 **INV-S9**: Declassification policies (taint removal) require multi-party
 signing: minimum 2 distinct authors — one with policy scope, one with
@@ -149,3 +178,198 @@ until SWIM confirms failure via multi-probe consensus.
 Auto-compaction triggers at 80% of limit. Node exceeding limit enters degraded
 mode: refuses new placements until compaction completes. Governance units are
 actively replicated (full copies on N nodes), not just erasure-coded.
+
+## Environment & Promotion Invariants
+
+**INV-E1**: A workload unit can only be placed on nodes whose environment tag
+matches a promotion policy authorizing that unit version for that environment.
+Exception: `env:dev` placement requires only that the unit author matches the
+node's author affinity (no promotion policy needed for dev).
+
+**INV-E2**: Promotion policies are cumulative and non-exclusive. A promotion
+to `env:prod` does not remove the unit from `env:test`. Environments are
+independent placement targets, not a pipeline with mutual exclusion.
+
+**INV-E3**: PromotionGate governance units are authoritative for auto-promote
+rules within a trust domain. If no PromotionGate exists, all transitions
+default to auto-promote (progressive disclosure: zero config = full auto).
+
+## Node Capability Invariants
+
+**INV-N1**: Node capabilities are auto-discovered at startup and cached
+locally. Cached capabilities are authoritative until re-probed via
+`taba refresh` or fleet-wide `refresh-capabilities` operational command.
+
+**INV-N2**: The solver treats capabilities as hard constraints (binary
+match/no-match). A workload requiring `runtime:oci` cannot be placed on a
+node without `runtime:oci` or `runtime:oci-rootless`. No fallback, no
+approximation.
+
+**INV-N3**: The solver treats resources as soft constraints (ranking). Among
+nodes that satisfy all capability requirements, the solver ranks by resource
+availability (best-fit). Resource ranking uses fixed-point arithmetic (ppm)
+for determinism (per INV-C3).
+
+**INV-N4**: Custom tags (freeform key:value) are treated identically to
+auto-discovered capabilities for solver matching purposes. The solver does
+not distinguish between auto-discovered and operator-declared capabilities.
+
+**INV-N5**: Placement-on-failure default is environment-derived: `env:dev`
+defaults to leave-dead, all other environments default to auto-replace.
+Per-unit `placement_on_failure` declaration overrides the environment default.
+
+## Artifact Distribution Invariants
+
+**INV-A1**: Every artifact referenced by a workload unit in the graph must
+be identified by a SHA256 digest. The executing node verifies the digest
+after fetching, before execution. Digest mismatch = reject, report to graph.
+
+**INV-A2**: Artifact fetching order: peer cache first, then external source
+(registry, URL). If peer cache has a matching digest, no external download
+occurs. This is an optimization, not a security boundary — digest
+verification (INV-A1) is the integrity guarantee.
+
+## Observability Invariants
+
+**INV-O1**: Every solver run produces a decision trail entry in the graph:
+inputs (graph snapshot ID, node membership snapshot), outputs (placements,
+conflicts), and the solver version. Decision trails are queryable.
+
+**INV-O2**: Decision trail retention defaults to since-last-compaction.
+Units can declare longer retention via a `decision_retention` field.
+Governance units can set trust-domain-wide retention policy.
+
+**INV-O3**: Health check semantics are progressive. If a workload unit
+declares no health check, the node uses OS-level process monitoring (is the
+process alive?). If a health check is declared, the node uses it. The node
+never skips health monitoring — default is always active.
+
+## Logical Clock Invariants
+
+**INV-T1**: Every system action (unit insertion, policy creation, solver run,
+gossip message send/receive) increments the node's logical clock. On inter-node
+communication, the receiving node sets its clock to `max(local, remote) + 1`.
+The logical clock is monotonically increasing per node.
+
+**INV-T2**: Causal ordering is authoritative for all correctness decisions
+(signature validity, key revocation, conflict resolution). Wall clock is
+authoritative only for duration-based operations (retention, compliance
+deadlines). Every event records the triple: `(logical_clock, wall_time, tz)`.
+
+**INV-T3**: Key revocation uses the causal model (INV-S3). Revocation takes
+effect when the revocation governance unit is merged into a node's local
+graph. Units accepted before the revocation merge are grandfathered. The
+gossip convergence window is the inherent security boundary. Governance
+can configure an optional grace window (logical clock delta) for
+additional protection against slow propagation. See INV-S3 for full model.
+
+## Workload Lifecycle Invariants
+
+**INV-W1**: Services (no validity window) are valid indefinitely until
+explicitly terminated. Key revocation prevents new units from being authored
+but does NOT invalidate existing services signed before the revocation was
+merged (per INV-S3 causal revocation model). The solver treats services as
+permanent placements.
+
+**INV-W2**: Bounded tasks auto-terminate when ANY termination trigger fires:
+completion (exit code 0), failure (exit code non-zero after retry exhaustion),
+or deadline (logical clock range exceeded or wall-time deadline passed).
+Terminated bounded tasks are eligible for compaction.
+
+**INV-W3**: Spawn depth is enforced at graph merge. A unit declaring a spawn
+parent is rejected if the resulting depth exceeds 4 (default) or the
+governance-configured maximum. Spawn depth is computed by traversing the
+spawn provenance chain.
+
+**INV-W4**: Spawned bounded tasks are signed via delegation tokens, not
+direct author keys. When a service is placed on a node, the author pre-signs
+a delegation token scoping the node's spawn authority:
+- Token binds: service ID, node ID, trust domain, logical clock range, max
+  spawn count.
+- Graph merge verifies: (a) valid delegation token exists, (b) token was
+  signed by an author with valid scope, (c) token's LC range covers the
+  spawned task's creation, (d) spawn count within limit.
+- The node does NOT hold the author's private key. Delegation tokens grant
+  bounded operational authority, not governance authority.
+
+**INV-W4a**: Spawned tasks inherit operational authority from the delegation
+token but NOT governance authority. Spawned tasks CANNOT: create policy
+units, create governance units, initiate declassification (INV-S9 requires
+directly-authored policy, not delegation-signed). This prevents authority
+escalation via spawning.
+
+## Data Lifecycle Invariants
+
+**INV-D4**: Ephemeral data (retention: ephemeral) is eligible for removal
+when the producing bounded task terminates. Before removal, a reference
+check determines treatment:
+- No downstream references (nothing consumed this data): fully removed,
+  no tombstone. The data was truly intermediate scratch.
+- Has downstream references (another unit consumed this data): tombstoned,
+  NOT fully removed. The tombstone preserves the provenance chain (INV-D1).
+  Full content is gone but identity and references are retained (INV-G2).
+- Governance can mandate tombstone for ALL ephemeral data regardless of
+  references (trust-domain-level policy override).
+
+**INV-D5**: Local-only data (never enters graph) with classification above
+`public` requires explicit policy authorization. This prevents bypassing the
+audit trail for classified data. Same authorization pattern as declassification
+(INV-S9).
+
+## Compaction Invariants
+
+**INV-G1**: Compaction eligibility is deterministic. Given the same graph
+state, all nodes agree on which units are eligible for compaction. Compaction
+TIMING is local (each node compacts when it needs to), but the RESULT
+converges via CRDT (tombstones are monotonic).
+
+**INV-G2**: Tombstones preserve provenance graph structure. A tombstone retains
+UnitId, AuthorId, type, logical clock range, termination reason, references
+(consumed/produced), and original digest. INV-D1 (unbroken provenance chain)
+is maintained through tombstones.
+
+**INV-G3**: Governance units, active policies, and root ceremony chain are
+never compacted. Compacting these would orphan the authority structure or
+leave conflicts unresolved.
+
+**INV-G4**: Eviction (node-local memory relief) does not create tombstones.
+Evicted content is reconstructable from peers (erasure coding) or archive.
+Eviction is a cache operation, not a lifecycle event. The unit remains live
+in the graph.
+
+**INV-G5**: Compaction priority order (least valuable first): ephemeral data →
+decision trails → terminated bounded tasks → superseded policies → terminated
+services → expired data. This mirrors reconstruction priority (INV-R1) in
+reverse.
+
+## Cross-Trust-Domain Invariants
+
+**INV-X1**: Cross-domain composition requires bilateral policy — explicit
+authorization in BOTH the consuming and providing trust domains. Neither
+domain can unilaterally access the other. Absence of policy in either domain
+= fail closed (INV-S2 across boundaries).
+
+**INV-X2**: Cross-domain forwarding queries return read-only views. Query
+results are NOT merged into the querying domain's graph. The querying domain
+references the foreign unit by ID only. Foreign unit content stays in its
+home domain.
+
+**INV-X3**: Cross-domain query results are cached by default with fail-open
+semantics (serve stale if bridge unavailable). Governance can override to
+fail-closed for freshness-sensitive data. Cache freshness is a governance
+policy, not a structural constraint.
+
+**INV-X4**: Bridge nodes are emergent by default (any node in multiple
+domains). Governance can restrict bridging to explicitly designated nodes.
+When governance restricts, non-designated multi-domain nodes hold both graphs
+locally but do NOT serve forwarding queries.
+
+**INV-X5**: Cross-domain capability advertisements are governance units
+(CrossDomainCapability) propagated via bridge nodes' gossip. A domain only
+discovers another domain's capabilities through a bridge or operator
+configuration. No global discovery mechanism.
+
+**INV-X6**: When no bridge exists between two domains that need to compose,
+the solver surfaces this as an unresolved capability (same mechanism as
+any unmatched need). The system does not automatically create bridges.
+Operator must admit a node to both domains to establish the bridge.
