@@ -309,4 +309,101 @@ pub trait KeyManager {
 
     /// Check whether a key was valid (not revoked) at a specific timestamp.
     fn is_valid_at(&self, key: &KeyId, timestamp: u64) -> Result<bool, SecurityError>;
+
+    /// Check whether a key is revoked in the local graph (causal model, INV-S3).
+    /// Returns true if a revocation governance unit for this author has been
+    /// merged into the local graph. Does NOT compare clocks.
+    fn is_revoked_in_local_graph(&self, author: &AuthorId) -> bool;
+}
+
+// ---------------------------------------------------------------------------
+// Delegation (INV-W4, INV-W4a)
+// ---------------------------------------------------------------------------
+
+pub struct DelegationTokenId(/* opaque */);
+pub struct DelegationToken(/* opaque */);
+pub struct LogicalClock(/* opaque */);
+
+/// Validates delegation tokens for spawned task signing.
+///
+/// When a service is placed on a node, the author pre-signs a delegation
+/// token. The node uses this token to sign spawned bounded tasks on behalf
+/// of the author. The node never holds the author's private key.
+///
+/// INV-W4a: delegation grants operational authority only. Spawned tasks
+/// CANNOT create policy units, governance units, or initiate declassification.
+pub trait DelegationValidator {
+    /// Validate that a delegation token is valid for signing a spawned task.
+    ///
+    /// Checks:
+    /// 1. Token was signed by an author with valid scope
+    /// 2. Token's LC range covers the spawned task's creation LC
+    /// 3. Spawn count has not exceeded max_spawns
+    /// 4. Token has not been revoked
+    /// 5. Parent service is still active (not terminated)
+    ///
+    /// Returns `SecurityError::DelegationExpired` if LC range exceeded.
+    /// Returns `SecurityError::DelegationSpawnLimitExceeded` if count exceeded.
+    /// Returns `SecurityError::DelegationTokenForged` if signature invalid.
+    fn validate(
+        &self,
+        token: &DelegationToken,
+        spawned_unit_lc: &LogicalClock,
+    ) -> Result<(), SecurityError>;
+
+    /// Check that a spawned task is not attempting governance operations.
+    ///
+    /// INV-W4a: spawned tasks cannot create policy units, governance units,
+    /// or participate in multi-party declassification.
+    fn check_governance_block(
+        &self,
+        token: &DelegationToken,
+        unit_type: &str, // "policy" | "governance" | "declassification"
+    ) -> Result<(), SecurityError>;
+}
+
+/// Manages delegation token lifecycle.
+pub trait DelegationManager {
+    /// Create a delegation token for a service placement.
+    ///
+    /// The author signs the token. The token binds: service_id, node_id,
+    /// trust_domain, LC range, max_spawns.
+    fn create_token(
+        &self,
+        signing_key: &SigningKey,
+        service_id: &UnitId,
+        node_id: &NodeId,
+        trust_domain: &TrustDomainId,
+        lc_start: &LogicalClock,
+        lc_end: &LogicalClock,
+        max_spawns: u32,
+    ) -> Result<DelegationToken, SecurityError>;
+
+    /// Revoke a delegation token by ID.
+    fn revoke_token(&self, token_id: &DelegationTokenId) -> Result<(), SecurityError>;
+}
+
+pub struct NodeId(/* opaque */);
+
+// ---------------------------------------------------------------------------
+// Tier 0 solo ceremony
+// ---------------------------------------------------------------------------
+
+/// Tier 0 solo bootstrap: `taba init` in one command.
+/// Generates node key + author key + self-signed trust domain + root
+/// governance unit. No Shamir, no shares, no witnesses.
+pub trait SoloBootstrap {
+    /// Initialize a single-key cluster (Tier 0).
+    ///
+    /// Returns: (key_pair, trust_domain_governance_unit, root_role_assignment).
+    /// The developer is immediately operational.
+    async fn solo_init(&self) -> Result<SoloBootstrapResult, SecurityError>;
+}
+
+pub struct SoloBootstrapResult {
+    pub key_id: KeyId,
+    pub public_key: VerifyingKey,
+    pub trust_domain: TrustDomainId,
+    pub governance_unit_id: UnitId,
+    pub role_assignment_id: UnitId,
 }

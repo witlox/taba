@@ -241,3 +241,92 @@ pub trait CycleDetector {
         new_unit: &Unit,
     ) -> Result<(), RecoveryCycle>;
 }
+
+// ---------------------------------------------------------------------------
+// New traits for analyst-session concepts
+// ---------------------------------------------------------------------------
+
+pub struct NodeCapabilitySet(/* opaque */);
+pub struct ResourceSnapshot(/* opaque */);
+pub struct ArtifactType(/* opaque */);
+pub struct PromotionPolicy(/* opaque */);
+pub struct PromotionGateDef(/* opaque */);
+pub struct EnvironmentTag(/* opaque */);
+
+/// Filters nodes by capability (hard constraints, INV-N2).
+///
+/// Binary match: a workload's artifact type must match a node's runtime
+/// capability. No fallback, no approximation.
+pub trait CapabilityFilter {
+    /// Filter nodes that can host this unit's artifact.
+    ///
+    /// Checks: artifact.type → runtime capability match,
+    /// artifact.requires → node capability match (arch, OS, privilege, etc.),
+    /// environment tag match (via promotion policy or author affinity),
+    /// custom tag requirements.
+    ///
+    /// Returns only nodes where ALL hard constraints are satisfied.
+    fn filter(
+        &self,
+        unit: &Unit,
+        nodes: &[(NodeId, NodeCapabilitySet)],
+        promotions: &[PromotionPolicy],
+    ) -> Vec<NodeId>;
+}
+
+/// Ranks nodes by dynamic resource availability (soft constraints, INV-N3).
+///
+/// Uses versioned resource snapshots for determinism (F-A306).
+/// All arithmetic is fixed-point Ppm. Resource ranking is AFTER capability
+/// filtering — only nodes that pass hard constraints are ranked.
+pub trait ResourceRanker {
+    /// Rank eligible nodes by resource fit for a unit.
+    ///
+    /// Uses the resource snapshot's logical clock for versioning.
+    /// Same snapshot version → same ranking on all nodes (deterministic).
+    /// Higher Ppm = better fit. Ties broken by lexicographic NodeId.
+    fn rank(
+        &self,
+        unit: &Unit,
+        eligible_nodes: &[NodeId],
+        resources: &[(NodeId, ResourceSnapshot)],
+    ) -> Vec<(NodeId, Ppm)>;
+}
+
+/// Evaluates promotion policies and promotion gates (INV-E1, INV-E2, INV-E3).
+pub trait PromotionEvaluator {
+    /// Determine which environments a unit version is authorized for.
+    ///
+    /// For env:dev: checks author affinity only (no promotion needed, INV-E1).
+    /// For other envs: checks PromotionPolicy existence.
+    /// Checks PromotionGate governance for auto vs human-approval.
+    fn evaluate(
+        &self,
+        unit: &Unit,
+        promotions: &[PromotionPolicy],
+        gates: &[PromotionGateDef],
+    ) -> PromotionResult;
+
+    /// Detect promotion policy collisions (INV-S8a).
+    ///
+    /// Same decision → dedup by lowest PolicyId (transparent).
+    /// Different decisions → fail closed, report conflict.
+    fn detect_promotion_collision(
+        &self,
+        promotions: &[PromotionPolicy],
+    ) -> Option<PromotionCollision>;
+}
+
+pub struct PromotionResult {
+    /// Environments this unit is authorized for.
+    pub authorized_envs: Vec<String>,
+    /// Environments blocked (no promotion or gate requires human approval).
+    pub blocked_envs: Vec<(String, String)>, // (env, reason)
+}
+
+pub struct PromotionCollision {
+    pub policy_a: UnitId,
+    pub policy_b: UnitId,
+    pub environment: String,
+    pub detail: String,
+}
