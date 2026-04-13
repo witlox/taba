@@ -106,11 +106,67 @@
 | F-018 | Provenance chain completeness not enforced during merge | correctness-consistency.md |
 | F-334 | Ubiquitous language — composition vs placement sometimes conflated | operational-spec-gaps.md |
 
+## Analyst Adversary Pass (2026-04-13) — OPEN
+
+Adversarial review of analyst session additions: environment progression,
+logical clock, workload lifecycle, compaction, cross-domain forwarding,
+progressive disclosure.
+
+### Critical (3)
+
+| ID | Title | File |
+|----|-------|------|
+| F-A300 | Lamport clock cannot verify causal revocation ordering | analyst-adversary-pass.md |
+| F-A301 | Ephemeral data removal breaks provenance chain | analyst-adversary-pass.md |
+| F-A302 | Spawned task signature authority undefined | analyst-adversary-pass.md |
+
+### High (5)
+
+| ID | Title | File |
+|----|-------|------|
+| F-A303 | Compaction determinism breaks under wall clock skew | analyst-adversary-pass.md |
+| F-A304 | Tier 0 single key is all authority — no recovery | analyst-adversary-pass.md |
+| F-A305 | Stale cross-domain cache violates bilateral authorization | analyst-adversary-pass.md |
+| F-A306 | Solver resource ranking non-deterministic across nodes | analyst-adversary-pass.md |
+| F-A307 | Policy supersession breaks environment independence | analyst-adversary-pass.md |
+
+### High (security-focused)
+
+| ID | Title | File |
+|----|-------|------|
+| F-A308 | Bridge node has unscoped read access to both domains | analyst-adversary-pass.md |
+
+### Medium (5)
+
+| ID | Title | File |
+|----|-------|------|
+| F-A309 | Local-only data classification bypass | analyst-adversary-pass.md |
+| F-A310 | Git-native versioning doesn't cover all workload sources | analyst-adversary-pass.md |
+| F-A311 | Environment tags are unverified soft convention | analyst-adversary-pass.md |
+| F-A312 | Spawned task declassification authority ambiguous | analyst-adversary-pass.md |
+| F-A313 | Cross-domain forwarding bridge bottleneck | analyst-adversary-pass.md |
+
+### Medium (operational)
+
+| ID | Title | File |
+|----|-------|------|
+| F-A314 | Fleet refresh governance command has no rate limit | analyst-adversary-pass.md |
+
+### Low (1)
+
+| ID | Title | File |
+|----|-------|------|
+| F-A315 | INV-W1 language conflicts with INV-S3 on key revocation | analyst-adversary-pass.md |
+
 ## Recurring Themes
 
 1. **A1 enforcement gap** — F-001, F-006, F-007, F-210 (load-bearing assumption without mechanism)
-2. **Solver determinism unresolved** — F-014, F-111, F-205, F-300, F-317, F-336 (OQ-004 must be resolved)
-3. **Key/signature lifecycle** — F-013, F-100, F-101, F-106, F-218, F-313 (revocation, replay, temporal validity)
+2. **Solver determinism unresolved** — F-014, F-111, F-205, F-300, F-317, F-336, F-A306 (resource ranking adds non-determinism)
+3. **Key/signature lifecycle** — F-013, F-100, F-101, F-106, F-218, F-313, F-A300, F-A302, F-A315 (Lamport clock + spawning + revocation language)
 4. **Partition + policy interaction** — F-007, F-112, F-202, F-212, F-318 (conflicting policies during split)
-5. **Operational procedures absent** — F-300, F-301, F-305, F-311 (cannot operate a cluster today)
+5. **Operational procedures absent** — F-300, F-301, F-305, F-311, F-A314 (fleet refresh rate limit)
 6. **Cascading failure amplification** — F-200, F-203, F-211, F-303 (no backpressure or circuit breakers)
+7. **Dual clock model tensions** — F-A300, F-A303 (logical vs wall clock creates edge cases in revocation and compaction)
+8. **Progressive disclosure security tradeoffs** — F-A304, F-A309, F-A311 (simpler defaults = weaker security properties)
+9. **Cross-domain trust boundary gaps** — F-A305, F-A308, F-A313 (cache staleness, bridge read access, bottleneck)
+10. **Spawn model under-specification** — F-A302, F-A312 (signature delegation, declassification authority)
