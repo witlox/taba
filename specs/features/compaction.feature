@@ -35,14 +35,28 @@ Feature: Graph compaction and archival
 
   # --- Ephemeral data removal ---
 
-  Scenario: Ephemeral data auto-removed on producing task termination
-    # INV-D4: ephemeral data removed, no tombstone by default
+  Scenario: Ephemeral data fully removed when no downstream references exist
+    # INV-D4: reference check before removal
     Given bounded task "etl-job" produces ephemeral data unit "temp-staging"
     And "temp-staging" has retention = "ephemeral"
+    And NO other unit references or consumes "temp-staging"
     When "etl-job" terminates (completed)
-    Then "temp-staging" is fully removed from the graph (no tombstone)
+    Then the system checks: does any unit reference "temp-staging"? (no)
+    And "temp-staging" is fully removed from the graph (no tombstone)
     And no archive is created for "temp-staging"
     And graph space is immediately reclaimed
+
+  Scenario: Ephemeral data tombstoned when downstream references exist
+    # INV-D4 + INV-D1: reference check preserves provenance chain
+    Given bounded task "etl-job" produces ephemeral data unit "temp-staging"
+    And "temp-staging" has retention = "ephemeral"
+    And workload "downstream-processor" consumed "temp-staging" and produced "final-output"
+    When "etl-job" terminates (completed)
+    Then the system checks: does any unit reference "temp-staging"? (yes: "downstream-processor")
+    And "temp-staging" is tombstoned (NOT fully removed)
+    And the tombstone preserves the reference to "downstream-processor"
+    And provenance query on "final-output" returns: ... → temp-staging (tombstoned) → ...
+    And INV-D1 (unbroken provenance chain) is satisfied
 
   Scenario: Governance mandates tombstone for ephemeral data
     Given a governance unit in "acme" declares: ephemeral_data_tombstone = true

@@ -69,13 +69,13 @@ Feature: Cross-context interactions
 
   @security
   Scenario: Key revocation propagates via priority gossip, rejects new units, preserves existing
+    # INV-S3: causal revocation — merge order determines validity
     Given author "dave" has authored 5 units ["u-1", "u-2", "u-3", "u-4", "u-5"] in "ops"
-    And all 5 units were signed before timestamp "2026-06-15T14:30:00Z"
-    When "dave"'s key "pk_dave" is revoked at "2026-06-15T14:30:00Z"
-    Then the revocation governance unit is propagated via priority gossip
-    And all nodes receive the revocation within the gossip convergence window
-    And units ["u-1" through "u-5"] remain valid (signed before revocation per INV-S3)
-    And a new unit "u-6" submitted by "dave" after revocation is rejected with "KeyRevoked"
+    And all 5 units are merged into the graph before any revocation
+    When "dave"'s key revocation governance unit is authored and propagated via priority gossip
+    Then all nodes receive and merge the revocation within the gossip convergence window
+    And units ["u-1" through "u-5"] remain valid (merged before revocation, no retroactive rejection)
+    And a new unit "u-6" submitted by "dave" after the revocation is merged is rejected with "KeyRevoked"
     And the solver does not remove existing compositions involving "dave"'s pre-revocation units
 
   # --- Taint propagation across boundaries ---

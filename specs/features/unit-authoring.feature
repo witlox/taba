@@ -106,32 +106,43 @@ Feature: Unit authoring
     Then the unit is rejected with error "signature context mismatch: signed for trust_domain wrong-domain but submitted to acme-prod"
     And the composition graph does not contain "misbound-api"
 
-  Scenario: Author key revoked before unit creation timestamp -- rejected
-    # INV-S3(c): key must not be revoked before unit creation timestamp
-    Given alice's Ed25519 key was revoked at timestamp 2025-12-15T00:00:00Z
-    And alice authors a workload unit "late-unit" with creation timestamp 2025-12-20T00:00:00Z with:
+  Scenario: Unit from revoked author rejected when revocation merged first
+    # INV-S3: causal revocation — effect on local graph merge order
+    Given alice's key revocation governance unit has been merged into the local graph
+    And alice authors a workload unit "late-unit" with:
       | field    | value     |
       | needs    | postgres  |
       | provides | http-rest |
       | tolerates | latency:50ms |
-    When alice signs the unit with the revoked key
-    And the unit is submitted for graph merge
-    Then the unit is rejected with error "author key revoked before unit creation timestamp: revoked=2025-12-15 created=2025-12-20"
+    When "late-unit" arrives at the node for graph merge
+    Then the node checks: is alice's key revoked in the local graph? (yes)
+    And "late-unit" is rejected with error "author key revoked (revocation merged before unit arrival)"
     And the composition graph does not contain "late-unit"
 
-  Scenario: Author key revoked after unit creation timestamp -- unit remains valid
-    # INV-S3(c): revocation after creation does not invalidate existing units
-    Given alice authors a workload unit "early-unit" with creation timestamp 2025-12-01T00:00:00Z with:
+  Scenario: Unit from revoked author accepted when it merged before revocation
+    # INV-S3: causal revocation — no retroactive rejection
+    Given alice authors a workload unit "early-unit" with:
       | field    | value     |
       | needs    | postgres  |
       | provides | http-rest |
       | tolerates | latency:50ms |
-    And alice signs the unit binding trust_domain "acme-prod" and cluster "cluster-1" with validity window 2025-11-01..2026-11-01
-    And the unit is submitted for graph merge
-    And the unit is accepted into the composition graph
-    When alice's Ed25519 key is revoked at timestamp 2025-12-15T00:00:00Z
-    Then the unit "early-unit" remains valid in the composition graph
-    And signature re-verification of "early-unit" passes because creation predates revocation
+    And alice signs the unit binding trust_domain "acme-prod" and cluster "cluster-1"
+    And "early-unit" is submitted and merged into the local graph
+    When alice's key revocation governance unit arrives later and is merged
+    Then "early-unit" remains valid in the composition graph
+    And no retroactive rejection occurs (INV-S3 causal model)
+    And future units from alice will be rejected (revocation now in local graph)
+
+  Scenario: Grace window fallback rejects units near revocation boundary
+    # INV-S3: optional grace window for slow-propagation edge cases
+    Given governance configures revocation_grace_window = 100 (logical clock delta)
+    And alice's key is revoked at logical clock 5000
+    And a unit from alice with creation_LC = 5050 arrives at a node
+    And the node has NOT yet merged the revocation governance unit
+    When the revocation governance unit arrives and is merged
+    Then the node retroactively checks: creation_LC 5050 > revocation_LC 5000 + grace 100? No (5050 < 5100)
+    And the unit is grandfathered (within grace window)
+    But a unit with creation_LC = 5200 would be rejected (5200 > 5100, outside grace window)
 
   # --- Scope uniqueness (INV-S8) ---
 

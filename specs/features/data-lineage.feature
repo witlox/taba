@@ -203,12 +203,23 @@ Feature: Data lineage
     Then the full provenance chain is returned: raw-data → etl-pipeline → temp-staging
     And taint propagation applies normally (if "raw-data" is PII, "temp-staging" inherits PII)
 
-  Scenario: Ephemeral data provenance unavailable after removal
+  Scenario: Unreferenced ephemeral data fully removed -- provenance unavailable
     Given bounded task "etl-pipeline" produced ephemeral data "temp-staging"
-    And "etl-pipeline" has completed and "temp-staging" was fully removed
+    And NO downstream unit consumed or references "temp-staging"
+    And "etl-pipeline" has completed and reference check found no references
+    And "temp-staging" was fully removed (INV-D4: no refs → remove)
     When a consumer queries provenance of "temp-staging"
-    Then the query returns "unit not found (ephemeral, removed on task completion)"
-    And no tombstone exists (default for ephemeral)
+    Then the query returns "unit not found (ephemeral, no downstream references, removed)"
+
+  Scenario: Referenced ephemeral data tombstoned -- provenance preserved
+    Given bounded task "etl-pipeline" produced ephemeral data "temp-staging"
+    And workload "aggregator" consumed "temp-staging" and produced "report"
+    And "etl-pipeline" has completed and reference check found "aggregator"
+    And "temp-staging" was tombstoned (INV-D4: has refs → tombstone)
+    When a consumer queries provenance of "report"
+    Then the chain returns: ... → temp-staging (tombstoned) → aggregator → report
+    And the tombstone preserves the reference links (INV-G2)
+    And INV-D1 (unbroken provenance) is satisfied
 
   Scenario: Governance-mandated tombstone preserves ephemeral provenance
     Given governance in "acme-prod" declares: ephemeral_data_tombstone = true

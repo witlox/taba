@@ -12,19 +12,26 @@ Feature: Spawned bounded tasks
 
   # --- Spawning lifecycle ---
 
-  Scenario: Service spawns a bounded task with delegated authority
-    # INV-W4: spawned task inherits parent trust context
-    Given "web-api" has authority to spawn bounded tasks in "acme"
-    When "web-api" spawns bounded task "migrate-v2":
+  Scenario: Service spawns a bounded task via delegation token
+    # INV-W4: delegation token model — node signs via pre-signed token
+    Given alice authored "web-api" and it is placed on "prod-1"
+    And alice pre-signed a delegation token at placement time:
+      | field          | value                   |
+      | service_id     | web-api                 |
+      | node_id        | prod-1                  |
+      | trust_domain   | acme                    |
+      | valid_lc_range | LC 1000..LC 5000        |
+      | max_spawns     | 10                      |
+    When "web-api" spawns bounded task "migrate-v2" at LC 1500:
       | field             | value                          |
       | artifact.type     | oci                            |
       | artifact.ref      | acme/migrate:v2                |
-      | validity_window   | LC 1000..LC 2000               |
+      | validity_window   | LC 1500..LC 2000               |
       | spawned_by        | web-api                        |
-    Then "migrate-v2" is signed with "web-api"'s delegated authority
-    And "migrate-v2" is inserted into the graph as a full workload unit
+    Then "prod-1" signs "migrate-v2" using the delegation token (NOT alice's private key)
+    And the graph merge verifies: (a) delegation token signed by alice, (b) LC 1500 within token range 1000..5000, (c) spawn count 1 ≤ max 10
+    And "migrate-v2" is accepted into the graph
     And provenance links "migrate-v2" → spawned-by → "web-api"
-    And "migrate-v2" inherits trust domain "acme" from parent
     And the solver evaluates placement for "migrate-v2"
 
   Scenario: Bounded task terminates on successful completion
@@ -88,14 +95,25 @@ Feature: Spawned bounded tasks
   # --- Ephemeral data from bounded tasks ---
 
   @data
-  Scenario: Ephemeral data auto-removed on task termination
-    # INV-D4: ephemeral data removed on producing task termination
+  Scenario: Unreferenced ephemeral data fully removed on task termination
+    # INV-D4: reference check before removal
     Given bounded task "etl-job" produces data unit "staging-data" with retention = "ephemeral"
     And "staging-data" is visible in the graph while "etl-job" runs
+    And NO downstream unit consumed or references "staging-data"
     When "etl-job" completes successfully
-    Then "staging-data" is fully removed from the graph
-    And no tombstone is created for "staging-data" (default for ephemeral)
+    Then the system checks: does any unit reference "staging-data"? (no)
+    And "staging-data" is fully removed from the graph (no tombstone)
     And graph space is immediately reclaimed
+
+  @data
+  Scenario: Referenced ephemeral data tombstoned on task termination
+    # INV-D4 + INV-D1: preserve provenance when downstream refs exist
+    Given bounded task "etl-job" produces data unit "staging-data" with retention = "ephemeral"
+    And workload "aggregator" consumed "staging-data" during processing
+    When "etl-job" completes successfully
+    Then the system checks: does any unit reference "staging-data"? (yes: "aggregator")
+    And "staging-data" is tombstoned (NOT fully removed)
+    And provenance from "aggregator" back through "staging-data" remains intact
 
   @data
   Scenario: Ephemeral data with classification requires governance policy for local-only
@@ -151,7 +169,8 @@ Feature: Spawned bounded tasks
     Then "task-a" and "task-b" receive termination signals
     And both tasks are drained per their declared failure semantics
     And both tasks transition to Terminated
-    And ephemeral data from both tasks is auto-removed
+    And ephemeral data from both tasks undergoes reference check:
+      unreferenced → fully removed, referenced → tombstoned (INV-D4)
 
   Scenario: Spawned task failure does not terminate parent service
     Given "web-api" spawned "task-c" for a one-off migration
@@ -177,3 +196,60 @@ Feature: Spawned bounded tasks
     Then health status is reported independently from parent "web-api"
     And if "long-job" is unhealthy, it is restarted per its own failure semantics
     And parent "web-api" health is unaffected
+
+  # --- Delegation token validation ---
+
+  @security
+  Scenario: Spawned task rejected when outside delegation token LC range
+    # INV-W4: token LC range must cover spawned task creation
+    Given alice pre-signed a delegation token for "web-api" on "prod-1":
+      | field          | value            |
+      | valid_lc_range | LC 1000..LC 2000 |
+      | max_spawns     | 10               |
+    When "web-api" attempts to spawn a task at LC 2500 (outside token range)
+    Then the spawned task is rejected at graph merge
+    And the error is "delegation token LC range exceeded: task LC 2500, token range 1000..2000"
+    And the spawn is not counted against max_spawns
+
+  @security
+  Scenario: Spawned task rejected when max spawn count exceeded
+    # INV-W4: max_spawns limit enforced
+    Given alice pre-signed a delegation token for "web-api" on "prod-1" with max_spawns = 3
+    And "web-api" has already spawned 3 tasks using this token
+    When "web-api" attempts to spawn a 4th task
+    Then the spawned task is rejected at graph merge
+    And the error is "delegation token spawn limit exceeded: max 3, current 3"
+    And alice must issue a new delegation token for more spawns
+
+  @security
+  Scenario: Spawned task cannot create policy units (INV-W4a)
+    # INV-W4a: delegation grants operational authority only, NOT governance
+    Given bounded task "data-processor" is running (spawned by "web-api" via delegation token)
+    When "data-processor" attempts to create a policy unit "rogue-policy"
+    Then the policy creation is rejected at graph merge
+    And the error is "delegation tokens do not grant governance authority: cannot create policy units"
+    And "rogue-policy" is not inserted into the graph
+
+  @security
+  Scenario: Spawned task cannot initiate declassification (INV-W4a)
+    Given bounded task "anonymizer" is running (spawned via delegation token)
+    When "anonymizer" attempts to co-sign a declassification policy
+    Then the declassification is rejected
+    And the error is "spawned tasks cannot participate in multi-party declassification (INV-W4a)"
+    And the data retains its original classification
+
+  @security
+  Scenario: Forged delegation token rejected at graph merge
+    Given an attacker creates a delegation token with a forged author signature
+    And a node attempts to sign a spawned task using the forged token
+    When the spawned task is submitted for graph merge
+    Then signature verification of the delegation token fails
+    And the spawned task is rejected with error "invalid delegation token signature"
+    And the submitting node is flagged for investigation
+
+  Scenario: Delegation token expires when parent service terminates
+    Given alice pre-signed a delegation token for "web-api" on "prod-1"
+    And "web-api" is terminated (drained)
+    When the node attempts to spawn a new task using the expired token
+    Then the spawn is rejected: "delegation token invalid: parent service terminated"
+    And no new tasks can be spawned for the terminated service

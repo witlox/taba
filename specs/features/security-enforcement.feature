@@ -143,17 +143,24 @@ Feature: Security enforcement
     And "sensitive-data" retains classification "confidential"
     And no taint change occurs
 
-  Scenario: Declassification signer revoked -- taint re-computed at query time
-    # INV-S9 + DL-007: revocation affects taint at query time
+  Scenario: Declassification signer revoked after policy merged -- policy remains valid
+    # INV-S3 causal revocation: policies merged before revocation are grandfathered
     Given a declassification policy "declass-002" signed by carol and dan exists
     And "declass-002" reduced "processed-data" from "PII" to "internal"
-    And "declass-002" was signed at timestamp 2026-05-01T00:00:00Z
-    When dan's key is revoked at timestamp 2026-06-01T00:00:00Z (after policy signing)
+    And "declass-002" was merged into the graph before any key revocation
+    When dan's key revocation governance unit is merged into the graph
     And taint for "processed-data" is queried
-    Then "processed-data" retains classification "internal" because the policy was signed before key revocation
-    But if dan's key had been revoked at 2026-04-15T00:00:00Z (before signing)
-    Then the declassification policy would be invalid
-    And "processed-data" taint would revert to "PII" at query time
+    Then "processed-data" retains classification "internal"
+    And the declassification policy remains valid (merged before revocation, no retroactive invalidation)
+
+  Scenario: Declassification signer revoked before policy merged -- policy invalid
+    # INV-S3 causal revocation: policies arriving after revocation merge are rejected
+    Given dan's key revocation governance unit has been merged into the graph
+    And carol and dan attempt to co-sign declassification policy "declass-003"
+    When "declass-003" is submitted for graph merge
+    Then "declass-003" is rejected because dan's key is revoked in the local graph
+    And the declassification does not take effect
+    And "processed-data" retains its original classification
 
   # --- Gossip authentication (DL-009) ---
 
