@@ -76,3 +76,62 @@ participates in). Cross-domain compositions use a forwarding protocol via gossip
 Would need intra-domain sharding.
 **Review**: After M2 milestone — benchmark graph sizes. After M4 — validate
 cross-domain forwarding protocol.
+
+## A9: Git-native versioning is sufficient for workload lineage
+**Status**: Design decision (adoption-critical)
+**Rationale**: Developers already use git for version control. Making workload
+unit versions map to git refs (commit SHA, tag) eliminates a separate versioning
+system and makes provenance chains natural (git history IS lineage). Promotion
+flow maps directly to git workflow: branch → dev, merge to main → test,
+tag → prod.
+**Breaks if**: Workloads need versioning that doesn't map to git (e.g., dynamically
+generated configurations, runtime-modified state). Would need a complementary
+versioning scheme for non-git-sourced units.
+**Review**: During implementer phase — verify git ref format covers all
+artifact sources (OCI images built externally may not have a git commit).
+
+## A10: Userspace installation is viable for dev nodes
+**Status**: Design decision (adoption-critical)
+**Rationale**: If taba requires root to install, the developer on-ramp is too
+steep. `taba init` in userspace (no root, no sudo) must produce a working
+node with a narrower capability set (rootless containers, unprivileged ports,
+local storage only).
+**Breaks if**: Core taba functionality (WAL, gossip, erasure coding) requires
+privileged system calls. Would need privilege separation or a helper daemon.
+**Review**: During implementer phase — verify WAL (file I/O), gossip
+(unprivileged UDP/TCP), and erasure coding (pure computation) all work in
+userspace.
+
+## A11: P2P artifact distribution scales for typical artifact sizes
+**Status**: Accepted (acknowledged risk)
+**Rationale**: Typical artifacts are 50MB-2GB (OCI images, binaries). P2P
+distribution via content-addressed chunks is well-understood (BitTorrent
+model). The peer cache avoids redundant external downloads.
+**Breaks if**: Artifacts are very large (10GB+ ML models, monolithic
+installers) and the P2P overhead exceeds direct download. Would need
+streaming/chunked transfer with progress tracking.
+**Review**: After M3 milestone — benchmark artifact distribution with
+realistic sizes.
+
+## A12: Auto-discovery correctly identifies runtime capabilities
+**Status**: Accepted (acknowledged risk)
+**Rationale**: Probing for Docker socket, K8s API, wasmtime binary, etc.
+covers the common cases. Custom runtimes are handled by operator-declared
+freeform tags.
+**Breaks if**: Runtime detection is unreliable (Docker socket exists but
+daemon isn't running, K8s API available but node lacks scheduling permission).
+Would need health-check-style verification of discovered capabilities.
+**Review**: During implementer phase — define probe contracts (what
+constitutes a valid detection vs. a stale artifact).
+
+## A13: Progressive disclosure does not create hidden complexity
+**Status**: Design assumption (load-bearing)
+**Rationale**: The progressive disclosure principle means every subsystem has
+a simple default. The risk is that the "simple" path silently omits critical
+behavior that only surfaces when the user scales up. Example: Tier 0 has no
+Shamir — upgrading to Tier 1 should not require re-signing all existing units.
+**Breaks if**: The upgrade path between tiers introduces breaking changes or
+requires migration ceremonies that are harder than starting fresh.
+**Review**: Continuously during analyst and architect phases. Each new feature
+must document its progressive disclosure path and verify the upgrade is
+non-destructive.

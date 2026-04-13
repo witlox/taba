@@ -140,3 +140,82 @@ reconstructions and alert operator.
 **Degradation**: Temporarily reduced redundancy. If failures exceed erasure
 threshold during reconstruction, system enters Degraded mode.
 **Unacceptable**: Reconstruction storm causing additional node failures.
+
+## FM-14: Promotion policy collision (different decisions)
+**Component**: Policy / Solver
+**Trigger**: Two policy authors simultaneously create conflicting promotion
+policies for the same workload version (one approves, one denies)
+**Expected response**: Both policies enter graph via CRDT merge (merge is
+permissive). Solver detects conflicting policies for same conflict tuple at
+query time. Fails closed (INV-S2) — workload is not promoted until conflict
+is resolved via explicit supersession or governance unit.
+**Degradation**: Promotion blocked for the affected workload version until
+human resolution. Other workloads unaffected.
+**Unacceptable**: Silent winner selection. Implicit resolution of policy
+disagreement. Workload placed in prod while a deny policy exists.
+
+## FM-15: Artifact unavailable at placement time
+**Component**: Artifact Distribution / Node Operations
+**Trigger**: Node is assigned a workload but cannot fetch the artifact (registry
+down, peer cache miss, air-gapped without push, digest mismatch)
+**Expected response**: Node reports fetch failure to graph as health status.
+Solver does not re-place immediately (transient failure). Retry with
+exponential backoff. If persistent, node marks workload as failed and solver
+re-places to another node.
+**Degradation**: Delayed workload start. If artifact is genuinely unavailable
+(deleted from registry, never pushed), workload remains unplaced.
+**Unacceptable**: Running a workload with unverified artifact (digest
+mismatch). Silent failure with no health status update.
+
+## FM-16: Dev node goes offline
+**Component**: Node / Solver
+**Trigger**: Developer closes laptop, dev box loses power, network disconnect
+**Expected response**: Gossip detects node failure per normal SWIM protocol.
+For `env:dev` workloads: default is leave-dead (INV-N5) — solver does not
+re-place. Workloads on the offline dev node simply stop. Developer restarts
+them when the node returns.
+**Degradation**: Dev workloads unavailable until node returns. No impact on
+test/prod.
+**Unacceptable**: Dev node failure triggering prod re-placement. Dev workloads
+consuming cluster resources after developer has gone home.
+
+## FM-17: Capability auto-discovery returns stale results
+**Component**: Node Operations
+**Trigger**: Docker daemon removed but socket file remains. K8s API endpoint
+cached but cluster decommissioned. Runtime upgraded but old version detected.
+**Expected response**: Workload placement fails at runtime (node cannot
+actually execute the artifact despite advertising the capability). Node
+reports runtime failure to graph. Solver re-places to another node.
+Operator alerted to capability mismatch.
+**Degradation**: One failed placement attempt + re-placement delay.
+**Unacceptable**: Repeated placement on the same node with stale capabilities.
+Solver must mark the capability as suspect after runtime failure.
+**Mitigation**: `taba refresh` or fleet-wide refresh to re-probe. Auto-
+discovery should verify capabilities (not just detect presence) where
+possible.
+
+## FM-18: Role succession gap (all policy authors leave)
+**Component**: Governance / Security
+**Trigger**: All authors with policy scope in a trust domain have their keys
+revoked or leave the organization without transferring scope
+**Expected response**: No new policies can be authored. Existing policies
+remain valid (signed before revocation). System continues operating with
+existing policy set. Break-glass: root key (Shamir ceremony, or Tier 0 solo
+key) can re-assign policy roles to new authors.
+**Degradation**: New conflicts cannot be resolved until new policy authors
+are assigned. Workloads with existing policies continue normally.
+**Unacceptable**: System permanently locked out of policy authoring. Root
+key unable to recover.
+
+## FM-19: Tier 0 → Tier 1 upgrade failure
+**Component**: Governance / Ceremony
+**Trigger**: Solo developer attempts to upgrade from self-signed trust domain
+to multi-party Shamir ceremony but the migration fails (network issue, key
+generation error, ceremony aborted)
+**Expected response**: Original Tier 0 trust domain remains fully operational.
+Upgrade is non-destructive — the new Tier 1 trust domain is created alongside,
+not replacing. Failed ceremony is cleaned up (key material zeroized). Developer
+can retry.
+**Degradation**: Developer remains on Tier 0 until upgrade succeeds.
+**Unacceptable**: Tier 0 trust domain invalidated by a failed upgrade attempt.
+Existing units requiring re-signing.

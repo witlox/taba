@@ -33,9 +33,18 @@ widen only with explicit policy. Direction: narrowing = adding restrictions
 restrictions (child less restrictive than parent, requires policy).
 Classification lattice: public ⊂ internal ⊂ confidential ⊂ PII.
 
-**INV-S8**: No two distinct authors can have identical (unit_type_scope,
-trust_domain_scope) tuples. Role assignment governance units must validate
-non-overlap before persisting. This is the enforcement mechanism for A1.
+**INV-S8**: Scope uniqueness is type-dependent. For state-producing unit
+types (workload, data), no two distinct authors can have identical
+(unit_type_scope, trust_domain_scope) tuples. Role assignment governance
+units must validate non-overlap before persisting. This is the enforcement
+mechanism for A1.
+
+**INV-S8a**: For decision-making unit types (policy, governance), overlapping
+scopes are permitted. Conflict resolution is structural: policy collisions
+are handled by supersession chain (INV-C7) and deterministic dedup (same
+decision → lowest PolicyId is canonical; different decisions → fail closed).
+This enables role succession and eliminates single points of failure for
+policy authoring.
 
 **INV-S9**: Declassification policies (taint removal) require multi-party
 signing: minimum 2 distinct authors — one with policy scope, one with
@@ -149,3 +158,68 @@ until SWIM confirms failure via multi-probe consensus.
 Auto-compaction triggers at 80% of limit. Node exceeding limit enters degraded
 mode: refuses new placements until compaction completes. Governance units are
 actively replicated (full copies on N nodes), not just erasure-coded.
+
+## Environment & Promotion Invariants
+
+**INV-E1**: A workload unit can only be placed on nodes whose environment tag
+matches a promotion policy authorizing that unit version for that environment.
+Exception: `env:dev` placement requires only that the unit author matches the
+node's author affinity (no promotion policy needed for dev).
+
+**INV-E2**: Promotion policies are cumulative and non-exclusive. A promotion
+to `env:prod` does not remove the unit from `env:test`. Environments are
+independent placement targets, not a pipeline with mutual exclusion.
+
+**INV-E3**: PromotionGate governance units are authoritative for auto-promote
+rules within a trust domain. If no PromotionGate exists, all transitions
+default to auto-promote (progressive disclosure: zero config = full auto).
+
+## Node Capability Invariants
+
+**INV-N1**: Node capabilities are auto-discovered at startup and cached
+locally. Cached capabilities are authoritative until re-probed via
+`taba refresh` or fleet-wide `refresh-capabilities` operational command.
+
+**INV-N2**: The solver treats capabilities as hard constraints (binary
+match/no-match). A workload requiring `runtime:oci` cannot be placed on a
+node without `runtime:oci` or `runtime:oci-rootless`. No fallback, no
+approximation.
+
+**INV-N3**: The solver treats resources as soft constraints (ranking). Among
+nodes that satisfy all capability requirements, the solver ranks by resource
+availability (best-fit). Resource ranking uses fixed-point arithmetic (ppm)
+for determinism (per INV-C3).
+
+**INV-N4**: Custom tags (freeform key:value) are treated identically to
+auto-discovered capabilities for solver matching purposes. The solver does
+not distinguish between auto-discovered and operator-declared capabilities.
+
+**INV-N5**: Placement-on-failure default is environment-derived: `env:dev`
+defaults to leave-dead, all other environments default to auto-replace.
+Per-unit `placement_on_failure` declaration overrides the environment default.
+
+## Artifact Distribution Invariants
+
+**INV-A1**: Every artifact referenced by a workload unit in the graph must
+be identified by a SHA256 digest. The executing node verifies the digest
+after fetching, before execution. Digest mismatch = reject, report to graph.
+
+**INV-A2**: Artifact fetching order: peer cache first, then external source
+(registry, URL). If peer cache has a matching digest, no external download
+occurs. This is an optimization, not a security boundary — digest
+verification (INV-A1) is the integrity guarantee.
+
+## Observability Invariants
+
+**INV-O1**: Every solver run produces a decision trail entry in the graph:
+inputs (graph snapshot ID, node membership snapshot), outputs (placements,
+conflicts), and the solver version. Decision trails are queryable.
+
+**INV-O2**: Decision trail retention defaults to since-last-compaction.
+Units can declare longer retention via a `decision_retention` field.
+Governance units can set trust-domain-wide retention policy.
+
+**INV-O3**: Health check semantics are progressive. If a workload unit
+declares no health check, the node uses OS-level process monitoring (is the
+process alive?). If a health check is declared, the node uses it. The node
+never skips health monitoring — default is always active.
