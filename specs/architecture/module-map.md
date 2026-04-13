@@ -112,6 +112,16 @@ LeaveDead, default from environment)
 **Matching**: `match_capabilities(needs, provides) -> MatchResult`,
 `CapabilityMatcher` trait
 
+**Shared abstract types** (defined here for DAG cleanliness, implemented elsewhere):
+- `GraphSnapshot` trait: immutable point-in-time graph view. Implemented by
+  taba-graph. Consumed by taba-solver. Wrapped in `Arc` for safe concurrent
+  access — snapshot is frozen at creation, never mutated.
+- `MembershipSnapshot`: current cluster membership view. Implemented by
+  taba-gossip. Consumed by taba-solver.
+- `Wal` trait: write-ahead log abstract interface. Implemented by taba-node
+  (disk-backed) and taba-test-harness (in-memory). Consumed by taba-graph
+  (WAL-before-effect per INV-C4).
+
 **Errors**: `CoreError` (InvalidUnit | MalformedCapability |
 MatchAmbiguous | HierarchyDepthExceeded)
 
@@ -276,7 +286,8 @@ persistence.
 **Causal buffering**: `PendingQueue`, `promote(unit_id) -> Result<(), GraphError>`
 
 **WAL**: `WalEntry` (Merged(unit) | Pending(unit, missing_refs) |
-Promoted(unit_id)), `Wal` trait, `WalWriter`, `WalReader`
+Promoted(unit_id)). Uses `Wal` trait (defined in taba-core, implemented
+by taba-node). Graph calls Wal::append() before applying mutations (INV-C4).
 
 **Provenance**: `ProvenanceChain`, `ProvenanceLink` (producer, inputs, timestamp, policies)
 
@@ -405,8 +416,10 @@ InsufficientResources | PrecisionOverflow)
 - `arithmetic` -- ppm fixed-point operations (u64/i64, division rounds toward zero)
 
 ### Does NOT own
-- Graph state (reads immutable snapshots from taba-graph)
-- Membership (reads from taba-gossip)
+- Graph state (reads immutable `GraphSnapshot` defined in taba-core,
+  implemented by taba-graph, wrapped in Arc for concurrent safety)
+- Membership (reads `MembershipSnapshot` defined in taba-core,
+  implemented by taba-gossip)
 - Placement execution (taba-node reconciles actual state)
 - Capability matching algorithm (defined in taba-core; solver uses it)
 - Taint computation (delegates to taba-security)

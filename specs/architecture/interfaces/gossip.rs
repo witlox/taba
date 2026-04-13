@@ -70,6 +70,14 @@ pub enum GossipError {
     InsufficientWitnesses { node: NodeId, have: u8, need: u8 },
     /// Node is in a state that does not permit this operation.
     InvalidState { node: NodeId, state: NodeHealth, reason: String },
+    /// Cross-domain: no bilateral policy exists (INV-X1).
+    BilateralPolicyMissing { consuming: TrustDomainId, providing: TrustDomainId },
+    /// Cross-domain: no bridge available (INV-X6).
+    BridgeUnavailable { target: TrustDomainId },
+    /// Cross-domain: governance requires freshness but bridge is down (INV-X3).
+    StaleResultRejected { target: TrustDomainId },
+    /// Fleet command rate limit exceeded (F-A314).
+    FleetCommandRateLimited { command_type: String },
 }
 
 // ---------------------------------------------------------------------------
@@ -200,4 +208,113 @@ pub trait MembershipView {
 }
 
 /// Opaque snapshot of membership state at a point in time.
+/// Type defined in taba-core (A009). Populated by taba-gossip.
 pub struct MembershipSnapshot(/* opaque */);
+
+// ---------------------------------------------------------------------------
+// New traits for analyst-session concepts (A025)
+// ---------------------------------------------------------------------------
+
+pub struct TrustDomainId(/* opaque */);
+pub struct UnitId(/* opaque */);
+pub struct LogicalClock(/* opaque */);
+pub struct NodeCapabilitySet(/* opaque */);
+pub struct ResourceSnapshot(/* opaque */);
+pub struct Capability(/* opaque */);
+
+/// Capability and resource advertisement via gossip (INV-N1, INV-N3).
+///
+/// Nodes advertise capabilities (rarely, on change/refresh) and resources
+/// (periodically). Both are included in the MembershipView for solver use.
+pub trait CapabilityAdvertiser {
+    /// Advertise this node's capability set via gossip.
+    ///
+    /// Called on startup, on `taba refresh`, and on fleet refresh command.
+    async fn advertise_capabilities(
+        &self,
+        capabilities: &NodeCapabilitySet,
+    ) -> Result<(), GossipError>;
+
+    /// Advertise this node's resource snapshot via gossip.
+    ///
+    /// Called periodically (configurable interval). Includes logical clock
+    /// for versioning (solver determinism per F-A306).
+    async fn advertise_resources(
+        &self,
+        resources: &ResourceSnapshot,
+    ) -> Result<(), GossipError>;
+}
+
+/// Cross-domain forwarding protocol (INV-X1 through INV-X6).
+///
+/// Bridge nodes relay capability advertisements and forwarding queries
+/// across trust domain boundaries. Bilateral policy is verified before
+/// query execution.
+pub trait CrossDomainGossip {
+    /// Discover bridge nodes for a target domain.
+    ///
+    /// Returns nodes participating in both the local domain and the target.
+    /// If governance restricts bridging (INV-X4), only designated bridges
+    /// are returned.
+    fn discover_bridges(&self, target_domain: &TrustDomainId) -> Vec<NodeId>;
+
+    /// Execute a cross-domain forwarding query via a bridge.
+    ///
+    /// 1. Verify bilateral policy in both domains (INV-X1)
+    /// 2. Send signed query to bridge
+    /// 3. Bridge executes against target domain's local graph
+    /// 4. Bridge returns signed result (read-only view, INV-X2)
+    /// 5. Cache result locally (fail-open default, INV-X3)
+    ///
+    /// Returns cached result if bridge is unavailable and cache exists
+    /// (fail-open). Returns BridgeUnavailable if no cache and no bridge.
+    async fn forward_query(
+        &self,
+        target_domain: &TrustDomainId,
+        query_payload: &[u8],
+    ) -> Result<ForwardingResult, GossipError>;
+
+    /// Validate that bilateral policy exists for a cross-domain interaction.
+    ///
+    /// Checks both consuming and providing domains. Returns error if
+    /// either side is missing authorization (INV-X1, fail closed).
+    fn validate_bilateral(
+        &self,
+        consuming_domain: &TrustDomainId,
+        providing_domain: &TrustDomainId,
+    ) -> Result<(), GossipError>;
+
+    /// Relay a cross-domain capability advertisement (INV-X5).
+    ///
+    /// Called by bridge nodes when they receive a CrossDomainCapability
+    /// governance unit in one domain and relay it to the other.
+    async fn relay_advertisement(
+        &self,
+        source_domain: &TrustDomainId,
+        capability: &Capability,
+        conditions: &str,
+    ) -> Result<(), GossipError>;
+}
+
+/// Cross-domain forwarding result (read-only view, INV-X2).
+pub struct ForwardingResult {
+    pub request_id: u64,
+    pub result_payload: Vec<u8>,
+    pub bridge_node: NodeId,
+    pub result_lc: LogicalClock,
+}
+
+/// Fleet-wide operational command propagation (F-A314 rate limited).
+///
+/// Signed governance commands propagated to all nodes via gossip.
+pub trait FleetCommandService {
+    /// Propagate a fleet-wide command.
+    ///
+    /// Rate-limited: only one command of each type per configured LC delta.
+    /// Deduplication by (command_type, logical_clock).
+    async fn propagate_command(
+        &self,
+        command_type: &str,
+        governance_unit_id: &UnitId,
+    ) -> Result<(), GossipError>;
+}

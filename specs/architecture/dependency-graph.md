@@ -289,11 +289,15 @@ after gossip delivers the message.
 ### Cross-crate trait pattern
 
 Several traits are defined in one crate and implemented in another:
+- `GraphSnapshot` trait: defined in taba-core, implemented in taba-graph.
+  Wrapped in Arc for concurrent immutable access (A006).
+- `MembershipSnapshot` type: defined in taba-core, populated by taba-gossip.
+- `Wal` trait: defined in taba-core, implemented in taba-node (disk) and
+  taba-test-harness (in-memory). taba-graph CALLS Wal, never implements it.
+  This avoids a circular dependency (A003).
 - `CompositionGraph` trait: defined in taba-graph, implemented there
 - `Solver` trait: defined in taba-solver, implemented there
 - `Signer`/`Verifier` traits: defined in taba-security, implemented there
-- `Wal` trait: defined in taba-graph, implemented in taba-node (disk) and
-  taba-test-harness (in-memory)
 - `ShardStore` trait: defined in taba-node, implemented there and in
   taba-test-harness (in-memory)
 - `MembershipService` trait: defined in taba-gossip, implemented there and

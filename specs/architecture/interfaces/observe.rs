@@ -139,9 +139,11 @@ pub trait SolverReplay {
 pub trait EventEmitter {
     /// Emit a structured event.
     ///
-    /// Best-effort delivery. Emission failure does not block the system
-    /// operation that triggered the event.
-    fn emit(&self, event_type: &str, detail: &str);
+    /// Non-blocking: queues the event internally and returns immediately.
+    /// Returns Ok(()) if queued successfully. Returns Err if the internal
+    /// queue is full (backpressure). Callers should log-and-continue on
+    /// error — event emission MUST NOT block system operations.
+    fn emit(&self, event_type: &str, detail: &str) -> Result<(), ObserveError>;
 }
 
 /// Aggregates health check results from all workloads on a node.

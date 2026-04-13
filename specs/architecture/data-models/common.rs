@@ -90,8 +90,8 @@ pub struct DualClockEvent {
     pub timezone: String,
 }
 
-/// Legacy compatibility alias. Use DualClockEvent for new code.
-pub type Timestamp = DualClockEvent;
+// A002: No alias. Use DualClockEvent everywhere. The name "Timestamp"
+// was ambiguous (wall time? logical? both?). DualClockEvent is explicit.
 
 /// Clock quality reported by the node (INV-N1 capability).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
