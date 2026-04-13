@@ -13,12 +13,28 @@ Unsigned or wrongly-signed units are rejected on merge. Signature verification
 is synchronous and blocks merge — no unit enters graph state before verification
 completes. Signatures bind context: Sign(key, hash(unit || trust_domain_id ||
 cluster_id || logical_clock || validity_window?)). A unit is valid iff:
-(a) signature is cryptographically valid, (b) author had valid scope at
-creation time, and (c) author's key was not revoked before the unit's creation
-logical clock. Key revocation uses logical clock (not wall time) for causal
-correctness — no clock skew exposure. The validity_window is optional: omitted
-for services (valid indefinitely), set for bounded tasks (logical clock range
-and/or wall-time deadline).
+(a) signature is cryptographically valid, and (b) author had valid scope at
+creation time.
+
+**Key revocation model** (causal, not clock-comparison):
+- Revocation is a graph operation. A revocation governance unit is signed,
+  merged, and propagated via priority gossip.
+- Once a revocation unit is merged into a node's local graph, that node
+  rejects any subsequent units from the revoked author.
+- Units from the revoked author that arrived BEFORE the revocation was
+  locally merged are accepted (they were valid when received). No
+  retroactive rejection — this avoids graph state divergence.
+- The security window is gossip propagation time (seconds to tens of
+  seconds). This is the inherent boundary in a P2P system — no clock
+  scheme can shrink it below propagation delay.
+- **Grace window fallback**: governance can configure a revocation grace
+  period (logical clock delta). Units from a revoked author with
+  creation_LC > revocation_LC + grace_window are rejected even if they
+  arrived before the local revocation merge. This catches slow-propagation
+  edge cases. Default: no grace window (pure causal model).
+
+The validity_window is optional: omitted for services (valid indefinitely),
+set for bounded tasks (logical clock range and/or wall-time deadline).
 
 **INV-S4**: Taint propagation: if input data unit has classification C, output
 data unit inherits C unless explicit policy declassifies. Taint is computed at
@@ -240,16 +256,20 @@ The logical clock is monotonically increasing per node.
 authoritative only for duration-based operations (retention, compliance
 deadlines). Every event records the triple: `(logical_clock, wall_time, tz)`.
 
-**INV-T3**: Key revocation uses logical clock. A key revoked at logical clock
-L means units signed by that author with creation logical clock > L are
-rejected. The gossip convergence window is the real exposure for revocation
-propagation. Governance can configure a revocation grace period as policy.
+**INV-T3**: Key revocation uses the causal model (INV-S3). Revocation takes
+effect when the revocation governance unit is merged into a node's local
+graph. Units accepted before the revocation merge are grandfathered. The
+gossip convergence window is the inherent security boundary. Governance
+can configure an optional grace window (logical clock delta) for
+additional protection against slow propagation. See INV-S3 for full model.
 
 ## Workload Lifecycle Invariants
 
 **INV-W1**: Services (no validity window) are valid indefinitely until
-explicitly terminated or their author's key is revoked. The solver treats
-them as permanent placements.
+explicitly terminated. Key revocation prevents new units from being authored
+but does NOT invalidate existing services signed before the revocation was
+merged (per INV-S3 causal revocation model). The solver treats services as
+permanent placements.
 
 **INV-W2**: Bounded tasks auto-terminate when ANY termination trigger fires:
 completion (exit code 0), failure (exit code non-zero after retry exhaustion),
@@ -261,15 +281,35 @@ parent is rejected if the resulting depth exceeds 4 (default) or the
 governance-configured maximum. Spawn depth is computed by traversing the
 spawn provenance chain.
 
-**INV-W4**: Spawned bounded tasks inherit the parent service's trust context
-(trust domain, author scope). The spawning service must have authority to
-create units of the spawned type within its scope.
+**INV-W4**: Spawned bounded tasks are signed via delegation tokens, not
+direct author keys. When a service is placed on a node, the author pre-signs
+a delegation token scoping the node's spawn authority:
+- Token binds: service ID, node ID, trust domain, logical clock range, max
+  spawn count.
+- Graph merge verifies: (a) valid delegation token exists, (b) token was
+  signed by an author with valid scope, (c) token's LC range covers the
+  spawned task's creation, (d) spawn count within limit.
+- The node does NOT hold the author's private key. Delegation tokens grant
+  bounded operational authority, not governance authority.
+
+**INV-W4a**: Spawned tasks inherit operational authority from the delegation
+token but NOT governance authority. Spawned tasks CANNOT: create policy
+units, create governance units, initiate declassification (INV-S9 requires
+directly-authored policy, not delegation-signed). This prevents authority
+escalation via spawning.
 
 ## Data Lifecycle Invariants
 
-**INV-D4**: Ephemeral data (retention: ephemeral) is auto-removed when the
-producing bounded task terminates. No tombstone by default. Governance can
-mandate tombstone for ephemeral data via trust-domain-level policy.
+**INV-D4**: Ephemeral data (retention: ephemeral) is eligible for removal
+when the producing bounded task terminates. Before removal, a reference
+check determines treatment:
+- No downstream references (nothing consumed this data): fully removed,
+  no tombstone. The data was truly intermediate scratch.
+- Has downstream references (another unit consumed this data): tombstoned,
+  NOT fully removed. The tombstone preserves the provenance chain (INV-D1).
+  Full content is gone but identity and references are retained (INV-G2).
+- Governance can mandate tombstone for ALL ephemeral data regardless of
+  references (trust-domain-level policy override).
 
 **INV-D5**: Local-only data (never enters graph) with classification above
 `public` requires explicit policy authorization. This prevents bypassing the

@@ -75,6 +75,35 @@ from v1.1 at def456." The composition graph IS the version history.
 - Max spawn depth: 4 (service → task → sub-task → cleanup). Deeper nesting
   requires explicit governance override. Enforced at graph merge.
 
+**Spawn signing — delegation tokens**: the node does not hold the author's
+private key. Instead, when a service is placed, the author pre-signs a
+**delegation token**:
+
+```
+DelegationToken {
+    service_id:     UnitId,           // which service may spawn
+    node_id:        NodeId,           // which node may use this token
+    trust_domain:   TrustDomainId,    // scope
+    valid_lc_range: (LC_start, LC_end), // bounded logical clock range
+    max_spawns:     u32,              // maximum tasks spawnable
+    author_sig:     Signature,        // author signs this token
+}
+```
+
+The node uses the delegation token to sign spawned tasks on behalf of the
+author. Graph merge verifies: (a) delegation token exists and is valid,
+(b) token was signed by an author with valid scope, (c) token's logical
+clock range covers the spawned task's creation, (d) spawn count has not
+exceeded max_spawns.
+
+**Delegation token properties**:
+- Bounded: expires at logical clock range end. Cannot outlive the service.
+- Revocable: author can revoke delegation independently of key revocation.
+- Scoped: only for tasks spawned by the specific service on the specific node.
+- Does NOT grant the node author-level authority — only bounded spawn signing.
+- Progressive: Tier 0 (solo dev) auto-generates delegation tokens. Regulated
+  environments require explicit token issuance per service placement.
+
 **Bounded task termination triggers**:
 - Completion: task finishes successfully → auto-terminates
 - Failure: task crashes or exceeds retry limit → failure semantics apply
@@ -96,8 +125,10 @@ storage requirements (encryption, replication, jurisdiction)
 **Retention modes**:
 - Persistent (default): governed by retention policy (wall-time, compliance-driven).
   Tombstoned on retention expiry.
-- Ephemeral: auto-removed when the producing bounded task terminates.
-  No tombstone by default; governance can mandate tombstone for audit trail.
+- Ephemeral: eligible for removal when the producing bounded task terminates.
+  Reference check determines treatment: no downstream references → fully
+  removed; has downstream references → tombstoned (preserves provenance
+  chain per INV-D1). Governance can mandate tombstone for all ephemeral data.
 - Local-only: never enters the composition graph. Node-local scratch data.
   No CRDT overhead, no provenance, no audit. Governance can restrict
   local-only for classified data above `public` (requires explicit policy,
@@ -418,10 +449,14 @@ Every system action increments the local counter. On inter-node communication
 Every event records the triple: `(logical_clock, wall_time, timezone)`.
 The system chooses which clock based on operation type.
 
-**Key revocation**: uses logical clock. "Key revoked at LC 50000" means
-units signed by that author with LC > 50000 are rejected. The gossip
-convergence window (not clock skew) is the real exposure. Governance can
-configure the revocation grace period as policy.
+**Key revocation**: causal model (not clock-comparison). Revocation is a
+graph operation — a signed governance unit propagated via priority gossip.
+Once merged into a node's local graph, the node rejects subsequent units
+from the revoked author. Units accepted before the revocation merge are
+grandfathered (they were valid when received). The security window is
+gossip propagation time — the inherent boundary in a P2P system.
+Governance can optionally configure a grace window (logical clock delta)
+as fallback for slow-propagation edge cases.
 
 **Clock capability**: nodes report clock quality as a capability:
 - `clock:ntp` (seconds accuracy), `clock:ptp` (microseconds),

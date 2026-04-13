@@ -112,13 +112,13 @@ Adversarial review of analyst session additions: environment progression,
 logical clock, workload lifecycle, compaction, cross-domain forwarding,
 progressive disclosure.
 
-### Critical (3)
+### Critical (3) — RESOLVED
 
-| ID | Title | File |
-|----|-------|------|
-| F-A300 | Lamport clock cannot verify causal revocation ordering | analyst-adversary-pass.md |
-| F-A301 | Ephemeral data removal breaks provenance chain | analyst-adversary-pass.md |
-| F-A302 | Spawned task signature authority undefined | analyst-adversary-pass.md |
+| ID | Title | Resolution |
+|----|-------|-----------|
+| F-A300 | Lamport clock cannot verify causal revocation ordering | Replaced clock-comparison with causal revocation model (graph merge order). Grace window as fallback. INV-S3, INV-T3 updated. |
+| F-A301 | Ephemeral data removal breaks provenance chain | Reference check before removal: downstream refs → tombstone, no refs → full remove. INV-D4 updated. |
+| F-A302 | Spawned task signature authority undefined | Delegation token model added. Author pre-signs bounded token; node signs spawned tasks via token. INV-W4/W4a updated, domain-model updated. |
 
 ### High (5)
 
@@ -143,7 +143,7 @@ progressive disclosure.
 | F-A309 | Local-only data classification bypass | analyst-adversary-pass.md |
 | F-A310 | Git-native versioning doesn't cover all workload sources | analyst-adversary-pass.md |
 | F-A311 | Environment tags are unverified soft convention | analyst-adversary-pass.md |
-| F-A312 | Spawned task declassification authority ambiguous | analyst-adversary-pass.md |
+| F-A312 | Spawned task declassification authority ambiguous | RESOLVED: INV-W4a prohibits governance authority via delegation tokens. Spawned tasks cannot initiate declassification. |
 | F-A313 | Cross-domain forwarding bridge bottleneck | analyst-adversary-pass.md |
 
 ### Medium (operational)
@@ -156,7 +156,7 @@ progressive disclosure.
 
 | ID | Title | File |
 |----|-------|------|
-| F-A315 | INV-W1 language conflicts with INV-S3 on key revocation | analyst-adversary-pass.md |
+| F-A315 | INV-W1 language conflicts with INV-S3 on key revocation | RESOLVED: INV-W1 clarified — key revocation doesn't invalidate existing services. |
 
 ## Recurring Themes
 
