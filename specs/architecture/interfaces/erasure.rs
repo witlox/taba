@@ -1,9 +1,11 @@
-// taba-erasure: Erasure coding, shard distribution, and reconstruction.
+// taba-erasure: Reed-Solomon erasure coding, shard distribution, and reconstruction.
 //
-// This crate provides k-of-n erasure coding for graph shards. It is NOT
-// replication — it encodes data into n shards such that any k shards can
-// reconstruct the original. Parameters adapt to fleet size:
-// k = ceil(N * (1 - R/100)) where R is the configured resilience percentage.
+// This crate provides k-of-n Reed-Solomon erasure coding over GF(2^8) (DL-013)
+// for graph shards. Implementation: `reed-solomon-erasure` crate (SIMD-accelerated).
+// It is NOT replication — it encodes data into n shards such that any k shards
+// can reconstruct the original. Parameters adapt to fleet size:
+// k = ceil(N * (1 - R/100)) where R is the resilience percentage. Default R=33.
+// GF(2^8) limits n to 256; for clusters >128 nodes, distribute to a subset.
 //
 // Reconstruction has backpressure (INV-R1): throttled rate, priority queue,
 // circuit breaker.

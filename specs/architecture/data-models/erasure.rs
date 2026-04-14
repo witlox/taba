@@ -1,10 +1,13 @@
 //! Erasure coding types: shard management, reconstruction, and backpressure.
 //!
-//! taba uses erasure coding (not replication) for graph resilience. Shards
-//! are distributed across active nodes. Parameters adapt to fleet size:
-//! k = ceil(N * (1 - R/100)) where R is the configured resilience percentage
-//! (INV-R4). Reconstruction has backpressure to prevent cascading failures
-//! (INV-R1, FM-13).
+//! taba uses Reed-Solomon erasure coding over GF(2^8) (DL-013) for graph
+//! resilience. Implementation: `reed-solomon-erasure` crate (SIMD-accelerated).
+//! GF(2^8) limits to 256 shards maximum; for clusters >128 nodes, shards are
+//! distributed to a representative subset. Shards are distributed across active
+//! nodes. Parameters adapt to fleet size: k = ceil(N * (1 - R/100)) where R is
+//! the configured resilience percentage (INV-R4). Default resilience_pct: 33
+//! (tolerate ~1/3 node failures). Reconstruction has backpressure to prevent
+//! cascading failures (INV-R1, FM-13).
 //!
 //! Governance units are an exception: they are actively replicated (full
 //! copies on N nodes), not just erasure-coded (INV-R6).

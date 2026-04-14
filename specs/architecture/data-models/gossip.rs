@@ -1,10 +1,22 @@
 //! Gossip types: SWIM-based membership, failure detection, and witness confirmation.
 //!
-//! taba uses a SWIM-like gossip protocol for membership and failure detection
-//! (INV-R3). All gossip messages are signed with the sending node's identity
-//! key. Membership state changes (node declared failed) require corroboration
-//! from at least 2 independent witnesses (INV-R3). Gossip is O(n) in
-//! dissemination, targeting hundreds to low thousands of nodes (A4).
+//! taba uses a SWIM-like gossip protocol with Lifeguard-style auto-tuning
+//! (DL-016) for membership and failure detection (INV-R3). All gossip messages
+//! are signed with the sending node's identity key. Membership state changes
+//! (node declared failed) require corroboration from at least 2 independent
+//! witnesses (INV-R3). Gossip is O(n) in dissemination, targeting hundreds to
+//! low thousands of nodes (A4).
+//!
+//! **Default parameters** (DL-016):
+//! - gossip_interval: 500ms (one random peer probed per interval)
+//! - suspicion_timeout: 5s (base, auto-scaled with cluster size)
+//! - witness_count: 2 (INV-R3)
+//! - indirect_probe_count: 3 (peers asked for ping-req on direct failure)
+//! - retransmit_multiplier: 4 (piggyback rounds = mult × log2(N))
+//! - max_piggyback_entries: 8 (bounds message size)
+//! - suspicion_multiplier: 4 (effective timeout = mult × ceil(log2(N)) × interval)
+//!
+//! Key revocation priority: retransmitted for 2× normal rounds for rapid convergence.
 
 use std::collections::BTreeMap;
 
@@ -192,4 +204,45 @@ pub struct WitnessConfirmation {
     pub failed_probe: SwimProbe,
     /// When this confirmation was made.
     pub confirmed_at: Timestamp,
+}
+
+// ---------------------------------------------------------------------------
+// Gossip tuning parameters (DL-016)
+// ---------------------------------------------------------------------------
+
+/// SWIM gossip protocol tuning parameters with Lifeguard-style auto-scaling.
+///
+/// These are stored in ClusterConfig and propagated via gossip. The effective
+/// suspicion timeout auto-scales with cluster size:
+/// `effective = max(base_timeout, suspicion_mult × ceil(log2(N)) × interval)`
+///
+/// Bandwidth estimate at 10k nodes: ~1 KB/s per node, ~10 MB/s cluster-wide.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GossipParams {
+    /// Base probe interval — one random peer probed per interval.
+    /// Default: 500ms.
+    pub gossip_interval: std::time::Duration,
+    /// Base suspicion timeout — time a node stays Suspected before witnesses
+    /// can confirm failure. Must be > gossip_interval × indirect_probe_count.
+    /// Default: 5s.
+    pub suspicion_timeout: std::time::Duration,
+    /// Number of independent witnesses required before declaring a node failed.
+    /// Default: 2 (INV-R3).
+    pub witness_count: u8,
+    /// Number of peers asked to do indirect probes (ping-req) when a direct
+    /// ping fails. Default: 3 (standard SWIM).
+    pub indirect_probe_count: u8,
+    /// Membership changes piggybacked for `retransmit_multiplier × log2(N)`
+    /// rounds. Default: 4.
+    pub retransmit_multiplier: u8,
+    /// Maximum membership changes piggybacked per message. Bounds message size.
+    /// Default: 8.
+    pub max_piggyback_entries: u8,
+    /// Suspicion timeout scales as `suspicion_multiplier × ceil(log2(N)) × interval`.
+    /// Larger clusters get proportionally more time, reducing false positives.
+    /// Default: 4.
+    pub suspicion_multiplier: u8,
+    /// Key revocation messages use `2 × retransmit_multiplier × log2(N)` rounds
+    /// (double normal) for rapid convergence. This is hardcoded behavior, not
+    /// a configurable parameter.
 }

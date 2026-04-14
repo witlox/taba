@@ -77,8 +77,34 @@ pub enum DegradedTrigger {
 }
 
 // ---------------------------------------------------------------------------
-// Write-ahead log
+// Write-ahead log (DL-014)
 // ---------------------------------------------------------------------------
+
+/// On-disk WAL frame format: length-prefixed protobuf with CRC32C integrity.
+///
+/// ```text
+/// ┌──────────┬──────────┬───────────────────────┬──────────┐
+/// │ len: u32 │ crc: u32 │ WalEntry (protobuf)   │ pad 0-7  │
+/// └──────────┴──────────┴───────────────────────┴──────────┘
+/// ```
+///
+/// - `len`: payload length in bytes (little-endian u32)
+/// - `crc`: CRC32C of the protobuf payload (corruption detection, FM-07)
+/// - Payload: prost-encoded WalEntry
+/// - Padding: zero bytes to 8-byte alignment
+///
+/// **Segment naming**: `wal-{sequence_start:016}.log`
+/// Lexicographic sort = temporal order. Default segment size: 64 MB.
+///
+/// **Compaction**: entries are discardable when:
+/// - Merged: unit successfully erasure-coded to cluster (durable beyond this node)
+/// - Pending: promoted (refs arrived) or expired (1-hour configurable timeout)
+/// - Promoted: immediately after corresponding Merged entry is written
+///
+/// Compaction = new segment with non-discardable entries, atomic rename, delete old.
+///
+/// **Decision trails** (INV-O1) use the same frame format but a separate file
+/// sequence (`trail-{sequence_start:016}.log`) managed by taba-observe.
 
 /// A single entry in the node-local write-ahead log.
 /// Every mutation is WAL'd atomically before effects become visible (INV-C4).
@@ -117,6 +143,19 @@ pub enum WalEntryType {
     Promoted {
         unit_id: UnitId,
     },
+}
+
+/// WAL segment configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalConfig {
+    /// Maximum segment size in bytes before rotation (default: 64 MB).
+    pub max_segment_bytes: u64,
+    /// Timeout for pending entries before they are eligible for discard (default: 1 hour).
+    pub pending_expiry: std::time::Duration,
+    /// Directory for WAL segment files.
+    pub wal_dir: String,
+    /// Directory for decision trail segment files (taba-observe).
+    pub trail_dir: String,
 }
 
 // ---------------------------------------------------------------------------

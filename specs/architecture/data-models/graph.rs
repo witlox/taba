@@ -1,7 +1,20 @@
 //! Composition graph types: the CRDT, graph operations, merge semantics, and causal buffering.
 //!
 //! The composition graph is the single source of desired state (INV-C1).
-//! It is a CRDT -- merge is commutative, associative, and idempotent (INV-C2).
+//! It is a δ-state CRDT (delta-state, DL-012) -- merge is commutative,
+//! associative, and idempotent (INV-C2). Specifically:
+//!
+//! - **Add-set**: signed units (grow-only, never removed from add-set)
+//! - **Remove-set**: tombstones (grow-only, monotonic)
+//! - **Policy chains**: versioned register per ConflictTuple, converges to
+//!   highest-version non-revoked policy (Multi-Value Register)
+//! - **Pending queue**: node-local, NOT replicated
+//!
+//! `GraphDelta` is a partial state (not an operation log). Merging deltas is
+//! idempotent (like CvRDT) while shipping only changes (like CmRDT). All
+//! graph operations are monotonic: inserts grow the add-set, compaction adds
+//! to the remove-set. This satisfies INV-C2 by construction.
+//!
 //! Every entry is signed and verified before merge (INV-S3). Units with
 //! unsatisfied references enter the pending queue for causal buffering (INV-C4).
 //!

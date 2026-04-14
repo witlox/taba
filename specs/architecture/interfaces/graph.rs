@@ -1,9 +1,12 @@
-// taba-graph: CRDT composition graph — the single source of desired state.
+// taba-graph: δ-state CRDT composition graph — the single source of desired state.
 //
 // This crate implements the distributed graph that holds all units and their
-// relationships. It owns merge semantics (CRDT), causal buffering, policy
-// supersession, and query operations. The graph is sharded via erasure coding
-// (taba-erasure) and synchronized via gossip (taba-gossip).
+// relationships. It owns merge semantics (δ-state CRDT per DL-012), causal
+// buffering, policy supersession, and query operations. The graph is a 2P-Set
+// variant: add-set (signed units, grow-only) + remove-set (tombstones, monotonic).
+// GraphDelta is a partial state, not an operation log — merging is idempotent.
+// The graph is sharded via erasure coding (taba-erasure) and synchronized via
+// gossip (taba-gossip).
 
 // ---------------------------------------------------------------------------
 // Placeholder types

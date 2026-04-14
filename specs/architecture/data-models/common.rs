@@ -184,12 +184,29 @@ pub struct ClusterConfig {
     /// Enforced at 16 levels per domain model.
     pub max_data_hierarchy_depth: u8,
 
-    /// Gossip protocol tuning.
+    /// Gossip protocol tuning (DL-016). See gossip::GossipParams for full docs.
+    /// Default: interval=500ms, suspicion_timeout=5s, witness_count=2,
+    /// indirect_probe_count=3, retransmit_multiplier=4, max_piggyback_entries=8,
+    /// suspicion_multiplier=4. Effective suspicion timeout auto-scales:
+    /// max(base, suspicion_mult × ceil(log2(N)) × interval).
     pub gossip_interval: Duration,
     pub gossip_suspicion_timeout: Duration,
 
     /// Number of independent witnesses required before declaring a node failed (INV-R3).
+    /// Default: 2.
     pub witness_count: u8,
+
+    /// Peers asked for indirect probes on direct ping failure. Default: 3.
+    pub indirect_probe_count: u8,
+
+    /// Piggyback rounds = retransmit_multiplier × log2(N). Default: 4.
+    pub retransmit_multiplier: u8,
+
+    /// Maximum membership changes piggybacked per message. Default: 8.
+    pub max_piggyback_entries: u8,
+
+    /// Suspicion timeout multiplier for auto-scaling with cluster size. Default: 4.
+    pub suspicion_multiplier: u8,
 
     /// Maximum spawn depth for bounded tasks (INV-W3, default 4).
     pub max_spawn_depth: u8,
