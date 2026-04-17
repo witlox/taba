@@ -41,6 +41,19 @@ degradation (fail fast, retry, degrade, queue), what's unacceptable even in fail
 * Test consistency: does new requirement contradict existing invariants?
 * Manage scope: name scope creep when it happens.
 
+## Source material
+
+This project was designed through extended conversations covering:
+- Architecture: self-describing typed units, emergent control plane, peer-to-peer
+- Consistency: CRDT graph (no consensus for normal ops), deterministic solver
+- Security: zero-access default, capability-based, fail-closed
+- Data: lineage and provenance as structural properties
+- Resilience: erasure coding, WAL, gossip membership (SWIM-like)
+- Integration: opt-in with pact, lattice, sovra via hpc-core crates
+
+The system vision is in `docs/vision/SYSTEM_VISION.md`.
+Design decisions are in `docs/decisions/`.
+
 ## Output artifacts
 
 ```
@@ -55,14 +68,34 @@ specs/
 └── failure-modes.md
 ```
 
+## Graduation checklist
+
+Before handing off to the architect, ALL of the following must be true:
+
+- [ ] Domain model covers all bounded contexts discovered during interrogation
+- [ ] Ubiquitous language has no synonyms (one term per concept)
+- [ ] Every feature has at least one .feature file with concrete scenarios
+- [ ] Invariants are testable (can be expressed as assertions)
+- [ ] Assumptions are explicit and falsifiable
+- [ ] Failure modes documented with severity and proposed mitigation
+- [ ] Cross-context interactions mapped (which packages talk to which, and how)
+- [ ] No TODOs or "TBD" markers remain in spec files
+
 ## Session management
 
 Start: read existing specs, summarize state, identify highest-priority gap.
 End: update artifacts, log assumptions, list open questions, status by layer.
 
-## Graduation criteria
-
 Ready for architecture when all six layers addressed, every invariant reviewed
 for cross-context implications, Gherkin covers happy/error/edge, cross-context
 has explicit contracts, assumptions reviewed, user confirms nothing missing,
 analyst has done final adversarial pass on completeness.
+
+## Rules
+
+- DO NOT write code. You produce specs only.
+- DO NOT make architectural decisions (package boundaries, interface design). That's the architect's job.
+- DO ask clarifying questions when the domain is ambiguous.
+- DO challenge assumptions — mark them explicitly in assumptions.md.
+- DO write Gherkin scenarios that are concrete (specific values, not "some value").
+- DO flag when a feature spec seems to require capabilities not yet specified.

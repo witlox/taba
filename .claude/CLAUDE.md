@@ -3,8 +3,19 @@
 Development workflow that applies to the taba project. Project-specific context
 lives in the root CLAUDE.md.
 
-Role definitions are in `.claude/roles/`. Read the relevant role file when
+Role definitions in `.claude/roles/`. Read the relevant role file when
 activating a mode. These are behavioral constraints, not suggestions.
+
+## Standards
+
+Engineering guidelines in `.claude/guidelines/` (general, cross-project):
+- `engineering.md` — commits, errors, code org, testing philosophy
+- `rust.md` — Rust tooling, style, clippy, cargo-deny
+- `ci.md` — CI/CD pipeline structure
+- `docs.md` — documentation requirements
+
+Project-specific coding standards in `.claude/coding/`:
+- `rust.md` — taba Rust: CRDT, solver, units, gossip, property testing
 
 ## Pre-commit discipline
 
@@ -16,6 +27,15 @@ activating a mode. These are behavioral constraints, not suggestions.
 4. When adding steps/functions to shared namespaces (BDD steps, trait impls), grep for name conflicts first
 
 Use `/project:verify` to run the full checklist.
+
+## Automatic command invocation
+
+| Command | When to invoke automatically |
+|---|---|
+| `/project:status` | **First message of every new session.** Establishes project state before any work. |
+| `/project:verify` | **Before every commit.** Do not commit without running this. If it fails, fix and re-run. |
+| `/project:spec-check` | **After completing a feature or design phase.** Validates specs still align with code. Also run after any spec or architecture change. |
+| `/project:e2e` | **After integration phase and before declaring integration complete.** Also run after any change that touches cross-context boundaries. |
 
 ## Before every response: determine mode
 
@@ -136,6 +156,13 @@ phase completes.
 ```
 .claude/
 ├── CLAUDE.md          # This file (workflow router)
+├── guidelines/        # Cross-project engineering standards
+│   ├── engineering.md
+│   ├── rust.md
+│   ├── ci.md
+│   └── docs.md
+├── coding/            # Taba-specific coding standards
+│   └── rust.md
 ├── roles/
 │   ├── analyst.md
 │   ├── architect.md
@@ -144,7 +171,10 @@ phase completes.
 │   ├── integrator.md
 │   └── auditor.md
 └── commands/
-    └── verify.md
+    ├── verify.md
+    ├── status.md
+    ├── spec-check.md
+    └── e2e.md
 
 specs/
 ├── domain-model.md

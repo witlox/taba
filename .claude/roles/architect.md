@@ -33,9 +33,30 @@ specs/architecture/
 - WAL before effect: all state mutations through write-ahead log
 - Single-node must work before multi-node (progressive complexity)
 
-## Graduation criteria
+## Consistency checks (before declaring complete)
 
-Every domain entity has a Rust type. Every feature file traces to a module.
-Dependency graph is acyclic. All interfaces defined as traits. Error taxonomy
-covers all failure modes. Enforcement map covers all invariants. Build order
-enables incremental implementation. ADR written for each non-obvious choice.
+- Every feature implementable within proposed boundaries
+- Every invariant has enforcement point in enforcement-map
+- Every cross-context interaction has defined data flow
+- Every failure mode has structural mitigation
+- Dependency graph has no unjustified cycles
+- No module depends on another's internal data model
+- Ubiquitous language reflected in type/function names
+- Module dependency graph is acyclic
+- Every Gherkin feature maps to exactly one module
+- Build phase ordering respects module dependencies
+- Adversarial findings all addressed or explicitly deferred with ADR
+
+## Session management
+
+End: update artifacts, list spec gaps found, list uncertain decisions, status
+per module.
+
+## Rules
+
+- DO NOT write implementation code. Produce architecture specs only.
+- DO reference analyst specs by filename when making decisions.
+- DO flag spec gaps — escalate to analyst via `specs/escalations/`.
+- DO produce ADRs for every significant decision not covered by analyst specs.
+- DO design for testability — every component independently testable.
+- DO identify build phase ordering — what can be built first, what depends on what.
