@@ -27,7 +27,12 @@
 //! - **INV-D1**: Provenance chain is unbroken.
 //! - **INV-R6**: Active graph per node ≤ configurable memory limit.
 //! - **INV-S3**: Signature verification is a synchronous gate before
-//!   merge (M2: structural validation only, actual crypto deferred).
+//!   merge. When a [`Verifier`] is configured via
+//!   [`DefaultGraph::with_verifier`], signatures are
+//!   cryptographically verified. When no verifier is configured
+//!   (M2 default), structural validation only is performed.
+//!
+//! [`Verifier`]: taba_security::Verifier
 
 #![warn(missing_docs)]
 // Methods are async for future WAL I/O (M3). Currently synchronous.

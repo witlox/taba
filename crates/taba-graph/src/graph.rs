@@ -3,8 +3,10 @@
 //! The [`Graph`] trait defines core mutation operations: insert, merge,
 //! supersede, archive, compact, snapshot. All mutations go through
 //! this trait. Signature verification is a synchronous gate before
-//! any unit enters graph state (INV-S3) — in M2, this is structural
-//! validation only.
+//! any unit enters graph state (INV-S3). When a [`Verifier`] is
+//! configured via [`DefaultGraph::with_verifier`], signatures are
+//! cryptographically verified before the WAL write. When no verifier
+//! is configured (M2 default), structural validation only is performed.
 //!
 //! [`DefaultGraph`] is the in-memory implementation for M2. It uses
 //! [`std::sync::Mutex`] for interior mutability (the trait methods take
@@ -16,7 +18,11 @@ use std::future::Future;
 use std::sync::{Arc, Mutex};
 
 use taba_common::{AuthorId, DualClockEvent, TrustDomainId, UnitId};
-use taba_core::{ConflictTuple, DefaultValidator, Unit, UnitKind, UnitValidator};
+use taba_core::{
+    ConflictTuple, DefaultValidator, GovernanceUnit, RoleAssignment, Unit, UnitKind, UnitTypeScope,
+    UnitValidator,
+};
+use taba_security::{DefaultScopeChecker, ScopeChecker, Verifier};
 
 use crate::compaction::{Compactor, DefaultCompactor};
 use crate::crdt::{CompositionGraphData, GraphDelta};
@@ -53,7 +59,11 @@ pub trait Graph {
     ///
     /// # Errors
     ///
-    /// - [`GraphError::SignatureRejected`]: structural validation failed.
+    /// - [`GraphError::SignatureRejected`]: structural validation or
+    ///   signature verification failed, or spawn depth exceeds maximum
+    ///   (INV-S3, INV-W3).
+    /// - [`GraphError::ScopeViolation`]: scope uniqueness violation
+    ///   (INV-S8).
     /// - [`GraphError::MemoryLimitExceeded`]: graph is at capacity.
     /// - [`GraphError::PolicyChainError`]: duplicate policy (INV-C7).
     /// - [`GraphError::WouldCreateCycle`]: recovery deps would cycle.
@@ -229,6 +239,14 @@ pub struct DefaultGraph {
     validator: DefaultValidator,
     /// Memory limit in bytes (INV-R6).
     memory_limit_bytes: u64,
+    /// Optional signature verifier (INV-S3). When present, signatures
+    /// are cryptographically verified before a unit enters graph state.
+    /// When `None` (M2 default), structural validation only is performed.
+    verifier: Option<Arc<dyn Verifier + Send + Sync>>,
+    /// Maximum spawn depth for workload units (INV-W3). Default: 4.
+    max_spawn_depth: u8,
+    /// Optional scope checker for role-assignment uniqueness (INV-S8).
+    scope_checker: Option<Arc<DefaultScopeChecker>>,
 }
 
 impl DefaultGraph {
@@ -243,6 +261,9 @@ impl DefaultGraph {
             wal: Mutex::new(InMemoryWal::new()),
             validator: DefaultValidator::empty(),
             memory_limit_bytes,
+            verifier: None,
+            max_spawn_depth: 4,
+            scope_checker: None,
         }
     }
 
@@ -258,7 +279,45 @@ impl DefaultGraph {
             wal: Mutex::new(InMemoryWal::new()),
             validator,
             memory_limit_bytes,
+            verifier: None,
+            max_spawn_depth: 4,
+            scope_checker: None,
         }
+    }
+
+    /// Sets the signature verifier for this graph (INV-S3).
+    ///
+    /// When set, all units inserted via [`insert`](Graph::insert) and
+    /// all entries received via [`merge`](Graph::merge) must have a
+    /// valid Ed25519 signature before they enter graph state. When
+    /// `None` (M2 default), structural validation only is performed.
+    #[must_use]
+    pub fn with_verifier(mut self, verifier: Arc<dyn Verifier + Send + Sync>) -> Self {
+        self.verifier = Some(verifier);
+        self
+    }
+
+    /// Sets the maximum spawn depth for workload units (INV-W3).
+    ///
+    /// Units with `spawn_context.spawn_depth > max` are rejected at
+    /// graph merge. Default: 4 (from `ClusterConfig.max_spawn_depth`).
+    #[must_use]
+    pub const fn with_max_spawn_depth(mut self, n: u8) -> Self {
+        self.max_spawn_depth = n;
+        self
+    }
+
+    /// Sets the scope checker for this graph (INV-S8).
+    ///
+    /// When set, role assignments are checked for scope uniqueness
+    /// before they enter graph state. No two distinct authors may
+    /// have identical scope tuples for state-producing unit types
+    /// (workload, data). Overlapping scopes for decision-making types
+    /// (policy, governance) are permitted (INV-S8a).
+    #[must_use]
+    pub fn with_scope_checker(mut self, checker: Arc<DefaultScopeChecker>) -> Self {
+        self.scope_checker = Some(checker);
+        self
     }
 
     /// Returns a clone of the shared state `Arc`.
@@ -284,9 +343,13 @@ impl DefaultGraph {
 
     /// Validates a unit structurally using the graph's validator.
     ///
-    /// In M2, this is the verification gate (INV-S3). Returns
-    /// `Ok(())` if the unit is well-formed, or
-    /// `Err(GraphError::SignatureRejected)` on failure.
+    /// This is the first verification gate (structural well-formedness).
+    /// When a [`Verifier`] is also configured, cryptographic signature
+    /// verification is performed separately in [`insert`](Graph::insert)
+    /// after this check. Returns `Ok(())` if the unit is well-formed,
+    /// or `Err(GraphError::SignatureRejected)` on failure.
+    ///
+    /// [`Verifier`]: taba_security::Verifier
     fn validate(&self, unit: &Unit) -> Result<(), GraphError> {
         self.validator
             .validate(unit)
@@ -403,9 +466,103 @@ impl Graph for DefaultGraph {
             self.check_memory_limit(&state)?;
         }
 
-        // Phase 4: WAL-before-effect (INV-C4).
+        // Phase 4: Wrap in SignedUnit and run security gates before WAL.
         let signed = Self::wrap_signed(unit);
 
+        // Phase 4a: Signature verification gate (INV-S3).
+        // In M2, insert receives a raw Unit. wrap_signed creates a
+        // placeholder SignedUnit with a zero-valued signature. When a
+        // verifier is configured, the placeholder is rejected — M3
+        // will provide properly signed units via the node daemon.
+        if let Some(verifier) = &self.verifier {
+            let logical_clock = signed.unit.header().created_at.logical_clock;
+            verifier
+                .verify(
+                    &signed.unit,
+                    &signed.signature,
+                    &signed.context.trust_domain_id,
+                    &signed.context.cluster_id,
+                    &logical_clock,
+                    None,
+                )
+                .map_err(|e| GraphError::SignatureRejected {
+                    unit: id,
+                    reason: e.to_string(),
+                })?;
+        } else {
+            // M2: no verifier configured, structural validation only
+        }
+
+        // Phase 4b: Spawn depth enforcement (INV-W3).
+        // Workload units with a spawn context must not exceed the
+        // maximum spawn depth (default 4).
+        if let Unit::Workload(w) = &signed.unit {
+            if let Some(spawn_ctx) = &w.spawn_context {
+                if spawn_ctx.spawn_depth > self.max_spawn_depth {
+                    return Err(GraphError::SignatureRejected {
+                        unit: id,
+                        reason: format!(
+                            "spawn depth {} exceeds maximum {} (INV-W3)",
+                            spawn_ctx.spawn_depth, self.max_spawn_depth
+                        ),
+                    });
+                }
+            }
+        }
+
+        // Phase 4c: Scope uniqueness enforcement (INV-S8).
+        // For role assignments, no two distinct authors may have
+        // identical (unit_type_scope, trust_domain_scope) tuples for
+        // state-producing unit types. Overlapping scopes for
+        // decision-making types (policy, governance) are permitted
+        // (INV-S8a).
+        if let Some(scope_checker) = &self.scope_checker {
+            if let Unit::Governance(GovernanceUnit::RoleAssignment(new_ra)) = &signed.unit {
+                let existing: Vec<RoleAssignment> = {
+                    let state = self
+                        .state
+                        .lock()
+                        .expect("graph mutex should not be poisoned");
+                    state
+                        .entries
+                        .values()
+                        .filter_map(|e| {
+                            if let Unit::Governance(GovernanceUnit::RoleAssignment(ra)) = e.unit() {
+                                Some(ra.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect()
+                };
+
+                let mut merged = existing;
+                merged.push(new_ra.clone());
+
+                if let Some(first_scope) = new_ra.unit_type_scope.first() {
+                    let unit_kind = match first_scope {
+                        UnitTypeScope::Workload => UnitKind::Workload,
+                        UnitTypeScope::Data => UnitKind::Data,
+                        UnitTypeScope::Policy => UnitKind::Policy,
+                        // UnitTypeScope::Governance and any future
+                        // #[non_exhaustive] variants default to
+                        // Governance (conservative — scope uniqueness
+                        // returns Ok for Governance per INV-S8a).
+                        _ => UnitKind::Governance,
+                    };
+                    scope_checker
+                        .validate_scope_uniqueness(&merged, unit_kind)
+                        .map_err(|e| GraphError::ScopeViolation {
+                            author: new_ra.assignee,
+                            reason: e.to_string(),
+                        })?;
+                }
+            }
+        } else {
+            // M2: no scope checker configured, scope uniqueness not enforced
+        }
+
+        // Phase 5: WAL-before-effect (INV-C4).
         if missing_refs.is_empty() {
             // References satisfied — enter active set.
             let merged_at = DualClockEvent {
@@ -520,6 +677,29 @@ impl Graph for DefaultGraph {
                 rejected.push((*id, e));
                 continue;
             }
+
+            // Signature verification gate (INV-S3).
+            if let Some(verifier) = &self.verifier {
+                let logical_clock = entry.unit().header().created_at.logical_clock;
+                if let Err(e) = verifier.verify(
+                    entry.unit(),
+                    &entry.signed_unit.signature,
+                    &entry.signed_unit.context.trust_domain_id,
+                    &entry.signed_unit.context.cluster_id,
+                    &logical_clock,
+                    None,
+                ) {
+                    rejected.push((
+                        *id,
+                        GraphError::SignatureRejected {
+                            unit: *id,
+                            reason: e.to_string(),
+                        },
+                    ));
+                    continue;
+                }
+            }
+
             valid_delta.add_entry(entry.clone());
         }
 
@@ -955,9 +1135,11 @@ impl GraphQuery for DefaultGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use taba_common::{ClusterId, LogicalClock, ValidityWindow, Version, WallTime};
-    use taba_core::{RecoveryAction, RecoveryRelationship, UnitState};
-    use taba_security::{PublicKey, Signature, SignatureContext};
+    use taba_common::{
+        ClusterId, DelegationTokenId, LogicalClock, ValidityWindow, Version, WallTime,
+    };
+    use taba_core::{RecoveryAction, RecoveryRelationship, SpawnContext, UnitHeader, UnitState};
+    use taba_security::{DefaultVerifier, PublicKey, Signature, SignatureContext};
     use taba_test_harness::{PolicyUnitBuilder, WorkloadUnitBuilder};
 
     /// Creates a [`Unit::Workload`] with the given ID and trust domain.
@@ -969,6 +1151,36 @@ mod tests {
                 .with_trust_domain(td)
                 .build(),
         )
+    }
+
+    /// Creates a [`Unit::Governance`] with a [`RoleAssignment`] for testing.
+    ///
+    /// The `domain_scopes` must be non-empty (the first element is used
+    /// as the trust domain in the unit header). The `type_scopes` must
+    /// be non-empty for the unit to pass structural validation.
+    fn role_assignment_unit(
+        assignee: AuthorId,
+        type_scopes: Vec<UnitTypeScope>,
+        domain_scopes: Vec<TrustDomainId>,
+    ) -> Unit {
+        Unit::Governance(GovernanceUnit::RoleAssignment(RoleAssignment {
+            header: UnitHeader {
+                id: UnitId(uuid::Uuid::new_v4()),
+                author: assignee,
+                trust_domain: domain_scopes[0],
+                created_at: DualClockEvent {
+                    logical_clock: LogicalClock(1),
+                    wall_time: WallTime { millis: 1000 },
+                    timezone: "UTC".to_string(),
+                },
+                validity: None,
+                state: UnitState::Declared,
+                version: None,
+            },
+            assignee,
+            unit_type_scope: type_scopes,
+            trust_domain_scope: domain_scopes,
+        }))
     }
 
     // -- insert --------------------------------------------------------------
@@ -1650,5 +1862,171 @@ mod tests {
                 .any(|e| matches!(e, WalEntry::Promoted { unit_id } if *unit_id == pending_id)),
             "WAL should contain a Promoted entry after promotion"
         );
+    }
+
+    // -- INV-S3: signature verification ------------------------------------
+
+    #[tokio::test]
+    async fn test_insert_with_verifier_rejects_unsigned() {
+        // When a verifier is configured, the zero-valued placeholder
+        // signature from wrap_signed is rejected (INV-S3). The verifier
+        // has no keys, so KeyNotFound is returned — a unit with an
+        // unknown author must not enter graph state.
+        let verifier: Arc<dyn Verifier + Send + Sync> = Arc::new(DefaultVerifier::new());
+        let graph = DefaultGraph::new(1_000_000_000).with_verifier(verifier);
+
+        let id = UnitId(uuid::Uuid::new_v4());
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+
+        let result = graph.insert(workload(id, td, author)).await;
+        assert!(
+            result.is_err(),
+            "insert with verifier should reject unsigned unit"
+        );
+        assert!(
+            matches!(result, Err(GraphError::SignatureRejected { unit, .. }) if unit == id),
+            "expected SignatureRejected for unsigned unit, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_insert_without_verifier_accepts() {
+        // Without a verifier, insert performs structural validation
+        // only and accepts the unit (backward compatible with M2).
+        let graph = DefaultGraph::new(1_000_000_000);
+
+        let id = UnitId(uuid::Uuid::new_v4());
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+
+        graph
+            .insert(workload(id, td, author))
+            .await
+            .expect("insert without verifier should succeed");
+
+        assert!(graph.get(&id).is_ok(), "unit should be in active set");
+    }
+
+    // -- INV-W3: spawn depth enforcement -----------------------------------
+
+    #[tokio::test]
+    async fn test_insert_spawn_depth_within_limit() {
+        // Spawn depth 4 with max 4 should be accepted (INV-W3).
+        // The unit references its parent (via spawn_context), so it
+        // enters the pending queue — but the depth check passes.
+        let graph = DefaultGraph::new(1_000_000_000).with_max_spawn_depth(4);
+
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+        let parent_id = UnitId(uuid::Uuid::new_v4());
+
+        let w = WorkloadUnitBuilder::new()
+            .with_author(author)
+            .with_trust_domain(td)
+            .with_spawn_context(SpawnContext {
+                spawned_by: parent_id,
+                delegation_token_id: DelegationTokenId(uuid::Uuid::new_v4()),
+                spawn_depth: 4,
+            })
+            .build();
+
+        graph
+            .insert(Unit::Workload(w))
+            .await
+            .expect("spawn depth 4 within max 4 should be accepted");
+    }
+
+    #[tokio::test]
+    async fn test_insert_spawn_depth_exceeds_limit() {
+        // Spawn depth 5 with max 4 should be rejected (INV-W3).
+        let graph = DefaultGraph::new(1_000_000_000).with_max_spawn_depth(4);
+
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+        let parent_id = UnitId(uuid::Uuid::new_v4());
+
+        let id = UnitId(uuid::Uuid::new_v4());
+        let w = WorkloadUnitBuilder::new()
+            .with_id(id)
+            .with_author(author)
+            .with_trust_domain(td)
+            .with_spawn_context(SpawnContext {
+                spawned_by: parent_id,
+                delegation_token_id: DelegationTokenId(uuid::Uuid::new_v4()),
+                spawn_depth: 5,
+            })
+            .build();
+
+        let result = graph.insert(Unit::Workload(w)).await;
+        assert!(
+            result.is_err(),
+            "spawn depth 5 exceeding max 4 should be rejected"
+        );
+        assert!(
+            matches!(result, Err(GraphError::SignatureRejected { unit, .. }) if unit == id),
+            "expected SignatureRejected for spawn depth violation, got: {result:?}"
+        );
+    }
+
+    // -- INV-S8: scope uniqueness enforcement ------------------------------
+
+    #[tokio::test]
+    async fn test_insert_duplicate_scope_rejected() {
+        // Two distinct authors with identical (workload, domain)
+        // scope tuples should be rejected (INV-S8).
+        let scope_checker = Arc::new(DefaultScopeChecker::new());
+        let graph = DefaultGraph::new(1_000_000_000).with_scope_checker(scope_checker);
+
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author1 = AuthorId(uuid::Uuid::new_v4());
+        let author2 = AuthorId(uuid::Uuid::new_v4());
+
+        // First role assignment — should succeed.
+        let ra1 = role_assignment_unit(author1, vec![UnitTypeScope::Workload], vec![td]);
+        graph
+            .insert(ra1)
+            .await
+            .expect("first role assignment should succeed");
+
+        // Second role assignment with same scope tuple but a different
+        // author — should be rejected (INV-S8).
+        let ra2 = role_assignment_unit(author2, vec![UnitTypeScope::Workload], vec![td]);
+        let result = graph.insert(ra2).await;
+        assert!(
+            result.is_err(),
+            "duplicate scope tuple from distinct authors should be rejected"
+        );
+        assert!(
+            matches!(result, Err(GraphError::ScopeViolation { author, .. }) if author == author2),
+            "expected ScopeViolation for duplicate scope, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_insert_overlapping_policy_scope_allowed() {
+        // Two distinct authors with identical (policy, domain) scope
+        // tuples should be allowed (INV-S8a).
+        let scope_checker = Arc::new(DefaultScopeChecker::new());
+        let graph = DefaultGraph::new(1_000_000_000).with_scope_checker(scope_checker);
+
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author1 = AuthorId(uuid::Uuid::new_v4());
+        let author2 = AuthorId(uuid::Uuid::new_v4());
+
+        // First policy role assignment — should succeed.
+        let ra1 = role_assignment_unit(author1, vec![UnitTypeScope::Policy], vec![td]);
+        graph
+            .insert(ra1)
+            .await
+            .expect("first policy role assignment should succeed");
+
+        // Second policy role assignment with same scope tuple but a
+        // different author — should also succeed (INV-S8a).
+        let ra2 = role_assignment_unit(author2, vec![UnitTypeScope::Policy], vec![td]);
+        graph
+            .insert(ra2)
+            .await
+            .expect("overlapping policy scopes should be allowed (INV-S8a)");
     }
 }

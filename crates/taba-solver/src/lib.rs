@@ -41,6 +41,9 @@
 #![warn(missing_docs)]
 // Test variable names are short by convention (a, b, c for graph nodes).
 #![allow(clippy::similar_names)]
+// INV-C3: the solver must never use floating-point arithmetic.
+// All scoring is fixed-point Ppm (10^6, u64).
+#![deny(clippy::float_arithmetic)]
 
 pub mod conflict;
 pub mod cycle;
