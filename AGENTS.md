@@ -70,8 +70,9 @@ cargo deny check
 
 ## Project state
 
-**Phase**: Implementation. M1 (types compile) complete. Specs,
-architecture, and adversary reviews were completed pre-implementation.
+**Phase**: Implementation. M1 (types compile) and M2 (single-node
+compose) complete. Specs, architecture, and adversary reviews were
+completed pre-implementation.
 
 | Stage | Status |
 |-------|--------|
@@ -80,13 +81,14 @@ architecture, and adversary reviews were completed pre-implementation.
 | Architecture (module map, interfaces, data models) | Complete |
 | Adversary architecture review (45 findings) | All critical/high resolved |
 | BDD feature files (128 scenarios, 20 files) | Complete |
-| Fidelity baseline | Not established (first auditor sweep after M2) |
+| Fidelity baseline | Not established (first auditor sweep after M3) |
 | M1: Types compile (common, core, test-harness) | Complete — 147 tests |
-| M2: Single-node compose (+ graph, solver, security) | Not started |
+| M2: Single-node compose (+ graph, solver, security) | Complete — 313 tests |
+| M3: Persistent (+ node WAL) | Not started |
 
-**Next**: M2 — implement taba-security (signing, verification, scope),
-taba-graph (CRDT graph, merge, WAL integration), taba-solver
-(composition resolution, placement, conflict detection).
+**Next**: M3 — implement taba-node (per-node daemon, WAL persistence,
+local reconciliation loop). This makes the single-node graph survive
+restarts.
 
 ## Build phases
 
