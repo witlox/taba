@@ -1,0 +1,22 @@
+[package]
+name = "taba-test-harness"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Shared test utilities, builders, and property test strategies for taba"
+
+[lints]
+workspace = true
+
+[dependencies]
+taba-common = { path = "../taba-common" }
+taba-core = { path = "../taba-core" }
+proptest = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+serde_json = "1"
+tokio = { workspace = true }

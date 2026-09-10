@@ -1,0 +1,20 @@
+[package]
+name = "taba-common"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Foundation types, configuration, and shared infrastructure for taba"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+serde_json = { version = "1" }
