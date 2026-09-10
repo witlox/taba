@@ -1,0 +1,25 @@
+[package]
+name = "taba-solver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Deterministic composition solver, placement, and conflict detection for taba"
+
+[lints]
+workspace = true
+
+[dependencies]
+taba-common = { path = "../taba-common" }
+taba-core = { path = "../taba-core" }
+taba-graph = { path = "../taba-graph" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+serde_json = "1"
+taba-security = { path = "../taba-security" }
+taba-test-harness = { path = "../taba-test-harness" }
+uuid = { workspace = true }

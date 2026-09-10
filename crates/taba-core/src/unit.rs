@@ -355,7 +355,7 @@ pub struct PolicyUnit {
 
 /// The conflict tuple that a policy resolves: a set of unit IDs plus
 /// the capability name where the conflict was detected.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ConflictTuple {
     /// The units involved in the conflict (sorted for determinism).
     pub unit_ids: BTreeSet<UnitId>,

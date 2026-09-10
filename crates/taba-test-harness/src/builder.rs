@@ -305,6 +305,27 @@ impl DataUnitBuilder {
         self
     }
 
+    /// Sets the unit's author.
+    #[must_use]
+    pub const fn with_author(mut self, author: AuthorId) -> Self {
+        self.header.author = author;
+        self
+    }
+
+    /// Sets the unit's trust domain.
+    #[must_use]
+    pub const fn with_trust_domain(mut self, td: TrustDomainId) -> Self {
+        self.header.trust_domain = td;
+        self
+    }
+
+    /// Sets the provenance chain for this data unit (INV-D1).
+    #[must_use]
+    pub fn with_provenance(mut self, provenance: taba_core::Provenance) -> Self {
+        self.provenance = Some(provenance);
+        self
+    }
+
     /// Sets the data schema.
     #[must_use]
     pub fn with_schema(mut self, schema: DataSchema) -> Self {
@@ -459,6 +480,20 @@ impl PolicyUnitBuilder {
         self
     }
 
+    /// Sets the unit's author.
+    #[must_use]
+    pub const fn with_author(mut self, author: AuthorId) -> Self {
+        self.header.author = author;
+        self
+    }
+
+    /// Sets the unit's trust domain (header).
+    #[must_use]
+    pub const fn with_trust_domain(mut self, td: TrustDomainId) -> Self {
+        self.header.trust_domain = td;
+        self
+    }
+
     /// Sets the human-readable rationale.
     ///
     /// Must be non-empty for a valid unit.
@@ -472,6 +507,20 @@ impl PolicyUnitBuilder {
     #[must_use]
     pub const fn with_supersedes(mut self, id: UnitId) -> Self {
         self.supersedes = Some(id);
+        self
+    }
+
+    /// Sets the version number in the supersession chain.
+    #[must_use]
+    pub const fn with_version(mut self, version: Version) -> Self {
+        self.version = version;
+        self
+    }
+
+    /// Sets whether this policy is revoked.
+    #[must_use]
+    pub const fn with_revoked(mut self, revoked: bool) -> Self {
+        self.revoked = revoked;
         self
     }
 

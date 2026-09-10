@@ -3,6 +3,9 @@ resolver = "3"
 members = [
     "crates/taba-common",
     "crates/taba-core",
+    "crates/taba-security",
+    "crates/taba-graph",
+    "crates/taba-solver",
     "crates/taba-test-harness",
 ]
 
@@ -32,3 +35,6 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 proptest = "1"
 bytes = "1"
+ed25519-dalek = { version = "2", features = ["rand_core", "zeroize"] }
+zeroize = { version = "1", features = ["zeroize_derive"] }
+sha2 = "0.10"

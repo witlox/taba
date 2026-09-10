@@ -101,7 +101,7 @@ impl LogicalClock {
 /// Logical clock is authoritative for ordering.
 /// Wall time + timezone are authoritative for retention/compliance.
 /// Wall time + timezone are informational for human display.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DualClockEvent {
     pub logical_clock: LogicalClock,
     pub wall_time: WallTime,
