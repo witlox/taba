@@ -179,7 +179,7 @@
 ## FINDING-316: Wire Format Version Compatibility Not Specified
 **Severity**: Medium
 **Category**: Operational
-**Component**: cross-context/interactions.md, guidelines/BUILD_ORDER.md
+**Component**: cross-context/interactions.md, specs/architecture/build-phases.md
 **Scenario**: Old node (v1.0) serializes graph with "tolerance_ms." New node (v1.1) expects "tolerance_us." Gossip delivers incompatible shard.
 **Impact**: Silent data misinterpretation or partition between versions.
 **Recommendation**: Schema versioning strategy (protobuf forward/backward compatibility rules). Version check on merge.
@@ -190,7 +190,7 @@
 ## FINDING-317: Property Tests Don't Specify Cross-Platform Determinism
 **Severity**: High
 **Category**: Spec-Gap
-**Component**: guidelines/TESTING_STRATEGY.md, A2, OQ-004
+**Component**: specs/architecture/testing-strategy.md, A2, OQ-004
 **Scenario**: Testing strategy says "determinism: same input = same output" but doesn't specify "on any platform." If solver uses floating-point internally, x86 and ARM may produce same results by coincidence.
 **Impact**: Determinism regression invisible until real divergence appears.
 **Recommendation**: Resolve OQ-004 before Phase 2. Property tests must verify across architectures. Integer-only or deterministic float.

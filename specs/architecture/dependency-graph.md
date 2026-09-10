@@ -229,7 +229,7 @@ graph, and solver to build fakes, builders, and proptest strategies.
 
 ## Phase mapping
 
-Which crates are needed for which project milestone (from guidelines/BUILD_ORDER.md):
+Which crates are needed for which project milestone (from specs/architecture/build-phases.md):
 
 | Milestone | Crates required | Capability |
 |-----------|----------------|------------|

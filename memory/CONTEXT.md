@@ -1,4 +1,4 @@
-# Context for Claude Code Sessions
+# Session Context
 
 ## Project identity
 
@@ -36,7 +36,11 @@
 
 ## Current phase
 
-Starting: Phase 1 (Analyst) — domain extraction from design conversation.
+Analyst and architect phases complete. Adversary reviews complete
+(57 spec findings, 45 architecture findings — all critical/high
+resolved). BDD features complete (128 scenarios, 20 files). No source
+code yet. Next: Phase 1 (M1: Types compile) — IMPLEMENT phase using
+the diamond protocol.
 
 ## Open questions
 
