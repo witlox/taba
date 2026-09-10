@@ -86,9 +86,10 @@ completed pre-implementation.
 | M2: Single-node compose (+ graph, solver, security) | Complete — 313 tests |
 | M3: Persistent (+ node WAL) | Not started |
 
-**Next**: M3 — implement taba-node (per-node daemon, WAL persistence,
-local reconciliation loop). This makes the single-node graph survive
-restarts.
+**Next**: M4 — implement taba-gossip (SWIM membership, failure
+detection, signed messages) and taba-erasure (Reed-Solomon coding,
+shard distribution, reconstruction). This makes the graph survive
+across multiple nodes.
 
 ## Build phases
 

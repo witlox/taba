@@ -36,20 +36,25 @@
 
 ## Current phase
 
-M1 (Types compile) and M2 (Single-node compose) complete. Six crates
-implemented with 465 tests:
+M1 (Types compile), M2 (Single-node compose), and M3 (Persistent)
+complete. Eight crates implemented with 590+ tests:
 - taba-common: identity newtypes, Ppm arithmetic, clocks, config
 - taba-core: unit model, capabilities, validation, contracts
 - taba-security: Ed25519 signing/verification, scope enforcement,
   capability enforcement, taint computation, delegation, solo bootstrap
-- taba-graph: δ-state CRDT composition graph, merge (commutative,
-  associative, idempotent), policy chains, compaction, memory monitor
-- taba-solver: deterministic placement, conflict detection, cycle
-  detection, resource ranking, promotion evaluation
+- taba-graph: δ-state CRDT composition graph, merge, policy chains
+- taba-solver: deterministic placement, conflict detection, cycles
+- taba-observe: decision trails, structured events, health aggregation,
+  Prometheus exporter, alert dispatcher
+- taba-node: disk-backed WAL (DL-014), reconciler (desired vs actual),
+  SimulatedRuntime + DockerRuntime (bollard), health reporter, mode
+  manager, capability discoverer, artifact fetcher, task spawner,
+  health check orchestrator
 - taba-test-harness: builders, InMemoryUnitStore, proptest strategies
 
-Next: M3 (Persistent) — taba-node with WAL persistence, local
-reconciliation loop. Makes the single-node graph survive restarts.
+Next: M4 (Multi-node) — taba-gossip (SWIM membership, failure
+detection, signed messages) and taba-erasure (Reed-Solomon coding,
+shard distribution, reconstruction).
 
 ## Open questions
 
