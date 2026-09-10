@@ -36,11 +36,14 @@
 
 ## Current phase
 
-Analyst and architect phases complete. Adversary reviews complete
-(57 spec findings, 45 architecture findings — all critical/high
-resolved). BDD features complete (128 scenarios, 20 files). No source
-code yet. Next: Phase 1 (M1: Types compile) — IMPLEMENT phase using
-the diamond protocol.
+M1 (Types compile) complete. Three crates implemented with 147 tests:
+- taba-common: identity newtypes, Ppm arithmetic, clocks, config
+- taba-core: unit model, capabilities, validation, contracts
+- taba-test-harness: builders, InMemoryUnitStore, proptest strategies
+
+Next: M2 (Single-node compose) — taba-security (signing, verification,
+scope enforcement), taba-graph (CRDT graph, merge, WAL), taba-solver
+(composition resolution, placement, conflict detection).
 
 ## Open questions
 

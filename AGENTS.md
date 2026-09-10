@@ -70,8 +70,8 @@ cargo deny check
 
 ## Project state
 
-**Phase**: Pre-implementation. Specs, architecture, and adversary
-reviews are complete. No source code exists yet.
+**Phase**: Implementation. M1 (types compile) complete. Specs,
+architecture, and adversary reviews were completed pre-implementation.
 
 | Stage | Status |
 |-------|--------|
@@ -80,12 +80,13 @@ reviews are complete. No source code exists yet.
 | Architecture (module map, interfaces, data models) | Complete |
 | Adversary architecture review (45 findings) | All critical/high resolved |
 | BDD feature files (128 scenarios, 20 files) | Complete |
-| Fidelity baseline | Not established (no source code) |
-| Rust implementation | Not started |
+| Fidelity baseline | Not established (first auditor sweep after M2) |
+| M1: Types compile (common, core, test-harness) | Complete — 147 tests |
+| M2: Single-node compose (+ graph, solver, security) | Not started |
 
-**Next**: Phase 1 (M1: Types compile) — start the IMPLEMENT phase using
-the diamond protocol. The implementer builds against the architecture
-specs in `specs/architecture/`. See "Build phases" below.
+**Next**: M2 — implement taba-security (signing, verification, scope),
+taba-graph (CRDT graph, merge, WAL integration), taba-solver
+(composition resolution, placement, conflict detection).
 
 ## Build phases
 
