@@ -6,6 +6,8 @@ members = [
     "crates/taba-security",
     "crates/taba-graph",
     "crates/taba-solver",
+    "crates/taba-observe",
+    "crates/taba-node",
     "crates/taba-test-harness",
 ]
 
@@ -39,3 +41,10 @@ ed25519-dalek = { version = "2", features = ["rand_core", "zeroize"] }
 zeroize = { version = "1", features = ["zeroize_derive"] }
 sha2 = "0.10"
 criterion = { version = "0.5", features = ["html_reports"] }
+prost = "0.13"
+prost-build = "0.13"
+crc32c = "0.6"
+futures = "0.3"
+tempfile = "3"
+bollard = "0.17"
+testcontainers = "0.23"

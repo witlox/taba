@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package taba.v1;
+
+// WAL entry types for local persistence (DL-014, INV-C4).
+//
+// Frame format on disk:
+//   | len: u32 (LE) | crc32c: u32 (LE) | WalEntry (protobuf) | pad 0-7 |
+//
+// Segment naming: wal-{sequence_start:016}.log
+// Default segment size: 64 MB.
+
+// A single entry in the node-local write-ahead log.
+message WalEntry {
+  // Monotonically increasing sequence number local to this node.
+  uint64 sequence = 1;
+
+  // When this entry was written (logical clock + wall time).
+  DualClockEvent written_at = 2;
+
+  // The type and payload of this WAL entry.
+  WalEntryType entry_type = 3;
+}
+
+// The three WAL entry types (INV-C4, DL-008).
+message WalEntryType {
+  oneof kind {
+    // A unit has been verified and merged into the local graph state.
+    MergedEntry merged = 1;
+
+    // A unit has been verified but references are not yet satisfied.
+    PendingEntry pending = 2;
+
+    // A previously pending unit has been activated.
+    PromotedEntry promoted = 3;
+  }
+
+  message MergedEntry {
+    string unit_id = 1;
+    // Serialized signed unit (opaque bytes for WAL storage).
+    bytes payload = 2;
+  }
+
+  message PendingEntry {
+    string unit_id = 1;
+    // Serialized signed unit.
+    bytes payload = 2;
+    // The references that are not yet present.
+    repeated string missing_refs = 3;
+  }
+
+  message PromotedEntry {
+    string unit_id = 1;
+  }
+}
+
+// Dual clock event (INV-T2). Logical clock for ordering,
+// wall time for retention/compliance, timezone for display.
+message DualClockEvent {
+  uint64 logical_clock = 1;
+  uint64 wall_time_millis = 2;
+  string timezone = 3;
+}
