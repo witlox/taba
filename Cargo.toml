@@ -10,6 +10,7 @@ members = [
     "crates/taba-gossip",
     "crates/taba-erasure",
     "crates/taba-node",
+    "crates/taba-cli",
     "crates/taba-test-harness",
 ]
 
@@ -51,3 +52,6 @@ tempfile = "3"
 bollard = "0.17"
 testcontainers = "0.23"
 reed-solomon-erasure = "6"
+clap = { version = "4", features = ["derive", "env"] }
+toml = "0.8"
+serde_json = "1"

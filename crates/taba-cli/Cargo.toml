@@ -1,0 +1,41 @@
+[package]
+name = "taba-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Command-line interface for human operators of taba"
+
+[lints]
+workspace = true
+
+[dependencies]
+taba-common = { path = "../taba-common" }
+taba-core = { path = "../taba-core" }
+taba-security = { path = "../taba-security" }
+taba-graph = { path = "../taba-graph" }
+taba-solver = { path = "../taba-solver" }
+taba-observe = { path = "../taba-observe" }
+taba-node = { path = "../taba-node" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+clap = { workspace = true }
+toml = { workspace = true }
+uuid = { workspace = true }
+sha2 = { workspace = true }
+bytes = { workspace = true }
+ed25519-dalek = { workspace = true }
+hex = "0.4"
+
+[dev-dependencies]
+proptest = { workspace = true }
+tempfile = { workspace = true }
+taba-test-harness = { path = "../taba-test-harness" }
+
+[[bin]]
+name = "taba"
+path = "src/main.rs"

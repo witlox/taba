@@ -193,6 +193,29 @@ impl SigningKey {
                 })?;
         Ok(Signature(dalek_sig.to_bytes()))
     }
+
+    /// Returns the raw 32 bytes of this signing key.
+    ///
+    /// Used for key persistence (e.g., taba-cli local storage). The
+    /// caller is responsible for securely erasing the returned bytes
+    /// after use — the key material is not zeroized here because it
+    /// remains valid inside this `SigningKey`.
+    #[must_use]
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.inner.to_bytes()
+    }
+
+    /// Creates a signing key from raw 32 bytes.
+    ///
+    /// Used for key restoration (e.g., taba-cli loading from local
+    /// storage). The input must be exactly 32 bytes of Ed25519
+    /// private key material.
+    #[must_use]
+    pub fn from_bytes(bytes: &[u8; 32]) -> Self {
+        Self {
+            inner: DalekSigningKey::from_bytes(bytes),
+        }
+    }
 }
 
 impl std::fmt::Debug for SigningKey {
@@ -323,6 +346,19 @@ impl KeyPair {
     #[must_use]
     pub const fn signing_key(&self) -> &SigningKey {
         &self.signing_key
+    }
+
+    /// Creates a key pair from an existing signing key.
+    ///
+    /// Used for key restoration (e.g., taba-cli loading from local
+    /// storage). The public key is derived from the signing key.
+    #[must_use]
+    pub fn from_signing_key(signing_key: SigningKey) -> Self {
+        let public_key = signing_key.public_key();
+        Self {
+            public_key,
+            signing_key,
+        }
     }
 }
 
