@@ -36,8 +36,9 @@
 
 ## Current phase
 
-M1 (Types compile), M2 (Single-node compose), M3 (Persistent), and
-M4 (Multi-node) complete. Ten crates implemented with 700+ tests:
+M1 (Types compile), M2 (Single-node compose), M3 (Persistent), M4
+(Multi-node), and M5 (Usable) complete. Eleven crates implemented
+with 765 tests:
 - taba-common: identity newtypes, Ppm arithmetic, clocks, config
 - taba-core: unit model, capabilities, validation, contracts
 - taba-security: Ed25519 signing/verification, scope enforcement,
@@ -55,11 +56,13 @@ M4 (Multi-node) complete. Ten crates implemented with 700+ tests:
   advertisement, cross-domain stubs, fleet command rate limiting
 - taba-erasure: Reed-Solomon over GF(2^8) (DL-013), shard distribution,
   reconstruction with priority queue + circuit breaker (INV-R1/FM-13)
+- taba-cli: clap-based CLI (init, apply, unit, status, compose, audit,
+  push), TOML unit parser (DL-015), local key management, JSON
+  graph persistence, table/JSON output formatting
 - taba-test-harness: builders, InMemoryUnitStore, proptest strategies
 
-Next: M5 (Usable) — taba-cli (unit authoring, composition, status,
-policy management, trust domain management, audit/lineage queries).
-Makes taba human-operable.
+Next: M6 (Hardened) — taba-security advanced (TPM attestation, Shamir
+secret sharing, node enrollment ceremony, SLSA build provenance).
 
 ## Open questions
 

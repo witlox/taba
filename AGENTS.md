@@ -86,10 +86,10 @@ completed pre-implementation.
 | M2: Single-node compose (+ graph, solver, security) | Complete — 313 tests |
 | M3: Persistent (+ node WAL) | Not started |
 
-**Next**: M5 — implement taba-cli (unit authoring commands,
-composition commands, status and inspection, policy management,
-trust domain management, audit and lineage queries). This makes
-taba human-operable.
+**Next**: M6 — implement taba-security advanced (TPM attestation,
+Shamir secret sharing for root key, node enrollment ceremony, build
+provenance verification SLSA). This brings taba to production-grade
+security.
 
 ## Build phases
 
