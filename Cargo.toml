@@ -7,6 +7,8 @@ members = [
     "crates/taba-graph",
     "crates/taba-solver",
     "crates/taba-observe",
+    "crates/taba-gossip",
+    "crates/taba-erasure",
     "crates/taba-node",
     "crates/taba-test-harness",
 ]
@@ -48,3 +50,4 @@ futures = "0.3"
 tempfile = "3"
 bollard = "0.17"
 testcontainers = "0.23"
+reed-solomon-erasure = "6"

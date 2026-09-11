@@ -1,0 +1,25 @@
+[package]
+name = "taba-erasure"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reed-Solomon erasure coding, shard distribution, and reconstruction for taba"
+
+[lints]
+workspace = true
+
+[dependencies]
+taba-common = { path = "../taba-common" }
+taba-core = { path = "../taba-core" }
+serde = { workspace = true }
+serde_json = "1"
+thiserror = { workspace = true }
+reed-solomon-erasure = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+tokio = { workspace = true }

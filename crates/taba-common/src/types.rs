@@ -310,6 +310,87 @@ pub struct ValidityWindow {
 pub struct ContentDigest(pub String);
 
 // ---------------------------------------------------------------------------
+// Display implementations
+// ---------------------------------------------------------------------------
+
+// The newtype identifiers below wrap `uuid::Uuid`, which implements
+// `Display`. Forwarding `Display` lets the identifiers appear in
+// `thiserror` messages, tracing fields, and human-facing output without
+// callers reaching for the inner `.0`.
+
+impl std::fmt::Display for UnitId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for NodeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for AuthorId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for TrustDomainId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for ClusterId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for CeremonyId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for ShardId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for DelegationTokenId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for PolicyId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for LogicalClock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::fmt::Display for WallTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}ms", self.millis)
+    }
+}
+
+impl std::fmt::Display for ContentDigest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 

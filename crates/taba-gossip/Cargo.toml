@@ -1,0 +1,31 @@
+[package]
+name = "taba-gossip"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "SWIM-based membership protocol, failure detection, and signed gossip transport for taba"
+
+[lints]
+workspace = true
+
+[dependencies]
+taba-common = { path = "../taba-common" }
+taba-core = { path = "../taba-core" }
+taba-security = { path = "../taba-security" }
+taba-solver = { path = "../taba-solver" }
+serde = { workspace = true }
+serde_json = "1"
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+ed25519-dalek = { workspace = true }
+sha2 = { workspace = true }
+bytes = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+uuid = { workspace = true }
+taba-test-harness = { path = "../taba-test-harness" }
