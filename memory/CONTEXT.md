@@ -36,8 +36,8 @@
 
 ## Current phase
 
-M1 (Types compile), M2 (Single-node compose), and M3 (Persistent)
-complete. Eight crates implemented with 590+ tests:
+M1 (Types compile), M2 (Single-node compose), M3 (Persistent), and
+M4 (Multi-node) complete. Ten crates implemented with 700+ tests:
 - taba-common: identity newtypes, Ppm arithmetic, clocks, config
 - taba-core: unit model, capabilities, validation, contracts
 - taba-security: Ed25519 signing/verification, scope enforcement,
@@ -50,11 +50,16 @@ complete. Eight crates implemented with 590+ tests:
   SimulatedRuntime + DockerRuntime (bollard), health reporter, mode
   manager, capability discoverer, artifact fetcher, task spawner,
   health check orchestrator
+- taba-gossip: SWIM membership protocol, signed gossip messages
+  (INV-R3), 2-witness failure detection (DL-009), capability
+  advertisement, cross-domain stubs, fleet command rate limiting
+- taba-erasure: Reed-Solomon over GF(2^8) (DL-013), shard distribution,
+  reconstruction with priority queue + circuit breaker (INV-R1/FM-13)
 - taba-test-harness: builders, InMemoryUnitStore, proptest strategies
 
-Next: M4 (Multi-node) — taba-gossip (SWIM membership, failure
-detection, signed messages) and taba-erasure (Reed-Solomon coding,
-shard distribution, reconstruction).
+Next: M5 (Usable) — taba-cli (unit authoring, composition, status,
+policy management, trust domain management, audit/lineage queries).
+Makes taba human-operable.
 
 ## Open questions
 

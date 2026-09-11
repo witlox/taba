@@ -86,10 +86,10 @@ completed pre-implementation.
 | M2: Single-node compose (+ graph, solver, security) | Complete — 313 tests |
 | M3: Persistent (+ node WAL) | Not started |
 
-**Next**: M4 — implement taba-gossip (SWIM membership, failure
-detection, signed messages) and taba-erasure (Reed-Solomon coding,
-shard distribution, reconstruction). This makes the graph survive
-across multiple nodes.
+**Next**: M5 — implement taba-cli (unit authoring commands,
+composition commands, status and inspection, policy management,
+trust domain management, audit and lineage queries). This makes
+taba human-operable.
 
 ## Build phases
 
