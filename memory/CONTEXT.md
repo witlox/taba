@@ -36,33 +36,28 @@
 
 ## Current phase
 
-M1 (Types compile), M2 (Single-node compose), M3 (Persistent), M4
-(Multi-node), and M5 (Usable) complete. Eleven crates implemented
-with 765 tests:
+M1 through M6 complete. Eleven crates implemented with 814 tests:
 - taba-common: identity newtypes, Ppm arithmetic, clocks, config
 - taba-core: unit model, capabilities, validation, contracts
 - taba-security: Ed25519 signing/verification, scope enforcement,
-  capability enforcement, taint computation, delegation, solo bootstrap
+  capability enforcement, taint computation, delegation, solo
+  bootstrap, Shamir secret sharing (GF(2^8)), TPM/software
+  attestation, node enrollment ceremony, SLSA provenance
 - taba-graph: δ-state CRDT composition graph, merge, policy chains
 - taba-solver: deterministic placement, conflict detection, cycles
-- taba-observe: decision trails, structured events, health aggregation,
-  Prometheus exporter, alert dispatcher
-- taba-node: disk-backed WAL (DL-014), reconciler (desired vs actual),
-  SimulatedRuntime + DockerRuntime (bollard), health reporter, mode
-  manager, capability discoverer, artifact fetcher, task spawner,
-  health check orchestrator
-- taba-gossip: SWIM membership protocol, signed gossip messages
-  (INV-R3), 2-witness failure detection (DL-009), capability
-  advertisement, cross-domain stubs, fleet command rate limiting
-- taba-erasure: Reed-Solomon over GF(2^8) (DL-013), shard distribution,
-  reconstruction with priority queue + circuit breaker (INV-R1/FM-13)
-- taba-cli: clap-based CLI (init, apply, unit, status, compose, audit,
-  push), TOML unit parser (DL-015), local key management, JSON
-  graph persistence, table/JSON output formatting
+- taba-observe: decision trails, structured events, health aggregation
+- taba-node: disk-backed WAL, reconciler, SimulatedRuntime +
+  DockerRuntime, health, mode manager, capability discoverer
+- taba-gossip: SWIM membership, signed messages, 2-witness failure
+  detection, capability advertisement, cross-domain stubs
+- taba-erasure: Reed-Solomon GF(2^8), shard distribution,
+  reconstruction with priority queue + circuit breaker
+- taba-cli: clap-based CLI (init, apply, unit, status, compose,
+  audit, push), TOML unit parser, local key management
 - taba-test-harness: builders, InMemoryUnitStore, proptest strategies
 
-Next: M6 (Hardened) — taba-security advanced (TPM attestation, Shamir
-secret sharing, node enrollment ceremony, SLSA build provenance).
+Next: M7 (Migration) — taba-k8s tool that reads K8s manifests and
+generates taba unit declarations.
 
 ## Open questions
 

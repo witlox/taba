@@ -86,10 +86,8 @@ completed pre-implementation.
 | M2: Single-node compose (+ graph, solver, security) | Complete — 313 tests |
 | M3: Persistent (+ node WAL) | Not started |
 
-**Next**: M6 — implement taba-security advanced (TPM attestation,
-Shamir secret sharing for root key, node enrollment ceremony, build
-provenance verification SLSA). This brings taba to production-grade
-security.
+**Next**: M7 — implement taba-k8s (K8s manifest reader that generates
+taba unit declarations). This brings K8s users to taba.
 
 ## Build phases
 
