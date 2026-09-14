@@ -1132,6 +1132,12 @@ impl GraphQuery for DefaultGraph {
 // Tests
 // ===========================================================================
 
+impl std::fmt::Debug for DefaultGraph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DefaultGraph").finish_non_exhaustive()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

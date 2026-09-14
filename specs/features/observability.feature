@@ -63,7 +63,7 @@ Feature: Observability
       | event              | timestamp | actor | detail                    |
       | git commit         | T-4h      | alice | commit abc123 on feature  |
       | taba apply (dev)   | T-4h      | alice | placed on dev-box         |
-      | git merge to main  | T-3h      | alice | merge to main → main-001  |
+      | git merge to main  | T-3h      | alice | merge to main -> main-001  |
       | promotion to test  | T-3h      | CI    | promo-test-001 authored   |
       | placed on test     | T-3h      | solver| placed on ci-runner       |
       | git tag v1.0       | T-1h      | alice | tagged main-001 as v1.0   |

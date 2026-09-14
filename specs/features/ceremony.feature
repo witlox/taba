@@ -154,7 +154,7 @@ Feature: Shamir key ceremony
     And existing units in "solo-domain" do NOT require re-signing
 
   @tier0
-  Scenario: Failed Tier 0 → Tier 1 upgrade does not invalidate existing domain
+  Scenario: Failed Tier 0 -> Tier 1 upgrade does not invalidate existing domain
     Given a Tier 0 trust domain "solo-domain" with author "alice"
     When alice initiates a Shamir ceremony for upgrade
     And the ceremony fails at share 2 of 3 (network error)

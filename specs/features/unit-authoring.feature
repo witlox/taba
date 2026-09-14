@@ -14,6 +14,7 @@ Feature: Unit authoring
 
   # --- Happy paths ---
 
+  @smoke
   Scenario: Author creates a valid workload unit (happy path)
     # INV-S3: signed unit accepted; INV-S5: within scope
     Given alice authors a workload unit "web-api" with:
@@ -107,7 +108,7 @@ Feature: Unit authoring
     And the composition graph does not contain "misbound-api"
 
   Scenario: Unit from revoked author rejected when revocation merged first
-    # INV-S3: causal revocation — effect on local graph merge order
+    # INV-S3: causal revocation - effect on local graph merge order
     Given alice's key revocation governance unit has been merged into the local graph
     And alice authors a workload unit "late-unit" with:
       | field    | value     |
@@ -120,7 +121,7 @@ Feature: Unit authoring
     And the composition graph does not contain "late-unit"
 
   Scenario: Unit from revoked author accepted when it merged before revocation
-    # INV-S3: causal revocation — no retroactive rejection
+    # INV-S3: causal revocation - no retroactive rejection
     Given alice authors a workload unit "early-unit" with:
       | field    | value     |
       | needs    | postgres  |

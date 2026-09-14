@@ -1,0 +1,34 @@
+[package]
+name = "taba-acceptance"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "BDD acceptance tests for taba (cucumber-rs)"
+
+[lints]
+workspace = true
+
+[dependencies]
+taba-common = { path = "../taba-common" }
+taba-core = { path = "../taba-core" }
+taba-security = { path = "../taba-security" }
+taba-graph = { path = "../taba-graph" }
+taba-solver = { path = "../taba-solver" }
+taba-observe = { path = "../taba-observe" }
+taba-node = { path = "../taba-node" }
+taba-cli = { path = "../taba-cli" }
+taba-test-harness = { path = "../taba-test-harness" }
+cucumber = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+async-trait = "0.1"
+gherkin = "0.14"
+
+[[test]]
+name = "acceptance"
+harness = false

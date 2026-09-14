@@ -200,14 +200,14 @@ Feature: Data lineage
     Given bounded task "etl-pipeline" produces ephemeral data unit "temp-staging"
     And "temp-staging" has provenance: produced-by "etl-pipeline", input "raw-data"
     When a consumer queries provenance of "temp-staging" while "etl-pipeline" is running
-    Then the full provenance chain is returned: raw-data → etl-pipeline → temp-staging
+    Then the full provenance chain is returned: raw-data -> etl-pipeline -> temp-staging
     And taint propagation applies normally (if "raw-data" is PII, "temp-staging" inherits PII)
 
   Scenario: Unreferenced ephemeral data fully removed -- provenance unavailable
     Given bounded task "etl-pipeline" produced ephemeral data "temp-staging"
     And NO downstream unit consumed or references "temp-staging"
     And "etl-pipeline" has completed and reference check found no references
-    And "temp-staging" was fully removed (INV-D4: no refs → remove)
+    And "temp-staging" was fully removed (INV-D4: no refs -> remove)
     When a consumer queries provenance of "temp-staging"
     Then the query returns "unit not found (ephemeral, no downstream references, removed)"
 
@@ -215,9 +215,9 @@ Feature: Data lineage
     Given bounded task "etl-pipeline" produced ephemeral data "temp-staging"
     And workload "aggregator" consumed "temp-staging" and produced "report"
     And "etl-pipeline" has completed and reference check found "aggregator"
-    And "temp-staging" was tombstoned (INV-D4: has refs → tombstone)
+    And "temp-staging" was tombstoned (INV-D4: has refs -> tombstone)
     When a consumer queries provenance of "report"
-    Then the chain returns: ... → temp-staging (tombstoned) → aggregator → report
+    Then the chain returns: ... -> temp-staging (tombstoned) -> aggregator -> report
     And the tombstone preserves the reference links (INV-G2)
     And INV-D1 (unbroken provenance) is satisfied
 
@@ -226,7 +226,7 @@ Feature: Data lineage
     And bounded task "audit-etl" produces ephemeral data "temp-audit"
     When "audit-etl" completes and "temp-audit" is tombstoned (not removed)
     Then provenance query for "temp-audit" returns the tombstone's references
-    And the chain is: input → audit-etl → temp-audit (tombstoned)
+    And the chain is: input -> audit-etl -> temp-audit (tombstoned)
     And audit trail is preserved despite the data content being gone
 
   # --- Provenance through compaction ---
@@ -237,7 +237,7 @@ Feature: Data lineage
     Given workload "data-processor" produced data unit "output-dataset"
     And "data-processor" has been terminated and tombstoned
     When a consumer queries provenance of "output-dataset"
-    Then the chain returns: inputs → data-processor (tombstoned) → output-dataset
+    Then the chain returns: inputs -> data-processor (tombstoned) -> output-dataset
     And the tombstone includes the reference to "output-dataset"
     And if full details of "data-processor" are needed, archive retrieval is available
 

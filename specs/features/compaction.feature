@@ -55,7 +55,7 @@ Feature: Graph compaction and archival
     Then the system checks: does any unit reference "temp-staging"? (yes: "downstream-processor")
     And "temp-staging" is tombstoned (NOT fully removed)
     And the tombstone preserves the reference to "downstream-processor"
-    And provenance query on "final-output" returns: ... → temp-staging (tombstoned) → ...
+    And provenance query on "final-output" returns: ... -> temp-staging (tombstoned) -> ...
     And INV-D1 (unbroken provenance chain) is satisfied
 
   Scenario: Governance mandates tombstone for ephemeral data

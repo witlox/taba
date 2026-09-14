@@ -101,10 +101,10 @@ pub use node_capability::{NodeCapabilitySet, PrivilegeLevel, ResourceSnapshot, R
 pub use store::{GraphSnapshot, MembershipSnapshot, UnitStore};
 pub use tombstone::{TerminationReason, Tombstone, TombstoneUnitType};
 pub use unit::{
-    ConflictTuple, CrossDomainCapabilityDef, GovernanceUnit, KeyRevocationDef, OperationalCommand,
-    OperationalCommandType, PolicyResolution, PolicyUnit, PromotionGateDef, PromotionMode,
-    PromotionPolicy, PromotionTransition, RoleAssignment, TrustDomainDef, Unit, UnitHeader,
-    UnitKind, UnitState, UnitTypeScope, WorkloadKind, WorkloadUnit,
+    ConflictTuple, CrossDomainCapabilityDef, DataUnit, GovernanceUnit, KeyRevocationDef,
+    OperationalCommand, OperationalCommandType, PolicyResolution, PolicyUnit, PromotionGateDef,
+    PromotionMode, PromotionPolicy, PromotionTransition, RoleAssignment, TrustDomainDef, Unit,
+    UnitHeader, UnitKind, UnitState, UnitTypeScope, WorkloadKind, WorkloadUnit,
 };
 pub use validation::{CoreError, DefaultValidator, UnitValidator};
 

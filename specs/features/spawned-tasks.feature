@@ -13,7 +13,7 @@ Feature: Spawned bounded tasks
   # --- Spawning lifecycle ---
 
   Scenario: Service spawns a bounded task via delegation token
-    # INV-W4: delegation token model — node signs via pre-signed token
+    # INV-W4: delegation token model - node signs via pre-signed token
     Given alice authored "web-api" and it is placed on "prod-1"
     And alice pre-signed a delegation token at placement time:
       | field          | value                   |
@@ -29,9 +29,9 @@ Feature: Spawned bounded tasks
       | validity_window   | LC 1500..LC 2000               |
       | spawned_by        | web-api                        |
     Then "prod-1" signs "migrate-v2" using the delegation token (NOT alice's private key)
-    And the graph merge verifies: (a) delegation token signed by alice, (b) LC 1500 within token range 1000..5000, (c) spawn count 1 ≤ max 10
+    And the graph merge verifies: (a) delegation token signed by alice, (b) LC 1500 within token range 1000..5000, (c) spawn count 1 <= max 10
     And "migrate-v2" is accepted into the graph
-    And provenance links "migrate-v2" → spawned-by → "web-api"
+    And provenance links "migrate-v2" -> spawned-by -> "web-api"
     And the solver evaluates placement for "migrate-v2"
 
   Scenario: Bounded task terminates on successful completion
@@ -170,7 +170,7 @@ Feature: Spawned bounded tasks
     And both tasks are drained per their declared failure semantics
     And both tasks transition to Terminated
     And ephemeral data from both tasks undergoes reference check:
-      unreferenced → fully removed, referenced → tombstoned (INV-D4)
+      And unreferenced -> fully removed, referenced -> tombstoned (INV-D4)
 
   Scenario: Spawned task failure does not terminate parent service
     Given "web-api" spawned "task-c" for a one-off migration
@@ -186,7 +186,7 @@ Feature: Spawned bounded tasks
     And the solver places "cleanup-job" on "prod-2"
     When the decision trail is recorded for "cleanup-job" placement
     Then the decision trail includes: spawned_by = "web-api"
-    And the audit chain shows: web-api → spawned → cleanup-job → placed on prod-2
+    And the audit chain shows: web-api -> spawned -> cleanup-job -> placed on prod-2
     And the spawning event is queryable as a graph event
 
   Scenario: Health check applies to spawned tasks independently
