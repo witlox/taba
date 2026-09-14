@@ -14,6 +14,7 @@ members = [
     "crates/taba-k8s",
     "crates/taba-acceptance",
     "crates/taba-test-harness",
+    "tests/integration",
 ]
 
 [workspace.package]

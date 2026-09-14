@@ -2665,6 +2665,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "taba-integration"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "serde_json",
+ "sha2",
+ "taba-cli",
+ "taba-common",
+ "taba-core",
+ "taba-graph",
+ "taba-k8s",
+ "taba-node",
+ "taba-observe",
+ "taba-security",
+ "taba-solver",
+ "taba-test-harness",
+ "tempfile",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "taba-k8s"
 version = "0.1.0"
 dependencies = [

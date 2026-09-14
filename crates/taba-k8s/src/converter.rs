@@ -446,7 +446,7 @@ impl K8sConverter {
 
         let key_count = data.len();
         let toml = format!(
-            "[unit]\nname = \"{name}\"\ntype = \"data\"\n\n[schema]\nformat = \"text/plain\"\ndefinition = \"configmap with {key_count} keys\"\n\n[classification]\nlevel = \"internal\"\n\n[retention]\nmode = \"persistent\"\nlegal_basis = \"configuration data\"\n\n[provides]\nconfig = {{ type = \"configuration\" }}\n",
+            "[unit]\nname = \"{name}\"\ntype = \"data\"\n\n[schema]\nformat = \"text/plain\"\ndefinition = \"configmap with {key_count} keys\"\n\n[classification]\nlevel = \"internal\"\n\n[retention]\nmode = \"persistent\"\nduration = \"7y\"\nlegal_basis = \"configuration data\"\n\n[provides]\nconfig = {{ type = \"configuration\" }}\n",
             name = manifest.metadata.name,
             key_count = key_count,
         );
@@ -460,7 +460,7 @@ impl K8sConverter {
 
     fn convert_secret(&self, manifest: &K8sManifest, report: &mut ConversionReport) {
         let toml = format!(
-            "[unit]\nname = \"{name}\"\ntype = \"data\"\n\n[schema]\nformat = \"opaque\"\ndefinition = \"k8s secret\"\n\n[classification]\nlevel = \"confidential\"\n\n[retention]\nmode = \"persistent\"\nlegal_basis = \"secret material\"\nmandatory = true\n\n[storage]\nencrypted_at_rest = true\n\n[provides]\nsecret = {{ type = \"secret\" }}\n",
+            "[unit]\nname = \"{name}\"\ntype = \"data\"\n\n[schema]\nformat = \"opaque\"\ndefinition = \"k8s secret\"\n\n[classification]\nlevel = \"confidential\"\n\n[retention]\nmode = \"persistent\"\nduration = \"7y\"\nlegal_basis = \"secret material\"\nmandatory = true\n\n[storage]\nencrypted_at_rest = true\n\n[provides]\nsecret = {{ type = \"secret\" }}\n",
             name = manifest.metadata.name,
         );
 

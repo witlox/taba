@@ -1,0 +1,33 @@
+[package]
+name = "taba-integration"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Integration and e2e tests for taba"
+
+[lints]
+workspace = true
+
+[dependencies]
+taba-common = { path = "../../crates/taba-common" }
+taba-core = { path = "../../crates/taba-core" }
+taba-security = { path = "../../crates/taba-security" }
+taba-graph = { path = "../../crates/taba-graph" }
+taba-solver = { path = "../../crates/taba-solver" }
+taba-observe = { path = "../../crates/taba-observe" }
+taba-node = { path = "../../crates/taba-node" }
+taba-cli = { path = "../../crates/taba-cli" }
+taba-k8s = { path = "../../crates/taba-k8s" }
+taba-test-harness = { path = "../../crates/taba-test-harness" }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+tokio = { workspace = true }
+tempfile = { workspace = true }
+sha2 = { workspace = true }
+hex = "0.4"
+
+[[test]]
+name = "integration"
+path = "mod.rs"
