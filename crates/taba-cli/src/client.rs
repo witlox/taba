@@ -84,7 +84,17 @@ impl LocalClient {
         let key_pair = auth.load_keypair()?;
 
         // Create graph with 1 GB memory limit (M5 single-node).
-        let graph = Arc::new(DefaultGraph::new(1_073_741_824));
+        // Wire in scope checker (INV-S8) and max spawn depth (INV-W3).
+        // Verifier (INV-S3) is NOT wired here because the CLI currently
+        // creates unsigned units via `wrap_signed` (zero Ed25519
+        // signature). Real unit signing will be added post-M5; until
+        // then, the graph accepts structurally valid local units.
+        let scope_checker = taba_security::DefaultScopeChecker::new();
+        let graph = Arc::new(
+            DefaultGraph::new(1_073_741_824)
+                .with_scope_checker(std::sync::Arc::new(scope_checker))
+                .with_max_spawn_depth(4),
+        );
 
         // Load persisted graph state if it exists.
         let graph_path = auth.state_dir().join("graph.json");
@@ -100,6 +110,46 @@ impl LocalClient {
         let solver = DefaultSolver::new();
 
         // Create trail recorder.
+        let trail_recorder = DefaultDecisionTrailRecorder::new();
+
+        Ok(Self {
+            graph,
+            solver,
+            auth,
+            config,
+            key_pair,
+            trail_recorder,
+        })
+    }
+
+    /// Creates a client for testing — no verifier, no scope checker.
+    /// Units are accepted with structural validation only.
+    #[cfg(test)]
+    pub async fn load_unverified(state_dir: Option<std::path::PathBuf>) -> Result<Self, CliError> {
+        let auth = match state_dir {
+            Some(dir) => LocalAuth::with_state_dir(dir)?,
+            None => LocalAuth::new()?,
+        };
+
+        if !auth.is_initialized() {
+            auth.init()?;
+        }
+
+        let config = auth.load_config()?;
+        let key_pair = auth.load_keypair()?;
+
+        // Load persisted graph state if it exists.
+        let graph = Arc::new(DefaultGraph::new(1_073_741_824));
+        let graph_path = auth.state_dir().join("graph.json");
+        if graph_path.exists() {
+            let json = std::fs::read_to_string(&graph_path)?;
+            let units: Vec<taba_core::Unit> = serde_json::from_str(&json)?;
+            for unit in units {
+                let _ = graph.insert(unit).await;
+            }
+        }
+
+        let solver = DefaultSolver::new();
         let trail_recorder = DefaultDecisionTrailRecorder::new();
 
         Ok(Self {
@@ -374,7 +424,7 @@ mod tests {
         let state = tmp.path().join("taba-state");
 
         // Load should initialize.
-        let client = LocalClient::load(Some(state.clone()))
+        let client = LocalClient::load_unverified(Some(state.clone()))
             .await
             .expect("load should succeed");
 
@@ -397,14 +447,16 @@ mod tests {
         let state = tmp.path().join("taba-state");
 
         // First load: initialize.
-        let client1 = LocalClient::load(Some(state.clone()))
+        let client1 = LocalClient::load_unverified(Some(state.clone()))
             .await
             .expect("load 1");
         let td1 = client1.trust_domain();
         let pk1 = *client1.public_key();
 
         // Second load: should reuse the same state.
-        let client2 = LocalClient::load(Some(state)).await.expect("load 2");
+        let client2 = LocalClient::load_unverified(Some(state))
+            .await
+            .expect("load 2");
         assert_eq!(client2.trust_domain(), td1, "trust domain should match");
         assert_eq!(*client2.public_key(), pk1, "public key should match");
     }
@@ -412,7 +464,7 @@ mod tests {
     #[tokio::test]
     async fn test_insert_and_get_unit() {
         let tmp = tempfile::TempDir::new().expect("temp dir");
-        let client = LocalClient::load(Some(tmp.path().to_path_buf()))
+        let client = LocalClient::load_unverified(Some(tmp.path().to_path_buf()))
             .await
             .expect("load");
 
@@ -430,7 +482,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_units() {
         let tmp = tempfile::TempDir::new().expect("temp dir");
-        let client = LocalClient::load(Some(tmp.path().to_path_buf()))
+        let client = LocalClient::load_unverified(Some(tmp.path().to_path_buf()))
             .await
             .expect("load");
 
@@ -449,7 +501,7 @@ mod tests {
     #[tokio::test]
     async fn test_archive_unit() {
         let tmp = tempfile::TempDir::new().expect("temp dir");
-        let client = LocalClient::load(Some(tmp.path().to_path_buf()))
+        let client = LocalClient::load_unverified(Some(tmp.path().to_path_buf()))
             .await
             .expect("load");
 
@@ -470,7 +522,7 @@ mod tests {
     #[tokio::test]
     async fn test_graph_stats() {
         let tmp = tempfile::TempDir::new().expect("temp dir");
-        let client = LocalClient::load(Some(tmp.path().to_path_buf()))
+        let client = LocalClient::load_unverified(Some(tmp.path().to_path_buf()))
             .await
             .expect("load");
 
@@ -490,7 +542,7 @@ mod tests {
     #[tokio::test]
     async fn test_solve_empty_graph() {
         let tmp = tempfile::TempDir::new().expect("temp dir");
-        let client = LocalClient::load(Some(tmp.path().to_path_buf()))
+        let client = LocalClient::load_unverified(Some(tmp.path().to_path_buf()))
             .await
             .expect("load");
 
@@ -504,7 +556,7 @@ mod tests {
     #[tokio::test]
     async fn test_solve_with_units() {
         let tmp = tempfile::TempDir::new().expect("temp dir");
-        let client = LocalClient::load(Some(tmp.path().to_path_buf()))
+        let client = LocalClient::load_unverified(Some(tmp.path().to_path_buf()))
             .await
             .expect("load");
 
@@ -526,7 +578,7 @@ mod tests {
     #[tokio::test]
     async fn test_provenance_no_data() {
         let tmp = tempfile::TempDir::new().expect("temp dir");
-        let client = LocalClient::load(Some(tmp.path().to_path_buf()))
+        let client = LocalClient::load_unverified(Some(tmp.path().to_path_buf()))
             .await
             .expect("load");
 
@@ -548,7 +600,7 @@ mod tests {
     #[tokio::test]
     async fn test_sign_unit() {
         let tmp = tempfile::TempDir::new().expect("temp dir");
-        let client = LocalClient::load(Some(tmp.path().to_path_buf()))
+        let client = LocalClient::load_unverified(Some(tmp.path().to_path_buf()))
             .await
             .expect("load should succeed");
 

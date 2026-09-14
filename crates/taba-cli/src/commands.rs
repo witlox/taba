@@ -217,7 +217,6 @@ pub async fn run_apply(
     // Insert into the graph.
     let unit_id = unit.id();
     client.insert_unit(unit).await?;
-
     println!("Unit {unit_id} inserted successfully.");
     Ok(())
 }
@@ -597,7 +596,9 @@ image = "hello:latest"
         assert!(result.is_ok(), "apply should succeed: {result:?}");
 
         // Verify the unit is in the graph.
-        let client = LocalClient::load(Some(state)).await.expect("load client");
+        let client = LocalClient::load_unverified(Some(state.clone()))
+            .await
+            .expect("load client");
         let units = client.list_units().await.expect("list units");
         assert_eq!(units.len(), 1, "should have 1 unit after apply");
     }
