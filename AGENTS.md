@@ -86,8 +86,9 @@ completed pre-implementation.
 | M2: Single-node compose (+ graph, solver, security) | Complete — 313 tests |
 | M3: Persistent (+ node WAL) | Not started |
 
-**Next**: M7 — implement taba-k8s (K8s manifest reader that generates
-taba unit declarations). This brings K8s users to taba.
+**Next**: All milestones (M1–M7) complete. The system is
+feature-complete: types, single-node compose, persistence,
+multi-node, CLI, hardened security, and K8s migration.
 
 ## Build phases
 
