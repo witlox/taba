@@ -83,11 +83,43 @@ rounds toward zero (Rust default). Property tests must verify cross-platform
 determinism. See A2, INV-C3.
 
 ## OQ-005: K8s manifest coverage
-**Status**: Open
-**Phase**: Later (Phase 5b)
-Which K8s resource types does the migration tool need to handle? At minimum:
-Deployment, StatefulSet, DaemonSet, Service, ConfigMap, Secret, PVC,
-NetworkPolicy, RBAC. But CRDs are unbounded. Scope decision needed.
+**Status**: Resolved (2026-09-14)
+**Phase**: Implementation (M7)
+
+### Decision
+
+The migration tool handles the following K8s resource types:
+
+| K8s Resource | taba Unit | Mapping |
+|--------------|-----------|---------|
+| Deployment | WorkloadUnit (service) | Container image -> artifact, replicas -> scaling |
+| StatefulSet | WorkloadUnit (service) | + state recovery (require-quorum), PVC references |
+| DaemonSet | WorkloadUnit (service) | + one-per-node constraint, node selector |
+| Pod | WorkloadUnit (service) | Direct pod (no controller, no auto-scaling) |
+| Service | WorkloadUnit (provides) | Network capability from ports |
+| ConfigMap | DataUnit | Internal classification, text/plain schema |
+| Secret | DataUnit | Confidential classification, encrypted_at_rest |
+| NetworkPolicy | PolicyUnit | Pod selector -> conflict units, ingress/egress -> resolution |
+| Role | GovernanceUnit (RoleAssignment) | Rules -> unit_type_scope, namespace -> trust_domain_scope |
+| RoleBinding | GovernanceUnit (RoleAssignment) | Binds Role to subjects, creates scope assignment |
+| ClusterRole | GovernanceUnit (RoleAssignment) | Cluster-wide scope |
+| ClusterRoleBinding | GovernanceUnit (RoleAssignment) | Binds ClusterRole to subjects, cluster-wide |
+| Job | Bounded task (manual) | Surfaced as warning with conversion guidance |
+| CronJob | Bounded task (manual) | Surfaced as warning with conversion guidance |
+| HorizontalPodAutoscaler | Scaling triggers (manual) | Surfaced as warning |
+| Ingress | Unmappable | No taba equivalent (workloads expose directly) |
+| PersistentVolume | Unmappable | Use data unit with storage_requirements |
+| PersistentVolumeClaim | Unmappable | Use data unit with storage_requirements |
+| CRDs | Unmappable | Write custom taba unit declaration manually |
+| Namespace | Skipped | No taba equivalent needed |
+| ServiceAccount | Skipped | No taba equivalent needed |
+
+**Rationale**: Core K8s resources (Deployment, StatefulSet, DaemonSet,
+Service, ConfigMap, Secret) have clear unit equivalents and were
+implemented in M7. NetworkPolicy maps naturally to taba's PolicyUnit
+(capability access control). RBAC (Role, RoleBinding, ClusterRole,
+ClusterRoleBinding) maps to GovernanceUnit::RoleAssignment (author
+scope management). CRDs are unbounded and cannot be mapped generically.
 
 ## OQ-006: Unit declaration format
 **Status**: Resolved (DL-015)
