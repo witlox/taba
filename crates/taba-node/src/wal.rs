@@ -480,20 +480,23 @@ impl DiskWalManager {
 
     /// Gets the current (last) segment, creating a new one if the
     /// current segment exceeds `max_segment_bytes`.
+    ///
+    /// `next_seq_start` is the sequence number that will be assigned to
+    /// the next entry — used as the name of any new segment. It is
+    /// passed in (rather than read from `self.next_sequence`) to avoid
+    /// re-entrant locking: callers already hold the `next_sequence`
+    /// mutex.
     fn current_segment<'a>(
         &'a self,
         segments: &'a mut Vec<Segment>,
+        next_seq_start: u64,
     ) -> Result<&'a mut Segment, NodeError> {
         let needs_rotation = segments
             .last()
             .is_some_and(|s| s.size >= self.config.max_segment_bytes);
 
         if needs_rotation {
-            let next_seq_start = self
-                .next_sequence
-                .lock()
-                .expect("next_sequence mutex should not be poisoned");
-            segments.push(Segment::create(*next_seq_start, &self.dir)?);
+            segments.push(Segment::create(next_seq_start, &self.dir)?);
         }
 
         segments
@@ -563,7 +566,7 @@ impl WalManager for DiskWalManager {
             .lock()
             .expect("segments mutex should not be poisoned");
 
-        let seg = self.current_segment(&mut segments)?;
+        let seg = self.current_segment(&mut segments, *next_seq)?;
         let pos_in_segment = seg.append_frame(&frame)?;
 
         // The global position is the file position within the current segment.
@@ -636,6 +639,13 @@ impl WalManager for DiskWalManager {
     }
 
     async fn compact(&self, before: WalPosition) -> Result<u64, NodeError> {
+        // Lock order MUST match append: next_sequence → segments → total_size.
+        // A different order risks cross-method deadlock on concurrent calls.
+        let next_seq = self
+            .next_sequence
+            .lock()
+            .expect("next_sequence mutex should not be poisoned");
+
         let mut segments = self
             .segments
             .lock()
@@ -689,10 +699,6 @@ impl WalManager for DiskWalManager {
         segments.clear();
 
         // Create a fresh segment and re-encode kept entries.
-        let next_seq = self
-            .next_sequence
-            .lock()
-            .expect("next_sequence mutex should not be poisoned");
         let mut new_seg = Segment::create(*next_seq, &self.dir)?;
         let mut new_total = 0u64;
 
@@ -702,10 +708,6 @@ impl WalManager for DiskWalManager {
             new_total += frame.len() as u64;
         }
 
-        if new_seg.size > 0 {
-            // Has entries to keep.
-        }
-        // Whether empty or not, keep the segment.
         segments.push(new_seg);
 
         *total = new_total;
