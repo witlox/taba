@@ -1,0 +1,24 @@
+[package]
+name = "taba-k8s"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "K8s manifest reader that generates taba unit declarations"
+
+[lints]
+workspace = true
+
+[dependencies]
+taba-common = { path = "../taba-common" }
+taba-core = { path = "../taba-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+clap = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
