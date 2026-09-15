@@ -7,7 +7,7 @@
 //!   tests. No real processes are started.
 //! - [`DockerRuntime`] — uses `bollard` to start/stop Docker containers.
 //!   Integration tests verify the full lifecycle with real containers
-//!   (marked `#[ignore = "slow: requires Docker"]`).
+//!   (marked `#[ignore = "slow:requires-docker"]`).
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -496,7 +496,7 @@ mod tests {
     // -- DockerRuntime tests (require Docker) -------------------------------
 
     #[test]
-    #[ignore = "slow: requires Docker"]
+    #[ignore = "slow:requires-docker"]
     fn test_docker_start_stop() {
         let runtime = DockerRuntime::new().expect("connect to Docker");
         let id = UnitId(uuid::Uuid::new_v4());
@@ -510,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "slow: requires Docker"]
+    #[ignore = "slow:requires-docker"]
     fn test_docker_check_state() {
         let runtime = DockerRuntime::new().expect("connect to Docker");
         let id = UnitId(uuid::Uuid::new_v4());
@@ -524,7 +524,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "slow: requires Docker"]
+    #[ignore = "slow:requires-docker"]
     fn test_docker_not_found() {
         let runtime = DockerRuntime::new().expect("connect to Docker");
         let id = UnitId(uuid::Uuid::new_v4());

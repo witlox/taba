@@ -41,7 +41,7 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo nextest run --workspace --exclude taba-acceptance --locked
-      - run: cargo nextest run --workspace --exclude taba-acceptance --run-ignored=only --no-tests=warn --locked
+      - run: cargo nextest run --workspace --exclude taba-acceptance --run-ignored=only -E 'not(ignore("requires-docker"))' --no-tests=warn --locked
       - run: cargo test --workspace --doc --locked
 
       - name: BDD @smoke

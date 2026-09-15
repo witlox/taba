@@ -59,7 +59,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - run: cargo nextest run --workspace --exclude taba-acceptance --locked
-      - run: cargo nextest run --workspace --exclude taba-acceptance --run-ignored=only --no-tests=warn --locked
+      - run: cargo nextest run --workspace --exclude taba-acceptance --run-ignored=only -E "not(ignore(\"requires-docker\"))" --no-tests=warn --locked
       - run: cargo test --workspace --doc --locked
 
   bdd-full:
