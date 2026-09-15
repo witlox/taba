@@ -70,9 +70,10 @@ cargo deny check
 
 ## Project state
 
-**Phase**: Implementation. M1 (types compile) and M2 (single-node
-compose) complete. Specs, architecture, and adversary reviews were
-completed pre-implementation.
+**Phase**: Post-implementation validation. All 7 milestones (M1–M7)
+complete. 14 crates, 867 tests. Fidelity baseline established,
+adversary implementation sweep complete (30 findings, 3 Critical
+resolved). Documentation via mdbook (gh-pages).
 
 | Stage | Status |
 |-------|--------|
@@ -80,15 +81,21 @@ completed pre-implementation.
 | Adversary spec review (57 findings) | All critical/high resolved |
 | Architecture (module map, interfaces, data models) | Complete |
 | Adversary architecture review (45 findings) | All critical/high resolved |
-| BDD feature files (128 scenarios, 20 files) | Complete |
-| Fidelity baseline | Not established (first auditor sweep after M3) |
+| BDD feature files (265 scenarios, 20 files) | Complete (1 @smoke has step defs) |
+| Fidelity baseline | Established (post-M7 sweep) |
+| Adversary implementation sweep (30 findings) | 3 Critical resolved, 6 High tracked |
 | M1: Types compile (common, core, test-harness) | Complete — 147 tests |
 | M2: Single-node compose (+ graph, solver, security) | Complete — 313 tests |
-| M3: Persistent (+ node WAL) | Not started |
+| M3: Persistent (+ node WAL, observe) | Complete — 130 tests |
+| M4: Multi-node (+ gossip, erasure) | Complete — 115 tests |
+| M5: Usable (+ cli) | Complete — 55 tests |
+| M6: Hardened (+ security advanced) | Complete — 49 tests |
+| M7: Migration (+ k8s tool) | Complete — 31 tests |
+| Integration tests | Complete — 15 tests |
+| Documentation (mdbook, gh-pages) | Complete |
 
-**Next**: All milestones (M1–M7) complete. The system is
-feature-complete: types, single-node compose, persistence,
-multi-node, CLI, hardened security, and K8s migration.
+**Next**: Resolve remaining 6 High adversary findings. Implement BDD
+step definitions for remaining 264 scenarios. Tag v0.1.0 release.
 
 ## Build phases
 

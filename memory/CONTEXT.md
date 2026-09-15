@@ -36,28 +36,29 @@
 
 ## Current phase
 
-M1 through M6 complete. Eleven crates implemented with 814 tests:
+M1 through M7 complete. Fourteen crates implemented with 867 tests:
 - taba-common: identity newtypes, Ppm arithmetic, clocks, config
 - taba-core: unit model, capabilities, validation, contracts
-- taba-security: Ed25519 signing/verification, scope enforcement,
-  capability enforcement, taint computation, delegation, solo
-  bootstrap, Shamir secret sharing (GF(2^8)), TPM/software
-  attestation, node enrollment ceremony, SLSA provenance
-- taba-graph: δ-state CRDT composition graph, merge, policy chains
+- taba-security: Ed25519, scope, taint, delegation, Shamir, SLSA
+- taba-graph: d-state CRDT, merge, policy chains
 - taba-solver: deterministic placement, conflict detection, cycles
-- taba-observe: decision trails, structured events, health aggregation
-- taba-node: disk-backed WAL, reconciler, SimulatedRuntime +
-  DockerRuntime, health, mode manager, capability discoverer
-- taba-gossip: SWIM membership, signed messages, 2-witness failure
-  detection, capability advertisement, cross-domain stubs
-- taba-erasure: Reed-Solomon GF(2^8), shard distribution,
-  reconstruction with priority queue + circuit breaker
-- taba-cli: clap-based CLI (init, apply, unit, status, compose,
-  audit, push), TOML unit parser, local key management
-- taba-test-harness: builders, InMemoryUnitStore, proptest strategies
+- taba-observe: decision trails, events, health, Prometheus, alerts
+- taba-node: WAL, reconciler, runtime, health, mode, discovery
+- taba-gossip: SWIM membership, signed messages, 2-witness
+- taba-erasure: Reed-Solomon GF(2^8), shard distribution
+- taba-cli: clap CLI (init, apply, unit, status, compose, audit)
+- taba-k8s: K8s manifest converter
+- taba-acceptance: BDD (cucumber-rs 0.23)
+- taba-test-harness: builders, InMemoryUnitStore, proptest
+- taba-integration: e2e tests (15)
 
-Next: M7 (Migration) — taba-k8s tool that reads K8s manifests and
-generates taba unit declarations.
+Post-M7: fidelity sweep #2, adversary sweep (30 findings, 3
+Critical resolved), OQ-005 resolved, OQ-007 re-evaluated, CI/CD
+(3-tier), LICENSE, CONTRIBUTING.md, CHANGELOG.md, rust-toolchain.toml,
+mdbook docs (gh-pages).
+
+Next: Resolve 6 High adversary findings. BDD step definitions.
+Tag v0.1.0.
 
 ## Open questions
 

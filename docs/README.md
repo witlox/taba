@@ -1,13 +1,6 @@
-# taba (束)
+# taba
 
-**Self-describing, capability-aware workload units composed through a distributed solver.**
-
-[![CI](https://github.com/witlox/taba/actions/workflows/ci.yml/badge.svg)](https://github.com/witlox/taba/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/witlox/taba/blob/main/LICENSE)
-[![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org)
-[![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://witlox.github.io/taba/)
-
-taba replaces the container + orchestrator model (Docker + Kubernetes) with typed, signed workload units that carry their own contracts. The control plane isn't a separate system — it emerges from the composition of deployed units. Complexity scales linearly with what you actually run.
+taba (束, Japanese for "sheaf") is a next-generation infrastructure primitive. It replaces container + orchestrator (Docker + Kubernetes) with self-describing, capability-aware workload units composed through a distributed solver. The control plane emerges from unit composition — it is not a separate system.
 
 ## Why
 
@@ -37,22 +30,6 @@ taba draws it differently. Units describe themselves — what they need, what th
 | Erasure coding | Not replication. k-of-n with fleet-adaptive parameters. |
 | Gossip (SWIM) | Authenticated messages, 2-witness failure confirmation. |
 
-## Project status
-
-taba is **feature-complete** (M1–M7). All 7 milestones implemented, 867 tests passing.
-
-| Milestone | Crates | Capability | Status |
-|-----------|--------|------------|--------|
-| M1: Types compile | common, core, test-harness | Unit declarations parse and validate | ✅ 147 tests |
-| M2: Single-node compose | + graph, solver, security | Compose units on one node, signed | ✅ 313 tests |
-| M3: Persistent | + observe, node | Survives restart (WAL, reconciler) | ✅ 130 tests |
-| M4: Multi-node | + gossip, erasure | SWIM membership, Reed-Solomon | ✅ 115 tests |
-| M5: Usable | + cli | Human-operable (init, apply, status) | ✅ 55 tests |
-| M6: Hardened | + security advanced | Shamir, attestation, SLSA, enrollment | ✅ 49 tests |
-| M7: Migration | + k8s | K8s manifest converter | ✅ 31 tests |
-
-Post-M7 validation: fidelity sweep #2, adversary implementation sweep (30 findings, 3 Critical resolved), OQ-005 (K8s scope) resolved, OQ-007 (benchmarks) re-evaluated.
-
 ## Quick start
 
 ```sh
@@ -67,16 +44,27 @@ cargo build --workspace
 # Initialize a local node
 cargo run --bin taba -- init
 
-# Author and apply a workload unit
-echo '[unit]
+# Author a workload unit
+cat > hello.taba.toml << 'EOF'
+[unit]
 name = "hello-web"
-image = "nginx:alpine"' > hello.taba.toml
+image = "nginx:alpine"
+EOF
+
+# Apply it to the graph
 cargo run --bin taba -- apply hello.taba.toml
 
-# Check status and run the solver
+# Check status
 cargo run --bin taba -- status
+
+# Run the solver
 cargo run --bin taba -- compose
+
+# List units
 cargo run --bin taba -- unit list
+
+# Audit decision trails
+cargo run --bin taba -- audit trails
 ```
 
 ## Architecture
@@ -108,22 +96,18 @@ Everything in taba is a **typed, self-describing unit**:
 ```toml
 # Example: a workload unit declaration
 [unit]
-type = "workload"
-trust_domain = "acme-prod"
+name = "api-server"
+image = "api:v2.1.0"
 
 [needs]
-postgres-store = { type = "data-store", purpose = "analytics" }
+postgres = { type = "storage", purpose = "primary" }
 
 [provides]
-aggregation-api = { type = "http-api" }
-
-[tolerates]
-max_latency_ms = 10
-failure_mode = "restart"
+http-api = { type = "network", purpose = "serving" }
 
 [scaling]
-min_instances = 2
-max_instances = 10
+min = 2
+max = 10
 ```
 
 Four unit types:
@@ -139,7 +123,7 @@ Four unit types:
 - **Fail closed**: ambiguous security decisions are denied, not guessed
 - **Taint propagation**: PII in = PII out, unless multi-party policy declassifies
 - **Signed everything**: units, gossip messages, ceremony events
-- **Scoped authority**: authors are parameterized by (unit type scope x trust domain scope)
+- **Scoped authority**: authors are parameterized by (unit type scope × trust domain scope)
 
 ## K8s migration
 
@@ -151,7 +135,17 @@ cargo run --bin taba-k8s -- convert deployment.yaml --output-dir ./units
 cargo run --bin taba -- apply units/api-server.taba.toml
 ```
 
-Supported: Deployment, StatefulSet, DaemonSet, Pod, Service, ConfigMap, Secret, NetworkPolicy, Role, ClusterRole, RoleBinding, ClusterRoleBinding.
+Supported K8s resources: Deployment, StatefulSet, DaemonSet, Pod, Service, ConfigMap, Secret, NetworkPolicy, Role, ClusterRole, RoleBinding, ClusterRoleBinding.
+
+## Testing
+
+| Tier | What | When | Command |
+|------|------|------|---------|
+| 1 (fast) | Unit tests + BDD @smoke + integration | Between every edit | `just` or `just test` |
+| 2 (slow) | Tier 1 + slow-marked tests + full BDD | Pre-PR | `just test-slow` |
+| 3 (full) | Tier 2 + slow integration tests | Pre-merge / nightly | `just test-full` |
+
+867 tests across 14 crates. Property tests (proptest, 10k+ cases) for CRDT merge laws, solver determinism, Shamir secret sharing, and capability matching.
 
 ## Ecosystem
 
@@ -176,24 +170,6 @@ Integration between projects is opt-in via `hpc-core` crates. Each project owns 
 - **Testing**: proptest (properties), cucumber-rs (BDD), criterion (benchmarks)
 - **License**: Apache-2.0
 
-## Building
-
-```sh
-cargo build --workspace
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-cargo fmt --all -- --check
-cargo deny check
-```
-
-## Documentation
-
-Full documentation at **[witlox.github.io/taba](https://witlox.github.io/taba/)** — or build locally:
-
-```sh
-mdbook serve --open    # http://localhost:3000
-```
-
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/witlox/taba/blob/main/LICENSE).

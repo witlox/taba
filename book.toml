@@ -1,0 +1,12 @@
+[book]
+title = "taba Documentation"
+description = "Self-describing, capability-aware workload units composed through a distributed solver"
+authors = ["witlox"]
+language = "en"
+src = "docs"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/witlox/taba"
+edit-url-template = "https://github.com/witlox/taba/edit/main/{path}"
