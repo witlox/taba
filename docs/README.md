@@ -1,4 +1,4 @@
-<img src="../logo-docs.png" alt="taba" width="64" height="64">
+<img src="logo-docs.png" alt="taba" width="63" height="63">
 
 # taba
 
