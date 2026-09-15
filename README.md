@@ -35,8 +35,6 @@ taba draws it differently. Units describe themselves — what they need, what th
 4. **Data as first-class unit** — datasets carry schema, classification, provenance, retention, and consent. Lineage falls out of the composition graph.
 5. **Peer-to-peer** — no masters, no leaders, no external metadata store. CRDT graph, erasure-coded, gossip membership.
 
-### Load-bearing decisions
-
 | Decision | Rationale |
 |----------|-----------|
 | No masters | All nodes are peers. Same binary, same protocol, 1 node or 10,000. |
@@ -46,22 +44,6 @@ taba draws it differently. Units describe themselves — what they need, what th
 | Signed units | Every unit is signed with context binding (trust domain, cluster, validity window). |
 | Erasure coding | Not replication. k-of-n with fleet-adaptive parameters. |
 | Gossip (SWIM) | Authenticated messages, 2-witness failure confirmation. |
-
-## Project status
-
-taba is **feature-complete** (M1–M7). All 7 milestones implemented, 867 tests passing.
-
-| Milestone | Crates | Capability | Status |
-|-----------|--------|------------|--------|
-| M1: Types compile | common, core, test-harness | Unit declarations parse and validate | ✅ 147 tests |
-| M2: Single-node compose | + graph, solver, security | Compose units on one node, signed | ✅ 313 tests |
-| M3: Persistent | + observe, node | Survives restart (WAL, reconciler) | ✅ 130 tests |
-| M4: Multi-node | + gossip, erasure | SWIM membership, Reed-Solomon | ✅ 115 tests |
-| M5: Usable | + cli | Human-operable (init, apply, status) | ✅ 55 tests |
-| M6: Hardened | + security advanced | Shamir, attestation, SLSA, enrollment | ✅ 49 tests |
-| M7: Migration | + k8s | K8s manifest converter | ✅ 31 tests |
-
-Post-M7 validation: fidelity sweep #2, adversary implementation sweep (30 findings, 3 Critical resolved), OQ-005 (K8s scope) resolved, OQ-007 (benchmarks) re-evaluated.
 
 ## Quick start
 
@@ -162,19 +144,6 @@ cargo run --bin taba -- apply units/api-server.taba.toml
 ```
 
 Supported: Deployment, StatefulSet, DaemonSet, Pod, Service, ConfigMap, Secret, NetworkPolicy, Role, ClusterRole, RoleBinding, ClusterRoleBinding.
-
-## Ecosystem
-
-taba is the fourth project in the witlox infrastructure ecosystem:
-
-| Project | Language | Purpose |
-|---------|----------|---------|
-| [pact](https://github.com/witlox/pact) | Rust | HPC configuration management |
-| [lattice](https://github.com/witlox/lattice) | Rust | HPC workload scheduling |
-| [sovra](https://github.com/witlox/sovra) | Go | Federated key management |
-| **taba** | Rust | Next-gen infrastructure composition |
-
-Integration between projects is opt-in via `hpc-core` crates. Each project owns its space.
 
 ## Technology
 
