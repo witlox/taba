@@ -288,6 +288,7 @@ impl RuntimeExecutor for DockerRuntime {
             // Create container.
             let config = bollard::container::Config {
                 image: Some(image.clone()),
+                cmd: Some(vec!["sleep".to_string(), "300".to_string()]),
                 ..Default::default()
             };
 
@@ -416,6 +417,20 @@ mod tests {
         Unit::Workload(WorkloadUnitBuilder::new().with_id(id).build())
     }
 
+    /// Test workload with a real Docker image (alpine:latest).
+    fn test_docker_workload(id: UnitId) -> Unit {
+        use taba_common::ContentDigest;
+        use taba_core::{Artifact, ArtifactType};
+        let mut unit = WorkloadUnitBuilder::new().with_id(id).build();
+        unit.artifact = Artifact {
+            artifact_type: ArtifactType::Oci,
+            artifact_ref: "alpine:latest".to_string(),
+            digest: ContentDigest("sha256:".to_string()),
+            requires: Vec::new(),
+        };
+        Unit::Workload(unit)
+    }
+
     // -- SimulatedRuntime tests ---------------------------------------------
 
     #[test]
@@ -500,7 +515,7 @@ mod tests {
     fn test_docker_start_stop() {
         let runtime = DockerRuntime::new().expect("connect to Docker");
         let id = UnitId(uuid::Uuid::new_v4());
-        let unit = test_workload(id);
+        let unit = test_docker_workload(id);
 
         let state = runtime.start(&unit).expect("start should succeed");
         assert_eq!(state, RuntimeState::Running);
@@ -514,7 +529,7 @@ mod tests {
     fn test_docker_check_state() {
         let runtime = DockerRuntime::new().expect("connect to Docker");
         let id = UnitId(uuid::Uuid::new_v4());
-        let unit = test_workload(id);
+        let unit = test_docker_workload(id);
 
         runtime.start(&unit).expect("start should succeed");
         assert_eq!(runtime.check_state(&unit), RuntimeState::Running);
@@ -528,7 +543,7 @@ mod tests {
     fn test_docker_not_found() {
         let runtime = DockerRuntime::new().expect("connect to Docker");
         let id = UnitId(uuid::Uuid::new_v4());
-        let unit = test_workload(id);
+        let unit = test_docker_workload(id);
 
         // Container was never created → Unknown.
         assert_eq!(runtime.check_state(&unit), RuntimeState::Unknown);
