@@ -170,3 +170,82 @@ progressive disclosure.
 8. **Progressive disclosure security tradeoffs** — F-A304, F-A309, F-A311 (simpler defaults = weaker security properties)
 9. **Cross-domain trust boundary gaps** — F-A305, F-A308, F-A313 (cache staleness, bridge read access, bottleneck)
 10. **Spawn model under-specification** — F-A302, F-A312 (signature delegation, declassification authority)
+
+---
+
+## Implementation Sweep (2026-09-15) — OPEN
+
+Full implementation-level adversarial pass across all 14 crates (M1–M7).
+See `adversary-implementation-sweep.md` for detailed findings.
+
+### Critical (3)
+
+| ID | Title | Component |
+|----|-------|-----------|
+| FINDING-011 | WAL compaction deletes old segments before writing new ones — data loss on crash | taba-node/wal.rs |
+| FINDING-016 | Default graph accepts unsigned units — violates INV-S3 | taba-graph/graph.rs |
+| FINDING-026 | Private key file created with world-readable permissions (0644) | taba-cli/auth.rs |
+
+### High (7)
+
+| ID | Title | Component |
+|----|-------|-----------|
+| FINDING-008 | Empty builder_signature accepted by default — SLSA fail-open | taba-security/provenance.rs |
+| FINDING-012 | WAL replay ignores `from` parameter — replays from beginning | taba-node/wal.rs |
+| FINDING-017 | Spawn depth taken from unit's own declaration, not computed from chain | taba-graph/graph.rs |
+| FINDING-018 | Scope checker not invoked for workload units (None by default) | taba-graph/graph.rs |
+| FINDING-020 | declare_failed doesn't verify witnesses are known or distinct | taba-gossip/swim.rs |
+| FINDING-028 | TOML injection via K8s metadata — unsanitized format! interpolation | taba-k8s/converter.rs |
+| FINDING-029 | Potential YAML billion laughs via generic Value deserialization | taba-k8s/converter.rs |
+
+### Medium (11)
+
+| ID | Title | Component |
+|----|-------|-----------|
+| FINDING-001 | gf_div uses production assert! — panics on zero denominator | taba-security/shamir.rs |
+| FINDING-003 | reconstruct_secret doesn't validate threshold — wrong answers with <k shares | taba-security/shamir.rs |
+| FINDING-006 | Software attestation forgeable — no runtime gate against production use | taba-security/attestation.rs |
+| FINDING-009 | SLSA level is self-attested, not cryptographically verified | taba-security/provenance.rs |
+| FINDING-013 | WalPosition is per-segment offset, not global — ambiguous across segments | taba-node/wal.rs |
+| FINDING-014 | Compaction ignores remove_file errors | taba-node/wal.rs |
+| FINDING-019 | Self-references removed but no independent cycle check at insertion | taba-graph/graph.rs |
+| FINDING-021 | Key confusion in handle_message for MembershipChange | taba-gossip/swim.rs |
+| FINDING-022 | No rate limiting on join/leave — Sybil attack | taba-gossip/swim.rs |
+| FINDING-023 | Incarnation number not bounded — u64::MAX locks out legitimate updates | taba-gossip/swim.rs |
+| FINDING-024 | No integrity verification of reconstructed erasure data | taba-erasure/coding.rs |
+
+### Low (8)
+
+| ID | Title | Component |
+|----|-------|-----------|
+| FINDING-002 | gf_pow produces wrong results — dead code but latent | taba-security/shamir.rs |
+| FINDING-004 | Intermediate share values not zeroized after reconstruction | taba-security/shamir.rs |
+| FINDING-007 | verify_software_attestation doesn't verify node_id | taba-security/attestation.rs |
+| FINDING-010 | provenance_payload silently returns empty on serialization failure | taba-security/provenance.rs |
+| FINDING-015 | Replay error classification uses fragile string matching | taba-node/wal.rs |
+| FINDING-025 | Duplicate erasure shards silently overwrite without detection | taba-erasure/coding.rs |
+| FINDING-027 | push command: cache file permissions world-readable | taba-cli/commands.rs |
+| FINDING-030 | is_crd heuristic misses CRDs and misidentifies non-CRDs | taba-k8s/converter.rs |
+
+### Info (1)
+
+| ID | Title | Component |
+|----|-------|-----------|
+| FINDING-005 | Duplicate assignment in build_exp_table | taba-security/shamir.rs |
+
+### Implementation Sweep Recurring Themes
+
+1. **Fail-open defaults** — FINDING-008, FINDING-016, FINDING-018. Security
+   invariants (INV-S3, INV-S8, SLSA) are `Option` fields defaulting to
+   `None`, so the default config doesn't enforce them. Same pattern as
+   original F-001 — persists across modules.
+2. **Trusted-but-unverified inputs** — FINDING-003, FINDING-017,
+   FINDING-020, FINDING-028. Self-declared values accepted without
+   independent verification (spawn depth, witnesses, SLSA level, K8s
+   metadata).
+3. **Data loss on crash** — FINDING-011. WAL compaction has a
+   delete-then-write window where a crash loses all WAL data.
+4. **Secret handling** — FINDING-026, FINDING-027, FINDING-004. Private
+   key world-readable by default; intermediate values not zeroized.
+5. **WAL position ambiguity** — FINDING-012, FINDING-013. Per-segment
+   offset used as if global; incremental replay/compaction undefined.

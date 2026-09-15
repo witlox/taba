@@ -692,21 +692,38 @@ impl WalManager for DiskWalManager {
             .expect("total_size mutex should not be poisoned");
         let old_total = *total;
 
-        // Delete all old segment files.
-        for seg in segments.iter() {
-            let _ = std::fs::remove_file(&seg.path);
-        }
-        segments.clear();
-
-        // Create a fresh segment and re-encode kept entries.
+        // Write-then-delete: create the new segment FIRST, then delete
+        // old ones. If the process crashes during compaction, old
+        // segments are still intact and can be replayed on recovery.
+        // (FINDING-011: deleting before writing caused data loss.)
         let mut new_seg = Segment::create(*next_seq, &self.dir)?;
         let mut new_total = 0u64;
 
         for entry in &kept_entries {
             let frame = encode_frame(entry);
-            let _ = new_seg.append_frame(&frame)?;
+            new_seg.append_frame(&frame)?;
             new_total += frame.len() as u64;
         }
+
+        // Flush the new segment to disk before deleting old ones.
+        // Open the file and fsync to ensure durability (Segment stores
+        // only the path, not a file handle).
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&new_seg.path)
+            .map_err(|e| NodeError::WalWriteFailed {
+                reason: format!("failed to open new segment for fsync: {e}"),
+            })?
+            .sync_all()
+            .map_err(|e| NodeError::WalWriteFailed {
+                reason: format!("failed to fsync new segment during compaction: {e}"),
+            })?;
+
+        // Now safe to delete old segments.
+        for seg in segments.iter() {
+            let _ = std::fs::remove_file(&seg.path);
+        }
+        segments.clear();
 
         segments.push(new_seg);
 

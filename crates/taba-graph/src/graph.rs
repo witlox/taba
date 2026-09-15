@@ -273,6 +273,11 @@ impl DefaultGraph {
     /// Use this constructor when you have role assignments to enforce
     /// author scope (INV-S5).
     #[must_use]
+    ///
+    /// **Note**: This constructor sets the structural validator
+    /// but does NOT enable signature verification (INV-S3). To
+    /// enable signature verification, call [`with_verifier`](Self::with_verifier)
+    /// after this constructor.
     pub fn with_validator(validator: DefaultValidator, memory_limit_bytes: u64) -> Self {
         Self {
             state: Arc::new(Mutex::new(CompositionGraphData::new())),

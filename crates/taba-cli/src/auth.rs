@@ -19,6 +19,8 @@
 //! Node configuration ([`LocalConfig`]) is stored as JSON in a file
 //! named `config.json`.
 
+use std::io::Write;
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -138,7 +140,17 @@ impl LocalAuth {
 
         // Save the private key as hex.
         let hex_key = hex::encode(signing_bytes);
-        std::fs::write(self.keypair_path(), &hex_key)?;
+        // Write with restrictive permissions (0600 — owner only).
+        // std::fs::write uses default permissions (0644 with umask 022),
+        // which makes the private key readable by all users on the system.
+        // Use OpenOptions to explicitly set 0600.
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(self.keypair_path())?
+            .write_all(hex_key.as_bytes())?;
 
         // Derive the key ID and verifying key.
         let key_id = KeyId::from_public_key(&public_key);

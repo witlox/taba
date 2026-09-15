@@ -144,18 +144,57 @@ pair). Linear in practice.
   snapshot operation at N=10,000 would take ~24 ms due to cache effects,
   further motivating sharding.
 
-## Resolution
+## Re-evaluation (2026-09-15, post-M7)
 
-OQ-007 is resolved. The graph can handle up to ~5,000 units on a single
-node before performance degrades noticeably: at N=5000, `insert` takes
-~615 µs and `snapshot` takes ~5.9 ms, both dominated by O(N) operations
-and cache effects. The solver's O(N^2) conflict detection is the primary
-scaling bottleneck — at N=500, `solve` takes ~747 µs (acceptable), but
-extrapolating to N=10,000 gives ~300 ms (unacceptable for real-time
-placement).
+Re-ran criterion benchmarks after M3-M7 implementation. The graph
+now has additional fields (verifier, scope_checker, max_spawn_depth)
+which add a small per-insert overhead (~12-16% regression across all
+operations). This is expected and acceptable — the security gates
+are O(1) checks, not O(N).
 
-Auto-compaction at 80% (INV-R6) is appropriate: at ~10,000 units
-(~3.9 MB estimated), compaction at 3.1 MB keeps the graph within cache
-bounds and maintains sub-millisecond insert latency. Sharding (Phase 3+)
-should be implemented before N exceeds 10,000, as the solver's O(N^2)
-conflict detection becomes the dominant cost beyond this threshold.
+### Updated results (post-M7)
+
+| Operation    | N=10      | N=100     | N=1000    | N=5000      |
+|--------------|-----------|-----------|-----------|-------------|
+| insert       | ~1.9 µs   | ~13 µs    | ~137 µs   | ~710 µs     |
+| merge        | ~18 µs    | ~29 µs    | ~155 µs   | ~720 µs     |
+| snapshot     | ~2.9 µs   | ~34 µs    | ~370 µs   | ~6.8 ms     |
+| query_get    | ~224 ns   | ~206 ns   | ~214 ns   | ~216 ns     |
+| query_provenance | ~4.5 µs | ~46 µs  | ~430 µs   | ~6.1 ms     |
+| memory_estimate | ~61 ns   | ~603 ns   | ~6.0 µs   | ~33.8 µs    |
+
+| Operation         | N=10      | N=100     | N=500      |
+|-------------------|-----------|-----------|------------|
+| solve             | ~2.6 µs   | ~46 µs    | ~770 µs    |
+| detect_conflicts  | ~490 ns   | ~23 µs    | ~590 µs    |
+| detect_cycles     | ~1.6 µs   | ~25 µs    | ~189 µs    |
+| rank_nodes        | ~158 ns   | ~3.6 µs   | ~64 µs     |
+
+### Regression analysis
+
+- **insert**: +12-16% regression due to scope checker and spawn depth
+  checks added at M2.5. The checks are O(1) (look up in a small
+  HashSet), so the regression is a constant overhead, not a scaling
+  change. At N=5000, insert takes ~710 µs (was ~615 µs) — still
+  sub-millisecond.
+- **merge**: Similar regression for the same reason.
+- **snapshot**: +14-17% regression, likely due to additional fields
+  in GraphEntry (verifier, scope_checker metadata). The cloning cost
+  is still O(N) and dominated by memory bandwidth at N=5000.
+- **memory_estimate**: +11-16% regression due to additional fields
+  being summed per entry. Still O(N) and fast (~34 µs at N=5000).
+- **Solver operations**: No significant change (within noise). The
+  solver does not interact with the security gates.
+
+### Updated conclusion
+
+The ~12-16% regression is expected and acceptable. The security
+gates (scope checker, spawn depth, optional verifier) add a
+constant per-insert overhead that does not change the scaling
+characteristics. The original conclusions hold:
+
+- Single-node operation is viable up to ~5,000 units
+- Auto-compaction at 80% (INV-R6) remains appropriate
+- Sharding needed before N > 10,000
+- The O(N^2) solver conflict detection is still the primary
+  scaling bottleneck
