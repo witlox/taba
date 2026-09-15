@@ -594,6 +594,7 @@ impl WalManager for DiskWalManager {
             .lock()
             .expect("segments mutex should not be poisoned");
 
+        let from_u64 = from.as_u64();
         let mut last_position = from;
 
         for seg in segments.iter() {
@@ -604,15 +605,19 @@ impl WalManager for DiskWalManager {
                 ),
             })?;
 
-            // For the first segment, we may need to skip entries based on
-            // the `from` position. For subsequent segments, replay from
-            // the beginning.
+            // Skip entries before the `from` position (FINDING-012).
+            // Only invoke the callback for entries at or after `from`.
             loop {
                 let pos_before = file.stream_position().unwrap_or(0);
 
                 match decode_frame(&mut file) {
                     Ok((entry, frame_size)) => {
                         last_position = WalPosition(pos_before);
+                        if pos_before < from_u64 {
+                            // Entry is before the replay cursor — skip.
+                            let _ = frame_size; // frame_size already consumed by seek
+                            continue;
+                        }
                         callback(entry)?;
                         let _ = frame_size; // frame_size already consumed by seek
                     }
@@ -909,6 +914,62 @@ mod tests {
         .expect("replay from zero");
 
         assert_eq!(all.len(), 10, "replay from 0 should return all 10");
+    }
+
+    #[tokio::test]
+    async fn test_replay_from_nonzero_position() {
+        // FINDING-012: replay(from) must skip entries before `from`
+        // and only invoke the callback for entries at or after `from`.
+        let tmp = tempfile::tempdir().expect("create temp dir");
+        let config = WalConfig {
+            wal_dir: tmp.path().join("wal").to_string_lossy().to_string(),
+            ..WalConfig::default()
+        };
+        let wal = DiskWalManager::new(config).expect("create DiskWalManager");
+
+        // Append the first entry and record the WAL position after it.
+        let id1 = UnitId(uuid::Uuid::new_v4());
+        wal.append(promoted_entry(1, id1))
+            .await
+            .expect("append first entry");
+        let pos_after_first = wal.latest_position();
+        assert!(
+            pos_after_first.as_u64() > 0,
+            "position after first entry should be non-zero"
+        );
+
+        #[allow(clippy::collection_is_never_read)]
+        // Append 4 more entries (2 through 5).
+        let mut expected_ids = vec![id1];
+        for i in 2..=5 {
+            let id = UnitId(uuid::Uuid::new_v4());
+            wal.append(promoted_entry(i, id))
+                .await
+                .expect("append entry");
+            expected_ids.push(id);
+        }
+
+        // Replay from after the first entry — should only return 4 entries.
+        let mut replayed = Vec::new();
+        wal.replay(pos_after_first, &mut |entry| {
+            replayed.push(entry);
+            Ok(())
+        })
+        .await
+        .expect("replay from non-zero position");
+
+        assert_eq!(
+            replayed.len(),
+            4,
+            "replay from after entry 1 should return entries 2-5 (4 entries), got {}",
+            replayed.len()
+        );
+
+        // The first replayed entry should be entry 2 (sequence 2), not entry 1.
+        assert_eq!(
+            replayed[0].sequence, 2,
+            "first replayed entry should have sequence 2"
+        );
     }
 
     #[tokio::test]

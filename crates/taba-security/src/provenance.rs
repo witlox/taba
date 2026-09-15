@@ -18,6 +18,7 @@
 //! and the unit's provenance is below that level, placement is
 //! blocked.
 
+use ed25519_dalek::{Signature, Verifier as DalekVerifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
 use crate::error::SecurityError;
@@ -179,16 +180,44 @@ impl ProvenanceVerifier for DefaultProvenanceVerifier {
             }
         }
 
-        // 4. Builder signature verification (if builder is trusted).
-        let trusted_key = self
-            .trusted_builders
-            .iter()
-            .find(|(name, _)| name == &provenance.builder)
-            .map(|(_, key)| *key);
+        // 4. Builder signature verification (FINDING-008: fail-closed).
+        //
+        // When `trusted_builders` is NOT empty and the builder is not in
+        // the list, reject with `InvalidSignature` — an untrusted builder
+        // must not pass verification.
+        //
+        // When `trusted_builders` IS empty (no trusted builders configured),
+        // signature verification is skipped (progressive disclosure for
+        // SLSA level 1). HOWEVER, SLSA level 2+ requires a non-empty
+        // signature by definition: if the signature is empty and the
+        // declared SLSA level is >= 2, reject with `InvalidSignature`.
+        if self.trusted_builders.is_empty() {
+            // No trusted builders configured: skip signature verification
+            // (progressive disclosure for SLSA level 1). But SLSA level 2+
+            // requires a non-empty signature by definition.
+            if provenance.builder_signature.is_empty() && provenance.slsa_level >= 2 {
+                return Err(SecurityError::InvalidSignature {
+                    reason: format!(
+                        "SLSA level {} requires a non-empty builder signature, \
+                         but the signature is empty",
+                        provenance.slsa_level
+                    ),
+                });
+            }
+        } else {
+            let public_key_bytes = self
+                .trusted_builders
+                .iter()
+                .find(|(name, _)| name == &provenance.builder)
+                .map(|(_, key)| *key)
+                .ok_or_else(|| SecurityError::InvalidSignature {
+                    reason: format!(
+                        "builder '{}' is not in the trusted builders list",
+                        provenance.builder
+                    ),
+                })?;
 
-        if let Some(public_key_bytes) = trusted_key {
             // Verify the builder signature using Ed25519.
-            use ed25519_dalek::{Signature, Verifier as DalekVerifier, VerifyingKey};
 
             let verifying_key = VerifyingKey::from_bytes(&public_key_bytes).map_err(|e| {
                 SecurityError::InvalidSignature {
@@ -279,11 +308,25 @@ mod tests {
             builder: "github-actions/v3".to_string(),
             source_repo: "github.com/acme/service".to_string(),
             source_digest: "sha256:abc123def456".to_string(),
-            slsa_level: 3,
+            // SLSA level 1 does not require a builder signature
+            // (progressive disclosure). Level 2+ requires a non-empty
+            // signature — see test_verify_slsa_level_requires_signature.
+            slsa_level: 1,
             build_timestamp: 1_735_689_600_000,
             builder_signature: Vec::new(),
             build_parameters: vec![("env".to_string(), "production".to_string())],
         }
+    }
+
+    /// Creates a provenance at SLSA level 3 with a valid builder signature.
+    fn signed_level3_provenance() -> (SlsaProvenance, crate::crypto::KeyPair) {
+        let key_pair = crate::crypto::KeyPair::generate();
+        let mut provenance = SlsaProvenance {
+            slsa_level: 3,
+            ..valid_provenance()
+        };
+        sign_provenance(&mut provenance, key_pair.signing_key()).expect("sign should succeed");
+        (provenance, key_pair)
     }
 
     #[test]
@@ -298,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_verify_slsa_level_meets_minimum() {
-        let provenance = valid_provenance();
+        let (provenance, _) = signed_level3_provenance();
         let verifier = DefaultProvenanceVerifier::new();
 
         verifier
@@ -378,7 +421,10 @@ mod tests {
         let key_pair = crate::crypto::KeyPair::generate();
         let public_key = *key_pair.public_key();
 
-        let mut provenance = valid_provenance();
+        let mut provenance = SlsaProvenance {
+            slsa_level: 3,
+            ..valid_provenance()
+        };
         sign_provenance(&mut provenance, key_pair.signing_key()).expect("sign should succeed");
 
         // Without trusted builder: no signature verification (level 3 still passes).
@@ -400,7 +446,10 @@ mod tests {
         let key_pair_a = crate::crypto::KeyPair::generate();
         let key_pair_b = crate::crypto::KeyPair::generate();
 
-        let mut provenance = valid_provenance();
+        let mut provenance = SlsaProvenance {
+            slsa_level: 3,
+            ..valid_provenance()
+        };
         // Sign with key A.
         sign_provenance(&mut provenance, key_pair_a.signing_key()).expect("sign should succeed");
 
@@ -416,7 +465,10 @@ mod tests {
         let key_pair = crate::crypto::KeyPair::generate();
         let public_key = *key_pair.public_key();
 
-        let mut provenance = valid_provenance();
+        let mut provenance = SlsaProvenance {
+            slsa_level: 3,
+            ..valid_provenance()
+        };
         sign_provenance(&mut provenance, key_pair.signing_key()).expect("sign should succeed");
 
         // Tamper with the source_repo after signing.
@@ -450,5 +502,81 @@ mod tests {
         assert_eq!(decoded.builder, provenance.builder);
         assert_eq!(decoded.slsa_level, provenance.slsa_level);
         assert_eq!(decoded.source_digest, provenance.source_digest);
+    }
+
+    // -- FINDING-008: fail-closed provenance verification --------------------
+
+    #[test]
+    fn test_verify_empty_signature_slsa_level2_rejected() {
+        // SLSA level 2+ requires a non-empty builder signature by
+        // definition. Even with no trusted builders configured, an
+        // empty signature at level 2+ must be rejected (FINDING-008).
+        let provenance = SlsaProvenance {
+            slsa_level: 2,
+            ..valid_provenance()
+        };
+        let verifier = DefaultProvenanceVerifier::new();
+        let result = verifier.verify(&provenance, MinSlsaLevel(0), None);
+        assert!(
+            result.is_err(),
+            "empty signature at SLSA level 2 should be rejected"
+        );
+        assert!(
+            matches!(result, Err(SecurityError::InvalidSignature { .. })),
+            "expected InvalidSignature for empty signature at SLSA level 2, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_verify_empty_signature_slsa_level3_rejected() {
+        let provenance = SlsaProvenance {
+            slsa_level: 3,
+            ..valid_provenance()
+        };
+        let verifier = DefaultProvenanceVerifier::new();
+        let result = verifier.verify(&provenance, MinSlsaLevel(0), None);
+        assert!(
+            result.is_err(),
+            "empty signature at SLSA level 3 should be rejected"
+        );
+    }
+
+    #[test]
+    fn test_verify_empty_signature_slsa_level1_allowed() {
+        // SLSA level 1 does not require a builder signature (progressive
+        // disclosure). An empty signature at level 1 is allowed.
+        let provenance = valid_provenance(); // slsa_level: 1, empty signature
+        let verifier = DefaultProvenanceVerifier::new();
+        verifier
+            .verify(&provenance, MinSlsaLevel(0), None)
+            .expect("empty signature at SLSA level 1 should be allowed");
+    }
+
+    #[test]
+    fn test_verify_untrusted_builder_rejected() {
+        // When trusted_builders is NOT empty and the builder is not in
+        // the list, verification must fail (FINDING-008).
+        let key_pair = crate::crypto::KeyPair::generate();
+
+        let mut provenance = SlsaProvenance {
+            slsa_level: 3,
+            ..valid_provenance()
+        };
+        sign_provenance(&mut provenance, key_pair.signing_key()).expect("sign should succeed");
+
+        // Trusted builder list contains a DIFFERENT builder.
+        let other_key = *crate::crypto::KeyPair::generate().public_key();
+        let verifier = DefaultProvenanceVerifier::new()
+            .with_trusted_builder("different-builder/v1", other_key.0);
+
+        let result = verifier.verify(&provenance, MinSlsaLevel(3), None);
+        assert!(
+            result.is_err(),
+            "untrusted builder should be rejected when trusted_builders is non-empty"
+        );
+        assert!(
+            matches!(result, Err(SecurityError::InvalidSignature { .. })),
+            "expected InvalidSignature for untrusted builder, got: {result:?}"
+        );
     }
 }

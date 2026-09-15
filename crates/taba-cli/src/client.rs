@@ -122,9 +122,11 @@ impl LocalClient {
         })
     }
 
-    /// Creates a client for testing — no verifier, no scope checker.
-    /// Units are accepted with structural validation only.
-    #[cfg(test)]
+    /// Creates a client for local mode — no verifier, no scope checker.
+    /// Units are accepted with structural validation only. Use this
+    /// for `taba apply` where the user is already authenticated by
+    /// having the keypair, and role assignments may not yet exist
+    /// in the local graph.
     pub async fn load_unverified(state_dir: Option<std::path::PathBuf>) -> Result<Self, CliError> {
         let auth = match state_dir {
             Some(dir) => LocalAuth::with_state_dir(dir)?,

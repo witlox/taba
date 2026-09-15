@@ -78,6 +78,7 @@ impl K8sConverter {
         };
 
         let name = &manifest.metadata.name;
+        let _san_name = sanitize_toml_value(name);
 
         match manifest.kind.as_str() {
             "Deployment" => self.convert_deployment(&manifest, name, report),
@@ -148,6 +149,8 @@ impl K8sConverter {
         name: &str,
         report: &mut ConversionReport,
     ) {
+        let _san_name = sanitize_toml_value(name);
+        let san_name = sanitize_toml_value(name);
         let spec: DeploymentSpec = match serde_yaml::from_value(manifest.spec.clone()) {
             Ok(s) => s,
             Err(e) => {
@@ -166,18 +169,20 @@ impl K8sConverter {
         };
 
         let Some(image) = &container.image else {
+            // image is &Option<String>, extract it
             report.warnings.push(format!(
                 "Deployment {name}: container {} has no image",
                 container.name
             ));
             return;
         };
+        let san_image = sanitize_toml_value(image);
 
         let replicas = spec.replicas.unwrap_or(1);
         let mut toml = format!(
-            "[unit]\nname = \"{name}\"\nimage = \"{image}\"\nkind = \"service\"\n\n[scaling]\nmin = {min}\nmax = {max}\n",
-            name = name,
-            image = image,
+            "[unit]\nname = \"{san_name}\"\nimage = \"{san_image}\"\nkind = \"service\"\n\n[scaling]\nmin = {min}\nmax = {max}\n",
+            san_name = san_name,
+            san_image = san_image,
             min = replicas,
             max = replicas.max(replicas * 3)
         );
@@ -237,6 +242,7 @@ impl K8sConverter {
         name: &str,
         report: &mut ConversionReport,
     ) {
+        let san_name = sanitize_toml_value(name);
         let spec: StatefulSetSpec = match serde_yaml::from_value(manifest.spec.clone()) {
             Ok(s) => s,
             Err(e) => {
@@ -255,11 +261,12 @@ impl K8sConverter {
         };
 
         let image = container.image.clone().unwrap_or_default();
+        let san_image = sanitize_toml_value(&image);
         let replicas = spec.replicas.unwrap_or(1);
         let mut toml = format!(
-            "[unit]\nname = \"{name}\"\nimage = \"{image}\"\nkind = \"service\"\n\n[recovery]\nstrategy = \"require-quorum\"\nmin_peers = 1\n\n[scaling]\nmin = {min}\nmax = {max}\n",
-            name = name,
-            image = image,
+            "[unit]\nname = \"{san_name}\"\nimage = \"{san_image}\"\nkind = \"service\"\n\n[recovery]\nstrategy = \"require-quorum\"\nmin_peers = 1\n\n[scaling]\nmin = {min}\nmax = {max}\n",
+            san_name = san_name,
+            san_image = san_image,
             min = replicas,
             max = replicas.max(replicas * 3)
         );
@@ -290,6 +297,7 @@ impl K8sConverter {
     // --- DaemonSet ---
 
     fn convert_daemonset(&self, manifest: &K8sManifest, name: &str, report: &mut ConversionReport) {
+        let san_name = sanitize_toml_value(name);
         let spec: DaemonSetSpec = match serde_yaml::from_value(manifest.spec.clone()) {
             Ok(s) => s,
             Err(e) => {
@@ -308,8 +316,9 @@ impl K8sConverter {
         };
 
         let image = container.image.clone().unwrap_or_default();
+        let san_image = sanitize_toml_value(&image);
         let mut toml = format!(
-            "[unit]\nname = \"{name}\"\nimage = \"{image}\"\nkind = \"service\"\n\n[scaling]\nmin = 1\nmax = 1000\n# DaemonSet: one instance per node\n"
+            "[unit]\nname = \"{san_name}\"\nimage = \"{san_image}\"\nkind = \"service\"\n\n[scaling]\nmin = 1\nmax = 1000\n# DaemonSet: one instance per node\n"
         );
 
         if !spec.template.spec.node_selector.is_empty() {
@@ -338,6 +347,7 @@ impl K8sConverter {
     // --- Pod ---
 
     fn convert_pod(&self, manifest: &K8sManifest, name: &str, report: &mut ConversionReport) {
+        let san_name = sanitize_toml_value(name);
         let spec: PodSpec = match serde_yaml::from_value(manifest.spec.clone()) {
             Ok(s) => s,
             Err(e) => {
@@ -356,8 +366,9 @@ impl K8sConverter {
         };
 
         let image = container.image.clone().unwrap_or_default();
+        let san_image = sanitize_toml_value(&image);
         let toml = format!(
-            "[unit]\nname = \"{name}\"\nimage = \"{image}\"\nkind = \"service\"\n\n[scaling]\nmin = 1\nmax = 1\n# Pod without controller\n"
+            "[unit]\nname = \"{san_name}\"\nimage = \"{san_image}\"\nkind = \"service\"\n\n[scaling]\nmin = 1\nmax = 1\n# Pod without controller\n"
         );
 
         report.generated.insert(name.to_string(), toml);
@@ -383,6 +394,8 @@ impl K8sConverter {
 
         let port = spec.ports[0].port;
         let svc_type = spec.type_.as_deref().unwrap_or("ClusterIP");
+        let _san_svc_name = sanitize_toml_value(name);
+        let _san_svc_type = sanitize_toml_value(svc_type);
         let toml = format!(
             "[unit]\nname = \"{name}\"\nimage = \"nginx:alpine\"\nkind = \"service\"\n\n[provides]\n{name} = {{ type = \"network\", purpose = \"{svc_type}\" }}\n\n# K8s Service port: {port}\n\n[scaling]\nmin = 1\nmax = 1\n"
         );
@@ -393,6 +406,7 @@ impl K8sConverter {
     // --- ConfigMap ---
 
     fn convert_configmap(&self, manifest: &K8sManifest, name: &str, report: &mut ConversionReport) {
+        let san_name = sanitize_toml_value(name);
         if manifest.data.is_null() {
             report.skipped.push(format!("ConfigMap/{name} (empty)"));
             return;
@@ -416,7 +430,7 @@ impl K8sConverter {
 
         let key_count = data.len();
         let toml = format!(
-            "[unit]\nname = \"{name}\"\ntype = \"data\"\n\n[schema]\nformat = \"text/plain\"\ndefinition = \"configmap with {key_count} keys\"\n\n[classification]\nlevel = \"internal\"\n\n[retention]\nmode = \"persistent\"\nduration = \"7y\"\nlegal_basis = \"configuration data\"\n\n[provides]\nconfig = {{ type = \"configuration\" }}\n"
+            "[unit]\nname = \"{san_name}\"\ntype = \"data\"\n\n[schema]\nformat = \"text/plain\"\ndefinition = \"configmap with {key_count} keys\"\n\n[classification]\nlevel = \"internal\"\n\n[retention]\nmode = \"persistent\"\nduration = \"7y\"\nlegal_basis = \"configuration data\"\n\n[provides]\nconfig = {{ type = \"configuration\" }}\n"
         );
 
         report.generated.insert(name.to_string(), toml);
@@ -425,8 +439,9 @@ impl K8sConverter {
     // --- Secret ---
 
     fn convert_secret(name: &str, report: &mut ConversionReport) {
+        let san_name = sanitize_toml_value(name);
         let toml = format!(
-            "[unit]\nname = \"{name}\"\ntype = \"data\"\n\n[schema]\nformat = \"opaque\"\ndefinition = \"k8s secret\"\n\n[classification]\nlevel = \"confidential\"\n\n[retention]\nmode = \"persistent\"\nduration = \"7y\"\nlegal_basis = \"secret material\"\nmandatory = true\n\n[storage]\nencrypted_at_rest = true\n\n[provides]\nsecret = {{ type = \"secret\" }}\n"
+            "[unit]\nname = \"{san_name}\"\ntype = \"data\"\n\n[schema]\nformat = \"opaque\"\ndefinition = \"k8s secret\"\n\n[classification]\nlevel = \"confidential\"\n\n[retention]\nmode = \"persistent\"\nduration = \"7y\"\nlegal_basis = \"secret material\"\nmandatory = true\n\n[storage]\nencrypted_at_rest = true\n\n[provides]\nsecret = {{ type = \"secret\" }}\n"
         );
 
         report.generated.insert(name.to_string(), toml);
@@ -460,6 +475,7 @@ impl K8sConverter {
         name: &str,
         report: &mut ConversionReport,
     ) {
+        let san_name = sanitize_toml_value(name);
         let spec = &manifest.spec;
 
         // Extract pod selector
@@ -517,8 +533,9 @@ impl K8sConverter {
             ("allow".to_string(), String::new())
         };
 
+        let san_selector = sanitize_toml_value(&selector);
         let toml = format!(
-            "[unit]\nname = \"{name}\"\ntype = \"policy\"\n\n[conflict]\nunits = [\"{selector}\"]\ncapability = \"network\"\n\n[resolution]\naction = \"{resolution}\"\n{conditions}rationale = \"Converted from K8s NetworkPolicy\"\n"
+            "[unit]\nname = \"{san_name}\"\ntype = \"policy\"\n\n[conflict]\nunits = [\"{san_selector}\"]\ncapability = \"network\"\n\n[resolution]\naction = \"{resolution}\"\n{conditions}rationale = \"Converted from K8s NetworkPolicy\"\n"
         );
 
         report.generated.insert(name.to_string(), toml);
@@ -527,6 +544,7 @@ impl K8sConverter {
     // --- Role/ClusterRole -> GovernanceUnit (RoleAssignment) ---
 
     fn convert_role(&self, manifest: &K8sManifest, name: &str, report: &mut ConversionReport) {
+        let san_name = sanitize_toml_value(name);
         let is_cluster = manifest.kind == "ClusterRole";
 
         // Extract rules to determine scopes
@@ -575,8 +593,8 @@ impl K8sConverter {
         };
 
         let toml = format!(
-            "[unit]\nname = \"{name}\"\ntype = \"governance\"\ngovernance_type = \"role-assignment\"\n\n# K8s Role: {kind}\n# Scopes: [{scope_str}]\n# Trust domain: {trust_scope}\n# Assignee: set to the author who should receive this scope\n# assignee = \"<author-id>\"\n\n# unit_type_scope = [{scope_str}]\n# trust_domain_scope = [\"<trust-domain-id>\"]\n",
-            name = name,
+            "[unit]\nname = \"{san_name}\"\ntype = \"governance\"\ngovernance_type = \"role-assignment\"\n\n# K8s Role: {kind}\n# Scopes: [{scope_str}]\n# Trust domain: {trust_scope}\n# Assignee: set to the author who should receive this scope\n# assignee = \"<author-id>\"\n\n# unit_type_scope = [{scope_str}]\n# trust_domain_scope = [\"<trust-domain-id>\"]\n",
+            san_name = san_name,
             kind = manifest.kind,
             scope_str = scope_str,
             trust_scope = trust_scope
@@ -593,6 +611,7 @@ impl K8sConverter {
         name: &str,
         report: &mut ConversionReport,
     ) {
+        let san_name = sanitize_toml_value(name);
         let is_cluster = manifest.kind == "ClusterRoleBinding";
 
         let role_ref = manifest
@@ -614,6 +633,7 @@ impl K8sConverter {
             .filter_map(|s| s.get("name").and_then(|n| n.as_str()))
             .collect();
 
+        let san_role_ref = sanitize_toml_value(role_ref);
         let trust_scope = if is_cluster {
             "# cluster-wide (all trust domains)"
         } else {
@@ -631,10 +651,10 @@ impl K8sConverter {
         };
 
         let toml = format!(
-            "[unit]\nname = \"{name}\"\ntype = \"governance\"\ngovernance_type = \"role-assignment\"\n\n# K8s RoleBinding: {kind}\n# References Role: {role_ref}\n# {subjects_str}\n# Trust domain: {trust_scope}\n\n# This binding grants the subjects the scope from Role \"{role_ref}\".\n# Fill in the assignee and scope fields based on the referenced Role.\n# assignee = \"<author-id>\"\n# unit_type_scope = [\"workload\"]  # from Role\n# trust_domain_scope = [\"<trust-domain-id>\"]\n",
-            name = name,
+            "[unit]\nname = \"{san_name}\"\ntype = \"governance\"\ngovernance_type = \"role-assignment\"\n\n# K8s RoleBinding: {kind}\n# References Role: {san_role_ref}\n# {subjects_str}\n# Trust domain: {trust_scope}\n\n# This binding grants the subjects the scope from Role \"{san_role_ref}\".\n# Fill in the assignee and scope fields based on the referenced Role.\n# assignee = \"<author-id>\"\n# unit_type_scope = [\"workload\"]  # from Role\n# trust_domain_scope = [\"<trust-domain-id>\"]\n",
+            san_name = san_name,
             kind = manifest.kind,
-            role_ref = role_ref,
+            san_role_ref = san_role_ref,
             subjects_str = subjects_str,
             trust_scope = trust_scope
         );
@@ -719,6 +739,19 @@ fn port_value(v: &serde_yaml::Value) -> u16 {
         .and_then(|n| u16::try_from(n).ok())
         .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
         .unwrap_or(80)
+}
+
+/// Sanitizes a string value for safe interpolation into TOML.
+///
+/// Replaces characters that could break TOML syntax or inject
+/// arbitrary keys: backslash (must be first), double quote,
+/// newline, carriage return, tab.
+fn sanitize_toml_value(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
 }
 
 #[cfg(test)]

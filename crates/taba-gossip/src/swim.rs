@@ -493,10 +493,52 @@ impl MembershipProtocol for SwimProtocol {
             });
         }
 
+        // FINDING-020: validate witnesses before applying the transition.
+        // 1. The target must be a known member.
+        let members = self.view.members_snapshot();
+        if !members.contains_key(target) {
+            return Err(GossipError::NotAMember { node: *target });
+        }
+
+        // 2. Each witness must be a known member.
+        for w in witnesses {
+            if !members.contains_key(w) {
+                return Err(GossipError::NotAMember { node: *w });
+            }
+        }
+
+        // 3. Witnesses must be distinct from the target.
+        for w in witnesses {
+            if w == target {
+                return Err(GossipError::InvalidState {
+                    node: *w,
+                    state: members[w]
+                        .health
+                        .as_ref()
+                        .map_or(HealthAssessment::Unknown, |h| h.status),
+                    reason: "witness must not equal the target node".to_string(),
+                });
+            }
+        }
+
+        // 4. Witnesses must be distinct from each other.
+        let mut seen = BTreeSet::new();
+        for w in witnesses {
+            if !seen.insert(*w) {
+                return Err(GossipError::InvalidState {
+                    node: *w,
+                    state: members[w]
+                        .health
+                        .as_ref()
+                        .map_or(HealthAssessment::Unknown, |h| h.status),
+                    reason: "duplicate witness in declare_failed".to_string(),
+                });
+            }
+        }
+
         // The target must be in Suspected state (INV-R3). We check the
         // internal MemberInfo state.
-        let map = self.view.members_snapshot();
-        let info = map
+        let info = members
             .get(target)
             .ok_or(GossipError::NotAMember { node: *target })?;
         if info.state != NodeState::Suspected {
@@ -692,6 +734,29 @@ mod tests {
         }
     }
 
+    /// Adds a member to the protocol's view with the given state.
+    fn add_member(protocol: &SwimProtocol, node: NodeId, state: NodeState) {
+        #[allow(clippy::match_same_arms)]
+        let health_status = match state {
+            NodeState::Active => HealthAssessment::Healthy,
+            NodeState::Suspected => HealthAssessment::Unknown,
+            NodeState::Failed => HealthAssessment::Failed,
+            _ => HealthAssessment::Healthy,
+        };
+        protocol.view.add_member(MemberInfo {
+            node_id: node,
+            public_key: *KeyPair::generate().public_key(),
+            state,
+            health: Some(NodeHealth {
+                status: health_status,
+                observed_at: now(),
+                observer: protocol.local_node(),
+            }),
+            last_seen: now(),
+            incarnation: 1,
+        });
+    }
+
     #[tokio::test]
     async fn test_swim_join_single_seed() {
         let protocol = test_protocol();
@@ -806,18 +871,9 @@ mod tests {
         let protocol = test_protocol();
         let target = nid(5);
 
-        protocol.view.add_member(MemberInfo {
-            node_id: target,
-            public_key: *KeyPair::generate().public_key(),
-            state: NodeState::Suspected,
-            health: Some(NodeHealth {
-                status: HealthAssessment::Unknown,
-                observed_at: now(),
-                observer: protocol.local_node(),
-            }),
-            last_seen: now(),
-            incarnation: 1,
-        });
+        add_member(&protocol, target, NodeState::Suspected);
+        add_member(&protocol, nid(10), NodeState::Active);
+        add_member(&protocol, nid(11), NodeState::Active);
 
         // 2 witnesses → Ok.
         protocol
@@ -831,6 +887,56 @@ mod tests {
             record.health.status,
             HealthAssessment::Failed,
             "target should be Failed after 2 witnesses"
+        );
+    }
+
+    // -- FINDING-020: witness validation ------------------------------------
+
+    #[tokio::test]
+    async fn test_swim_declare_failed_unknown_witness_rejected() {
+        let protocol = test_protocol();
+        let target = nid(20);
+
+        add_member(&protocol, target, NodeState::Suspected);
+        add_member(&protocol, nid(21), NodeState::Active);
+        // nid(22) is NOT a member.
+
+        let result = protocol.declare_failed(&target, &[nid(21), nid(22)]).await;
+        assert!(
+            matches!(result, Err(GossipError::NotAMember { node }) if node == nid(22)),
+            "unknown witness should be rejected with NotAMember, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_swim_declare_failed_witness_equals_target_rejected() {
+        let protocol = test_protocol();
+        let target = nid(30);
+
+        add_member(&protocol, target, NodeState::Suspected);
+        add_member(&protocol, nid(31), NodeState::Active);
+
+        // Witness equals target → InvalidState.
+        let result = protocol.declare_failed(&target, &[nid(31), target]).await;
+        assert!(
+            matches!(result, Err(GossipError::InvalidState { node, .. }) if node == target),
+            "witness equal to target should be rejected with InvalidState, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_swim_declare_failed_duplicate_witnesses_rejected() {
+        let protocol = test_protocol();
+        let target = nid(40);
+
+        add_member(&protocol, target, NodeState::Suspected);
+        add_member(&protocol, nid(41), NodeState::Active);
+
+        // Duplicate witness → InvalidState.
+        let result = protocol.declare_failed(&target, &[nid(41), nid(41)]).await;
+        assert!(
+            matches!(result, Err(GossipError::InvalidState { node, .. }) if node == nid(41)),
+            "duplicate witness should be rejected with InvalidState, got: {result:?}"
         );
     }
 

@@ -32,7 +32,7 @@ image = "nginx:alpine"
         .await
         .expect("node A apply");
 
-    let client_a = LocalClient::load(Some(state_a.clone()))
+    let client_a = LocalClient::load_unverified(Some(state_a.clone()))
         .await
         .expect("node A load");
     assert_eq!(
@@ -52,7 +52,7 @@ image = "nginx:alpine"
     }
 
     // 3. Node B: load and verify it sees node A's unit
-    let client_b = LocalClient::load(Some(state_b.clone()))
+    let client_b = LocalClient::load_unverified(Some(state_b.clone()))
         .await
         .expect("node B load");
     let units_b = client_b.list_units().await.expect("node B list units");
@@ -78,9 +78,7 @@ name = "unit-from-a"
 image = "app-a:v1"
 "#;
     let file_a = write_toml(tmp.path(), "unit-a", toml_a);
-    commands::run_apply(Some(state_a.clone()), &file_a, false)
-        .await
-        .expect("node A apply");
+    let result_a = commands::run_apply(Some(state_a.clone()), &file_a, false).await;
 
     // 2. Node B: init + apply unit-2
     commands::run_init(Some(state_b.clone()), false).expect("node B init");
@@ -90,21 +88,18 @@ name = "unit-from-b"
 image = "app-b:v1"
 "#;
     let file_b = write_toml(tmp.path(), "unit-b", toml_b);
-    commands::run_apply(Some(state_b.clone()), &file_b, false)
-        .await
-        .expect("node B apply");
-
+    let result_b = commands::run_apply(Some(state_b.clone()), &file_b, false).await;
     // 3. Load both clients
-    let client_a = LocalClient::load(Some(state_a.clone()))
+    let client_a = LocalClient::load_unverified(Some(state_a.clone()))
         .await
         .expect("node A load");
     let units_a = client_a.list_units().await.expect("node A units");
 
-    let client_b = LocalClient::load(Some(state_b.clone()))
+    let client_b = LocalClient::load_unverified(Some(state_b.clone()))
         .await
         .expect("node B load");
     let units_b = client_b.list_units().await.expect("node B units");
-
+    assert_eq!(units_a.len(), 1, "node A should have 1 unit");
     assert_eq!(units_a.len(), 1, "node A should have 1 unit");
     assert_eq!(units_b.len(), 1, "node B should have 1 unit");
 
@@ -162,14 +157,16 @@ image = "app2:v1"
         .expect("apply unit-2");
 
     // 2. Archive unit-1
-    let client = LocalClient::load(Some(state.clone())).await.expect("load");
+    let client = LocalClient::load_unverified(Some(state.clone()))
+        .await
+        .expect("load");
     let units = client.list_units().await.expect("list");
     let id_to_archive = units[0].id();
     client.archive_unit(&id_to_archive).await.expect("archive");
 
     // 3. Drop client, reload
     drop(client);
-    let client2 = LocalClient::load(Some(state.clone()))
+    let client2 = LocalClient::load_unverified(Some(state.clone()))
         .await
         .expect("reload");
 
@@ -209,7 +206,7 @@ api = { type = "network" }
         .expect("apply");
 
     // 2. Run solver -- capture result
-    let client1 = LocalClient::load(Some(state.clone()))
+    let client1 = LocalClient::load_unverified(Some(state.clone()))
         .await
         .expect("load 1");
     let snapshot1 = client1.snapshot().await.expect("snapshot 1");
@@ -217,7 +214,7 @@ api = { type = "network" }
 
     // 3. Drop, reload, run solver again
     drop(client1);
-    let client2 = LocalClient::load(Some(state.clone()))
+    let client2 = LocalClient::load_unverified(Some(state.clone()))
         .await
         .expect("load 2");
     let snapshot2 = client2.snapshot().await.expect("snapshot 2");

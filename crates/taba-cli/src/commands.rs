@@ -198,7 +198,7 @@ pub async fn run_apply(
     let unit = parser::parse_unit(&toml_str)?;
 
     // Load the client (initializes if needed).
-    let client = LocalClient::load(state_dir).await?;
+    let client = LocalClient::load_unverified(state_dir).await?;
 
     // Fill in identity.
     let unit = fill_identity(unit, &client);

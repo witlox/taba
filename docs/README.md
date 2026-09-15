@@ -1,3 +1,5 @@
+![taba](../logo-readme.png)
+
 # taba
 
 taba (束, Japanese for "sheaf") is a next-generation infrastructure primitive. It replaces container + orchestrator (Docker + Kubernetes) with self-describing, capability-aware workload units composed through a distributed solver. The control plane emerges from unit composition — it is not a separate system.

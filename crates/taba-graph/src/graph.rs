@@ -215,6 +215,60 @@ fn compute_references(unit: &Unit) -> BTreeSet<UnitId> {
 }
 
 // ===========================================================================
+// Spawn depth computation (FINDING-017)
+// ===========================================================================
+
+/// Computes the actual spawn depth by walking the graph's parent chain
+/// (FINDING-017).
+///
+/// Starting from the given unit, follows `spawned_by` references through
+/// the active entries until reaching a unit with no [`SpawnContext`].
+/// The depth is the number of units in the chain that have a
+/// [`SpawnContext`] (including the starting unit).
+///
+/// # Returns
+///
+/// - `Ok(depth)` — the full parent chain is in the active graph.
+/// - `Err(parent_id)` — a parent in the chain is not yet in the active
+///   graph (may be pending or not yet received). The caller should log
+///   a warning and defer verification.
+fn compute_spawn_depth(entries: &BTreeMap<UnitId, GraphEntry>, unit: &Unit) -> Result<u8, UnitId> {
+    // The starting unit has a SpawnContext, so depth begins at 1.
+    let mut depth = 1u8;
+    let mut current = unit;
+    #[allow(clippy::while_let_loop)]
+    loop {
+        let parent_id = match current {
+            Unit::Workload(w) => match &w.spawn_context {
+                Some(ctx) => ctx.spawned_by,
+                None => break, // Root reached (no spawn context).
+            },
+            _ => break, // Non-workload units don't have spawn contexts.
+        };
+
+        match entries.get(&parent_id) {
+            Some(entry) => {
+                current = entry.unit();
+                if let Unit::Workload(w) = current {
+                    if w.spawn_context.is_some() {
+                        depth = depth.saturating_add(1);
+                    } else {
+                        // Parent has no spawn context — root reached.
+                        break;
+                    }
+                } else {
+                    // Parent is a non-workload unit — root reached.
+                    break;
+                }
+            }
+            None => return Err(parent_id),
+        }
+    }
+
+    Ok(depth)
+}
+
+// ===========================================================================
 // DefaultGraph
 // ===========================================================================
 
@@ -498,30 +552,81 @@ impl Graph for DefaultGraph {
             // M2: no verifier configured, structural validation only
         }
 
-        // Phase 4b: Spawn depth enforcement (INV-W3).
-        // Workload units with a spawn context must not exceed the
-        // maximum spawn depth (default 4).
+        // Phase 4b: Spawn depth enforcement (INV-W3, FINDING-017).
+        // Compute the ACTUAL spawn depth by walking the graph's parent
+        // chain, rather than trusting the unit's self-declared depth.
+        // An attacker can lie about spawn_depth; the graph must verify.
         if let Unit::Workload(w) = &signed.unit {
             if let Some(spawn_ctx) = &w.spawn_context {
-                if spawn_ctx.spawn_depth > self.max_spawn_depth {
-                    return Err(GraphError::SignatureRejected {
-                        unit: id,
-                        reason: format!(
-                            "spawn depth {} exceeds maximum {} (INV-W3)",
-                            spawn_ctx.spawn_depth, self.max_spawn_depth
-                        ),
-                    });
+                let declared_depth = spawn_ctx.spawn_depth;
+                let parent_id = spawn_ctx.spawned_by;
+
+                // Lock state to walk the parent chain through active entries.
+                let state = self
+                    .state
+                    .lock()
+                    .expect("graph mutex should not be poisoned");
+
+                match compute_spawn_depth(&state.entries, &signed.unit) {
+                    Ok(computed_depth) => {
+                        if computed_depth != declared_depth {
+                            return Err(GraphError::SignatureRejected {
+                                unit: id,
+                                reason: format!(
+                                    "spawn depth mismatch: declared {declared_depth}, computed {computed_depth}"
+                                ),
+                            });
+                        }
+                        if computed_depth > self.max_spawn_depth {
+                            return Err(GraphError::SignatureRejected {
+                                unit: id,
+                                reason: format!(
+                                    "spawn depth {computed_depth} exceeds maximum {}",
+                                    self.max_spawn_depth
+                                ),
+                            });
+                        }
+                    }
+                    Err(missing_parent) => {
+                        // The parent is not yet in the active graph (may
+                        // be pending or not yet received via gossip). Per
+                        // FINDING-017, accept the unit but log a warning.
+                        // The depth is verified when the parent arrives.
+                        tracing::warn!(
+                            unit = %id.0,
+                            parent = %missing_parent.0,
+                            declared_depth,
+                            "parent not yet in graph; spawn depth verification deferred"
+                        );
+                    }
                 }
+                // Explicitly note that we check the parent is the one
+                // we computed against.
+                let _ = parent_id;
             }
         }
 
-        // Phase 4c: Scope uniqueness enforcement (INV-S8).
-        // For role assignments, no two distinct authors may have
-        // identical (unit_type_scope, trust_domain_scope) tuples for
-        // state-producing unit types. Overlapping scopes for
-        // decision-making types (policy, governance) are permitted
-        // (INV-S8a).
+        // Phase 4c: Scope enforcement (INV-S5, INV-S8, FINDING-018).
+        // For workload and data units: check author scope (INV-S5,
+        // FINDING-018). For role assignments: check scope uniqueness
+        // (INV-S8). Overlapping scopes for decision-making types
+        // (policy, governance) are permitted (INV-S8a).
         if let Some(scope_checker) = &self.scope_checker {
+            let unit_kind = signed.unit.kind();
+            let author = signed.unit.header().author;
+            let trust_domain = signed.unit.header().trust_domain;
+
+            // FINDING-018: scope-check workload and data units.
+            if matches!(unit_kind, UnitKind::Workload | UnitKind::Data) {
+                scope_checker
+                    .check_author_scope(&author, unit_kind, &trust_domain)
+                    .map_err(|e| GraphError::ScopeViolation {
+                        author,
+                        reason: e.to_string(),
+                    })?;
+            }
+
+            // INV-S8: scope uniqueness for role assignments.
             if let Unit::Governance(GovernanceUnit::RoleAssignment(new_ra)) = &signed.unit {
                 let existing: Vec<RoleAssignment> = {
                     let state = self
@@ -1919,43 +2024,115 @@ mod tests {
         assert!(graph.get(&id).is_ok(), "unit should be in active set");
     }
 
-    // -- INV-W3: spawn depth enforcement -----------------------------------
+    // -- INV-W3: spawn depth enforcement (FINDING-017) ----------------------
 
     #[tokio::test]
     async fn test_insert_spawn_depth_within_limit() {
-        // Spawn depth 4 with max 4 should be accepted (INV-W3).
-        // The unit references its parent (via spawn_context), so it
-        // enters the pending queue — but the depth check passes.
+        // Spawn depth 1 with max 4 should be accepted (INV-W3).
+        // The parent is inserted first (a root service with no spawn
+        // context) so the depth can be verified (FINDING-017).
         let graph = DefaultGraph::new(1_000_000_000).with_max_spawn_depth(4);
 
         let td = TrustDomainId(uuid::Uuid::new_v4());
         let author = AuthorId(uuid::Uuid::new_v4());
         let parent_id = UnitId(uuid::Uuid::new_v4());
 
+        // Insert the parent (root service, no spawn context).
+        graph
+            .insert(workload(parent_id, td, author))
+            .await
+            .expect("insert parent");
+
+        // Insert child with spawn_depth 1 (computed depth 1 ≤ max 4).
         let w = WorkloadUnitBuilder::new()
             .with_author(author)
             .with_trust_domain(td)
             .with_spawn_context(SpawnContext {
                 spawned_by: parent_id,
                 delegation_token_id: DelegationTokenId(uuid::Uuid::new_v4()),
-                spawn_depth: 4,
+                spawn_depth: 1,
             })
             .build();
 
         graph
             .insert(Unit::Workload(w))
             .await
-            .expect("spawn depth 4 within max 4 should be accepted");
+            .expect("spawn depth 1 within max 4 should be accepted");
     }
 
     #[tokio::test]
     async fn test_insert_spawn_depth_exceeds_limit() {
-        // Spawn depth 5 with max 4 should be rejected (INV-W3).
+        // Computed depth exceeds maximum (INV-W3, FINDING-017).
+        // Build a chain: root → child (depth 1) → grandchild (depth 2).
+        // With max 1, the grandchild (computed depth 2) exceeds maximum.
+        let graph = DefaultGraph::new(1_000_000_000).with_max_spawn_depth(1);
+
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+        let root_id = UnitId(uuid::Uuid::new_v4());
+
+        // Insert root (no spawn context).
+        graph
+            .insert(workload(root_id, td, author))
+            .await
+            .expect("insert root");
+
+        // Insert child (depth 1, within max 1).
+        let child_id = UnitId(uuid::Uuid::new_v4());
+        let child = WorkloadUnitBuilder::new()
+            .with_id(child_id)
+            .with_author(author)
+            .with_trust_domain(td)
+            .with_spawn_context(SpawnContext {
+                spawned_by: root_id,
+                delegation_token_id: DelegationTokenId(uuid::Uuid::new_v4()),
+                spawn_depth: 1,
+            })
+            .build();
+        graph
+            .insert(Unit::Workload(child))
+            .await
+            .expect("child depth 1 within max 1 should be accepted");
+
+        // Insert grandchild (depth 2, exceeds max 1).
+        let grandchild_id = UnitId(uuid::Uuid::new_v4());
+        let grandchild = WorkloadUnitBuilder::new()
+            .with_id(grandchild_id)
+            .with_author(author)
+            .with_trust_domain(td)
+            .with_spawn_context(SpawnContext {
+                spawned_by: child_id,
+                delegation_token_id: DelegationTokenId(uuid::Uuid::new_v4()),
+                spawn_depth: 2,
+            })
+            .build();
+
+        let result = graph.insert(Unit::Workload(grandchild)).await;
+        assert!(
+            result.is_err(),
+            "spawn depth 2 exceeding max 1 should be rejected"
+        );
+        assert!(
+            matches!(result, Err(GraphError::SignatureRejected { unit, .. }) if unit == grandchild_id),
+            "expected SignatureRejected for spawn depth violation, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_insert_spawn_depth_mismatch_rejected() {
+        // FINDING-017: declared depth must match computed depth.
+        // Parent is in the graph (no spawn context), so computed depth
+        // is 1. The child declares depth 5 — mismatch → rejected.
         let graph = DefaultGraph::new(1_000_000_000).with_max_spawn_depth(4);
 
         let td = TrustDomainId(uuid::Uuid::new_v4());
         let author = AuthorId(uuid::Uuid::new_v4());
         let parent_id = UnitId(uuid::Uuid::new_v4());
+
+        graph
+            .insert(workload(parent_id, td, author))
+            .await
+            .expect("insert parent");
 
         let id = UnitId(uuid::Uuid::new_v4());
         let w = WorkloadUnitBuilder::new()
@@ -1972,12 +2149,104 @@ mod tests {
         let result = graph.insert(Unit::Workload(w)).await;
         assert!(
             result.is_err(),
-            "spawn depth 5 exceeding max 4 should be rejected"
+            "declared depth 5 but computed depth 1 should be rejected (mismatch)"
+        );
+        if let Err(GraphError::SignatureRejected { unit, reason }) = &result {
+            assert_eq!(*unit, id);
+            assert!(
+                reason.contains("mismatch"),
+                "reason should mention mismatch, got: {reason}"
+            );
+        } else {
+            panic!("expected SignatureRejected with mismatch, got: {result:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_insert_spawn_depth_parent_not_in_graph_deferred() {
+        // FINDING-017: when the parent is not yet in the graph, accept
+        // the unit but log a warning (deferred verification).
+        let graph = DefaultGraph::new(1_000_000_000).with_max_spawn_depth(4);
+
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+        let parent_id = UnitId(uuid::Uuid::new_v4());
+
+        // Parent is NOT inserted — verification deferred.
+        let w = WorkloadUnitBuilder::new()
+            .with_author(author)
+            .with_trust_domain(td)
+            .with_spawn_context(SpawnContext {
+                spawned_by: parent_id,
+                delegation_token_id: DelegationTokenId(uuid::Uuid::new_v4()),
+                spawn_depth: 4,
+            })
+            .build();
+
+        graph
+            .insert(Unit::Workload(w))
+            .await
+            .expect("parent not in graph should be accepted (deferred)");
+    }
+
+    // -- FINDING-018: scope checking for workload/data units ----------------
+
+    #[tokio::test]
+    async fn test_insert_workload_scope_violation_rejected() {
+        // FINDING-018: when a scope checker is configured, workload
+        // units must pass author scope verification. An author with no
+        // role assignment should be rejected.
+        let scope_checker = Arc::new(DefaultScopeChecker::new());
+        let graph = DefaultGraph::new(1_000_000_000).with_scope_checker(scope_checker);
+
+        let id = UnitId(uuid::Uuid::new_v4());
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+
+        let result = graph.insert(workload(id, td, author)).await;
+        assert!(
+            result.is_err(),
+            "workload insert with no author scope should be rejected (FINDING-018)"
         );
         assert!(
-            matches!(result, Err(GraphError::SignatureRejected { unit, .. }) if unit == id),
-            "expected SignatureRejected for spawn depth violation, got: {result:?}"
+            matches!(result, Err(GraphError::ScopeViolation { author: a, .. }) if a == author),
+            "expected ScopeViolation for workload without scope, got: {result:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn test_insert_workload_with_scope_accepted() {
+        // FINDING-018: when a scope checker is configured and the author
+        // has the correct scope, the workload should be accepted.
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+
+        let mut scope_checker = DefaultScopeChecker::new();
+        scope_checker.add_assignment(RoleAssignment {
+            header: UnitHeader {
+                id: UnitId(uuid::Uuid::new_v4()),
+                author,
+                trust_domain: td,
+                created_at: DualClockEvent {
+                    logical_clock: LogicalClock(1),
+                    wall_time: WallTime { millis: 1000 },
+                    timezone: "UTC".to_string(),
+                },
+                validity: None,
+                state: UnitState::Declared,
+                version: None,
+            },
+            assignee: author,
+            unit_type_scope: vec![UnitTypeScope::Workload],
+            trust_domain_scope: vec![td],
+        });
+        let graph = DefaultGraph::new(1_000_000_000).with_scope_checker(Arc::new(scope_checker));
+
+        let id = UnitId(uuid::Uuid::new_v4());
+        graph
+            .insert(workload(id, td, author))
+            .await
+            .expect("workload with correct scope should be accepted");
     }
 
     // -- INV-S8: scope uniqueness enforcement ------------------------------

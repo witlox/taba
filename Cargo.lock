@@ -2661,6 +2661,7 @@ dependencies = [
  "taba-test-harness",
  "thiserror 2.0.20",
  "tokio",
+ "tracing",
  "uuid",
 ]
 

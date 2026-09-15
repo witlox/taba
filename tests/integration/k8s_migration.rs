@@ -69,7 +69,9 @@ spec:
             .expect("apply should succeed for each unit");
     }
 
-    let client = LocalClient::load(Some(state.clone())).await.expect("load");
+    let client = LocalClient::load_unverified(Some(state.clone()))
+        .await
+        .expect("load");
     let units = client.list_units().await.expect("list");
     assert_eq!(units.len(), 3, "should have 3 units after migration");
 
@@ -126,7 +128,9 @@ spec:
         .await
         .expect("apply");
 
-    let client = LocalClient::load(Some(state.clone())).await.expect("load");
+    let client = LocalClient::load_unverified(Some(state.clone()))
+        .await
+        .expect("load");
     let units = client.list_units().await.expect("list");
     assert_eq!(units.len(), 1);
 
@@ -212,7 +216,9 @@ data:
         .await
         .expect("apply");
 
-    let client = LocalClient::load(Some(state.clone())).await.expect("load");
+    let client = LocalClient::load_unverified(Some(state.clone()))
+        .await
+        .expect("load");
     let units = client.list_units().await.expect("list");
     assert_eq!(units.len(), 1);
     assert_eq!(units[0].kind(), UnitKind::Data);

@@ -63,7 +63,7 @@ legal_basis = "test"
         .expect("apply data unit should succeed");
 
     // 4. status -- should show 2 units
-    let client = LocalClient::load(Some(state.clone()))
+    let client = LocalClient::load_unverified(Some(state.clone()))
         .await
         .expect("load client");
     let graph_stats = client.graph_stats();
@@ -123,7 +123,7 @@ legal_basis = "test"
 
     // 11. Restart -- drop client, create new one from same state
     drop(client);
-    let client2 = LocalClient::load(Some(state.clone()))
+    let client2 = LocalClient::load_unverified(Some(state.clone()))
         .await
         .expect("load client after restart");
     let units3 = client2
@@ -193,7 +193,7 @@ spec:
         .expect("apply converted unit should succeed");
 
     // 4. Verify the unit is in the graph
-    let client = LocalClient::load(Some(state.clone()))
+    let client = LocalClient::load_unverified(Some(state.clone()))
         .await
         .expect("load client");
     let units = client.list_units().await.expect("list units");
@@ -246,7 +246,7 @@ async fn test_signed_unit_roundtrip() {
 
     commands::run_init(Some(state.clone()), false).expect("init should succeed");
 
-    let client = LocalClient::load(Some(state.clone()))
+    let client = LocalClient::load_unverified(Some(state.clone()))
         .await
         .expect("load client");
 

@@ -1,3 +1,5 @@
+![taba](logo-readme.png)
+
 # taba (束)
 
 **Self-describing, capability-aware workload units composed through a distributed solver.**
