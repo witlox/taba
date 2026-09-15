@@ -1,4 +1,10 @@
-#![allow(clippy::unused_async, clippy::needless_pass_by_ref_mut)]
+#![allow(
+    clippy::unused_async,
+    clippy::needless_pass_by_ref_mut,
+    clippy::used_underscore_binding,
+    clippy::too_many_arguments,
+    clippy::match_same_arms
+)]
 //! Cucumber test runner for taba acceptance tests.
 //!
 //! Reads feature files from `../../specs/features/` and executes
@@ -33,9 +39,26 @@ pub struct TabaWorld {
         std::collections::BTreeMap<String, (taba_common::AuthorId, taba_security::KeyPair)>,
     pub trust_domains: std::collections::BTreeMap<String, taba_common::TrustDomainId>,
     pub logical_clock: taba_common::LogicalClock,
+    pub signed_units: std::collections::BTreeSet<String>,
+    pub node_caps:
+        std::collections::BTreeMap<String, (taba_common::NodeId, taba_core::NodeCapabilitySet)>,
+    pub membership: taba_solver::MembershipSnapshot,
+    pub alerts: Vec<String>,
+    pub events: Vec<String>,
+    pub ceremony_id: Option<String>,
+    pub ceremony_state: Option<String>,
+    pub ceremony_shares_received: u32,
+    pub ceremony_threshold: u32,
+    pub ceremony_total_shares: u32,
+    pub ceremony_holders: std::collections::BTreeSet<String>,
+    pub ceremony_expected_fp: Option<String>,
+    pub ceremony_pk: Option<String>,
+    pub ceremony_error: Option<String>,
+    pub placement_on_node: std::collections::BTreeMap<String, taba_common::NodeId>,
 }
 
 impl TabaWorld {
+    #[allow(clippy::too_many_lines)]
     fn new() -> Self {
         let key_pair = taba_security::KeyPair::generate();
         let public_key = *key_pair.public_key();
@@ -46,6 +69,11 @@ impl TabaWorld {
 
         let mut verifier = taba_security::DefaultVerifier::new();
         verifier.add_key(author_id, public_key, None);
+
+        let membership = taba_solver::MembershipSnapshot::single_node(
+            node_id,
+            taba_test_harness::NodeCapabilitySetBuilder::new().build(),
+        );
 
         Self {
             graph: Arc::new(taba_graph::DefaultGraph::new(1_073_741_824)),
@@ -68,6 +96,21 @@ impl TabaWorld {
             authors: std::collections::BTreeMap::new(),
             trust_domains: std::collections::BTreeMap::new(),
             logical_clock: taba_common::LogicalClock(0),
+            signed_units: std::collections::BTreeSet::new(),
+            node_caps: std::collections::BTreeMap::new(),
+            membership,
+            alerts: Vec::new(),
+            events: Vec::new(),
+            ceremony_id: None,
+            ceremony_state: None,
+            ceremony_shares_received: 0,
+            ceremony_threshold: 0,
+            ceremony_total_shares: 0,
+            ceremony_holders: std::collections::BTreeSet::new(),
+            ceremony_expected_fp: None,
+            ceremony_pk: None,
+            ceremony_error: None,
+            placement_on_node: std::collections::BTreeMap::new(),
         }
     }
 
@@ -93,6 +136,34 @@ impl TabaWorld {
             .get(name)
             .copied()
             .unwrap_or(self.trust_domain)
+    }
+
+    pub const fn tick(&mut self) {
+        self.logical_clock.0 += 1;
+    }
+
+    pub fn add_alert(&mut self, alert: &str) {
+        self.alerts.push(alert.to_string());
+    }
+
+    pub fn add_event(&mut self, event: &str) {
+        self.events.push(event.to_string());
+    }
+
+    pub fn reset_errors(&mut self) {
+        self.last_graph_error = None;
+    }
+
+    pub fn unit_by_name(&self, name: &str) -> Option<&taba_core::Unit> {
+        self.units.get(name)
+    }
+
+    pub fn unit_id_by_name(&self, name: &str) -> Option<taba_common::UnitId> {
+        self.units.get(name).map(|u| u.header().id)
+    }
+
+    pub fn store_unit(&mut self, name: &str, unit: taba_core::Unit) {
+        self.units.insert(name.to_string(), unit);
     }
 }
 
