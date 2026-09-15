@@ -58,8 +58,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
-      - run: cargo nextest run --workspace --locked
-      - run: cargo nextest run --workspace --run-ignored=only --no-tests=warn --locked
+      - run: cargo nextest run --workspace --exclude taba-acceptance --locked
+      - run: cargo nextest run --workspace --exclude taba-acceptance --run-ignored=only --no-tests=warn --locked
       - run: cargo test --workspace --doc --locked
 
   bdd-full:
