@@ -1,14 +1,21 @@
-![taba](logo-readme.png)
-
-# taba (束)
-
-**Self-describing, capability-aware workload units composed through a distributed solver.**
-
-[![CI](https://github.com/witlox/taba/actions/workflows/ci.yml/badge.svg)](https://github.com/witlox/taba/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/witlox/taba/blob/main/LICENSE)
-[![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org)
-[![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://witlox.github.io/taba/)
-[![codecov](https://codecov.io/gh/witlox/taba/graph/badge.svg?token=J0KZQKQKQK)](https://codecov.io/gh/witlox/taba)
+<table>
+  <tr>
+    <td>
+      <h1>taba (束)</h1>
+      <p><strong>Self-describing, capability-aware workload units composed through a distributed solver.</strong></p>
+      <p>
+        <a href="https://github.com/witlox/taba/actions/workflows/ci.yml"><img src="https://github.com/witlox/taba/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+        <a href="https://codecov.io/gh/witlox/taba"><img src="https://codecov.io/gh/witlox/taba/branch/main/graph/badge.svg?token=J0KZQKQKQK" alt="Coverage"></a>
+        <a href="https://github.com/witlox/taba/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></a>
+        <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/rust-stable-orange.svg" alt="Rust"></a>
+        <a href="https://witlox.github.io/taba/"><img src="https://img.shields.io/badge/docs-latest-brightgreen.svg" alt="Docs"></a>
+      </p>
+    </td>
+    <td align="right" valign="middle">
+      <img src="logo-readme.png" alt="taba" width="128" height="127">
+    </td>
+  </tr>
+</table>
 
 taba replaces the container + orchestrator model (Docker + Kubernetes) with typed, signed workload units that carry their own contracts. The control plane isn't a separate system — it emerges from the composition of deployed units. Complexity scales linearly with what you actually run.
 
