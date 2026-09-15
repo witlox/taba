@@ -60,9 +60,9 @@
 # Decisions
 
 - [Architecture Decision Records](decisions/index.md)
-  - [ADR-001: Unit Model](decisions/adr-001-unit-model.md)
-  - [ADR-002: CRDT Graph](decisions/adr-002-crdt-graph.md)
-  - [ADR-003: Capability Security](decisions/adr-003-capability-security.md)
-  - [ADR-004: No Masters](decisions/adr-004-no-masters.md)
-  - [ADR-005: Erasure Coding](decisions/adr-005-erasure-coding.md)
-  - [ADR-006: Role Model](decisions/adr-006-role-model.md)
+  - [ADR-001: Unit Model](decisions/ADR-001-unit-model.md)
+  - [ADR-002: CRDT Graph](decisions/ADR-002-crdt-graph.md)
+  - [ADR-003: Capability Security](decisions/ADR-003-capability-security.md)
+  - [ADR-004: No Masters](decisions/ADR-004-no-masters.md)
+  - [ADR-005: Erasure Coding](decisions/ADR-005-erasure-coding.md)
+  - [ADR-006: Role Model](decisions/ADR-006-role-model.md)
