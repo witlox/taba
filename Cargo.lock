@@ -2538,7 +2538,7 @@ dependencies = [
 
 [[package]]
 name = "taba-acceptance"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "async-trait",
  "cucumber",
@@ -2561,7 +2561,7 @@ dependencies = [
 
 [[package]]
 name = "taba-cli"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "bytes",
  "clap",
@@ -2589,7 +2589,7 @@ dependencies = [
 
 [[package]]
 name = "taba-common"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "proptest",
  "serde",
@@ -2600,7 +2600,7 @@ dependencies = [
 
 [[package]]
 name = "taba-core"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "proptest",
  "serde",
@@ -2612,7 +2612,7 @@ dependencies = [
 
 [[package]]
 name = "taba-erasure"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "proptest",
  "reed-solomon-erasure",
@@ -2628,7 +2628,7 @@ dependencies = [
 
 [[package]]
 name = "taba-gossip"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "bytes",
  "ed25519-dalek",
@@ -2649,7 +2649,7 @@ dependencies = [
 
 [[package]]
 name = "taba-graph"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "criterion",
  "proptest",
@@ -2667,7 +2667,7 @@ dependencies = [
 
 [[package]]
 name = "taba-integration"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "hex",
  "serde_json",
@@ -2689,7 +2689,7 @@ dependencies = [
 
 [[package]]
 name = "taba-k8s"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "clap",
  "proptest",
@@ -2704,7 +2704,7 @@ dependencies = [
 
 [[package]]
 name = "taba-node"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "bollard",
  "bytes",
@@ -2732,7 +2732,7 @@ dependencies = [
 
 [[package]]
 name = "taba-observe"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "proptest",
  "serde",
@@ -2749,7 +2749,7 @@ dependencies = [
 
 [[package]]
 name = "taba-security"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "ed25519-dalek",
  "proptest",
@@ -2767,7 +2767,7 @@ dependencies = [
 
 [[package]]
 name = "taba-solver"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "criterion",
  "proptest",
@@ -2784,7 +2784,7 @@ dependencies = [
 
 [[package]]
 name = "taba-test-harness"
-version = "0.1.0"
+version = "2026.6.0"
 dependencies = [
  "proptest",
  "serde",

@@ -39,6 +39,7 @@
 # Security
 
 - [Security Model](security/model.md)
+- [STRIDE Analysis](security/stride-analysis.md)
 - [Capability Enforcement](security/capabilities.md)
 - [Taint Propagation](security/taint.md)
 - [Delegation Tokens](security/delegation.md)

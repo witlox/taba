@@ -78,7 +78,7 @@ name = "unit-from-a"
 image = "app-a:v1"
 "#;
     let file_a = write_toml(tmp.path(), "unit-a", toml_a);
-    let result_a = commands::run_apply(Some(state_a.clone()), &file_a, false).await;
+    let _result_a = commands::run_apply(Some(state_a.clone()), &file_a, false).await;
 
     // 2. Node B: init + apply unit-2
     commands::run_init(Some(state_b.clone()), false).expect("node B init");
@@ -88,7 +88,7 @@ name = "unit-from-b"
 image = "app-b:v1"
 "#;
     let file_b = write_toml(tmp.path(), "unit-b", toml_b);
-    let result_b = commands::run_apply(Some(state_b.clone()), &file_b, false).await;
+    let _result_b = commands::run_apply(Some(state_b.clone()), &file_b, false).await;
     // 3. Load both clients
     let client_a = LocalClient::load_unverified(Some(state_a.clone()))
         .await

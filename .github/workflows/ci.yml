@@ -88,8 +88,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - run: cargo llvm-cov --no-report --workspace --locked
       - run: cargo nextest run --workspace --locked
       - run: cargo test --workspace --doc --locked
+      - run: cargo llvm-cov report --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@v7
+        with:
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   bdd-smoke:
     name: BDD @smoke (Tier 1 fast)

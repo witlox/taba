@@ -8,6 +8,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/witlox/taba/blob/main/LICENSE)
 [![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org)
 [![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://witlox.github.io/taba/)
+[![codecov](https://codecov.io/gh/witlox/taba/graph/badge.svg?token=J0KZQKQKQK)](https://codecov.io/gh/witlox/taba)
 
 taba replaces the container + orchestrator model (Docker + Kubernetes) with typed, signed workload units that carry their own contracts. The control plane isn't a separate system — it emerges from the composition of deployed units. Complexity scales linearly with what you actually run.
 

@@ -1,4 +1,4 @@
-![taba](../logo-readme.png)
+<img src="../logo-docs.png" alt="taba" width="64" height="64">
 
 # taba
 
