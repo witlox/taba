@@ -53,12 +53,15 @@ M1 through M7 complete. Fourteen crates implemented with 867 tests:
 - taba-integration: e2e tests (15)
 
 Post-M7: fidelity sweep #2, adversary sweep (30 findings, 3
-Critical resolved), OQ-005 resolved, OQ-007 re-evaluated, CI/CD
-(3-tier), LICENSE, CONTRIBUTING.md, CHANGELOG.md, rust-toolchain.toml,
-mdbook docs (gh-pages).
+Critical + 6 High resolved), OQ-005 resolved, OQ-007 re-evaluated,
+CI/CD (3-tier), LICENSE, CONTRIBUTING.md, CHANGELOG.md,
+rust-toolchain.toml, mdbook docs (gh-pages), STRIDE analysis,
+release infrastructure (binary builds + Docker image + version
+script), Codecov integration. Workspace version 2026.6.0. 879
+tests pass, fmt clean, clippy 0 warnings.
 
-Next: Resolve 6 High adversary findings. BDD step definitions.
-Tag v0.1.0.
+Next: Implement BDD step definitions for remaining 264 scenarios.
+Tag v2026.6.0 release.
 
 ## Open questions
 
