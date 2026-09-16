@@ -291,11 +291,11 @@ State: All milestones (M1–M7) complete
 | INV-S3 enforcement | UNVERIFIED at graph | MOCK at graph, **NOT ENFORCED in CLI** | Mechanism exists but application doesn't use it — same gap as M2, just moved |
 | INV-S8 enforcement | UNVERIFIED at graph | MOCK at graph, **NOT ENFORCED in CLI** | Same as INV-S3 |
 | INV-K3 (tolerance matching) | PARTIAL | PARTIAL | No change — scorer still uses constant tolerance score |
-| INV-K4 (scaling) | UNVERIFIED | UNVERIFIED | No change — no solver code evaluates scaling triggers |
-| INV-D3 (hierarchy validator) | UNVERIFIED | UNVERIFIED | No change |
-| INV-D5 (local-only policy) | UNVERIFIED | UNVERIFIED | No change |
-| INV-E2 (promotions cumulative) | UNVERIFIED | UNVERIFIED | No change |
-| INV-G4 (eviction) | UNVERIFIED | UNVERIFIED | No change (expected) |
+| INV-K4 (scaling) | UNVERIFIED | MOCK | Implemented: ScalingEvaluator with trigger evaluation |
+| INV-D3 (hierarchy validator) | UNVERIFIED | MOCK | Implemented: validate_data_hierarchy + wired to graph insert |
+| INV-D5 (local-only policy) | UNVERIFIED | MOCK | Implemented: tracing::warn on LocalOnly insert |
+| INV-E2 (promotions cumulative) | UNVERIFIED | MOCK | Implemented: test verifies cumulative promotion |
+| INV-G4 (eviction) | UNVERIFIED | MOCK | Implemented: EvictionPolicy in taba-node/eviction.rs |
 | BDD scenarios | 128 scenarios, 0 step defs | 265 scenarios, 0 step defs | Scenarios increased, still no executable steps |
 
 ### What's new (not in M2 baseline)
