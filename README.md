@@ -31,7 +31,7 @@ taba draws it differently. Units describe themselves — what they need, what th
 
 1. **Self-describing typed units** — workload, data, policy, governance. Each carries capability declarations, behavioral contracts, and security requirements.
 2. **Emergent control plane** — the control plane is the union of deployed units' operational semantics. One unit = trivial control plane. A thousand = the union of their contracts.
-3. **Security as first class** — zero-access default, capability-based, fail-closed on conflicts. Every unit is signed by its author. Taint propagation is structural.
+3. **Security as first class** — zero-access default, capability-based, fail-closed on conflicts. Units are Ed25519-signed by their author. Taint propagation is structural.
 4. **Data as first-class unit** — datasets carry schema, classification, provenance, retention, and consent. Lineage falls out of the composition graph.
 5. **Peer-to-peer** — no masters, no leaders, no external metadata store. CRDT graph, erasure-coded, gossip membership.
 
@@ -41,34 +41,50 @@ taba draws it differently. Units describe themselves — what they need, what th
 | CRDT graph | No consensus for normal operations. Eventually consistent, partition-tolerant. |
 | Fail closed | Security conflicts are never implicitly resolved. |
 | Deterministic solver | Same graph + same nodes = same placement on any node. Fixed-point arithmetic (ppm). |
-| Signed units | Every unit is signed with context binding (trust domain, cluster, validity window). |
+| Signed units | Ed25519 signatures bound to context (trust domain, cluster, validity window). Verified at graph merge. |
 | Erasure coding | Not replication. k-of-n with fleet-adaptive parameters. |
 | Gossip (SWIM) | Authenticated messages, 2-witness failure confirmation. |
 
 ## Quick start
 
+## Installation
+
+Download pre-built binaries from the [latest release](https://github.com/witlox/taba/releases/latest):
+
 ```sh
-# Install Rust (stable, 1.85+)
+# Linux x86_64
+curl -LO https://github.com/witlox/taba/releases/latest/download/taba-x86_64.tar.gz
+tar xzf taba-x86_64.tar.gz -C /usr/local/bin/
+
+# macOS (Apple Silicon)
+curl -LO https://github.com/witlox/taba/releases/latest/download/taba-aarch64-macos.tar.gz
+tar xzf taba-aarch64-macos.tar.gz -C /usr/local/bin/
+```
+
+Or build from source:
+
+```sh
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Clone and build
 git clone https://github.com/witlox/taba.git
-cd taba
-cargo build --workspace
+cd taba && cargo build --workspace --release
+```
 
-# Initialize a local node
-cargo run --bin taba -- init
+## Quick start
+
+```sh
+# Initialize a local node (generates keypair, trust domain, role assignment)
+taba init
 
 # Author and apply a workload unit
 echo '[unit]
 name = "hello-web"
 image = "nginx:alpine"' > hello.taba.toml
-cargo run --bin taba -- apply hello.taba.toml
+taba apply hello.taba.toml
 
 # Check status and run the solver
-cargo run --bin taba -- status
-cargo run --bin taba -- compose
-cargo run --bin taba -- unit list
+taba status
+taba compose
+taba unit list
 ```
 
 ## Architecture
@@ -130,7 +146,9 @@ Four unit types:
 - **Capability-based**: typed capabilities with optional purpose qualifiers
 - **Fail closed**: ambiguous security decisions are denied, not guessed
 - **Taint propagation**: PII in = PII out, unless multi-party policy declassifies
-- **Signed everything**: units, gossip messages, ceremony events
+- **Signed units**: Ed25519 signatures verified at merge (INV-S3)
+- **Signed gossip**: all membership messages authenticated
+- **Signed ceremonies**: Shamir key events cryptographically signed
 - **Scoped authority**: authors are parameterized by (unit type scope x trust domain scope)
 
 ## K8s migration

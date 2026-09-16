@@ -67,7 +67,7 @@ pub struct SignedUnit<T> {
 ///
 /// The signing key MUST correspond to the author declared in the unit
 /// header. Callers are responsible for ensuring this correspondence.
-pub trait Signer {
+pub trait Signer: Send + Sync {
     /// Produce a detached signature over a unit with full context binding.
     ///
     /// The signature covers the SHA-256 of `(unit content || trust_domain_id
@@ -81,6 +81,9 @@ pub trait Signer {
         cluster: &ClusterId,
         validity: &ValidityWindow,
     ) -> Result<Signature, SecurityError>;
+
+    /// Returns the public key corresponding to this signer's private key.
+    fn public_key(&self) -> PublicKey;
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +124,10 @@ impl Signer for DefaultSigner {
     ) -> Result<Signature, SecurityError> {
         let payload = signing_payload(unit, trust_domain, cluster, Some(validity));
         self.key_pair.signing_key().sign_raw(&payload)
+    }
+
+    fn public_key(&self) -> PublicKey {
+        *self.key_pair.public_key()
     }
 }
 

@@ -160,6 +160,50 @@ pub fn run_init(state_dir: Option<PathBuf>, force: bool) -> Result<(), CliError>
 
     let result = auth.init()?;
 
+    // Derive the AuthorId from the public key (SHA-256[..16] as Uuid).
+    let author_id = {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(result.public_key.to_public_key().as_bytes());
+        let digest = hasher.finalize();
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&digest[..16]);
+        taba_common::AuthorId(uuid::Uuid::from_bytes(bytes))
+    };
+
+    // Create a RoleAssignment governance unit and persist it to
+    // graph.json so that subsequent `load()` calls can populate
+    // the scope checker and verifier.
+    let role_assignment = taba_core::GovernanceUnit::RoleAssignment(taba_core::RoleAssignment {
+        header: taba_core::UnitHeader {
+            id: result.role_assignment_id,
+            author: author_id,
+            trust_domain: result.trust_domain,
+            created_at: taba_common::DualClockEvent {
+                logical_clock: taba_common::LogicalClock(2),
+                wall_time: taba_common::WallTime { millis: 0 },
+                timezone: "UTC".to_string(),
+            },
+            validity: None,
+            state: taba_core::UnitState::Declared,
+            version: None,
+        },
+        assignee: author_id,
+        unit_type_scope: vec![
+            taba_core::UnitTypeScope::Workload,
+            taba_core::UnitTypeScope::Data,
+            taba_core::UnitTypeScope::Policy,
+            taba_core::UnitTypeScope::Governance,
+        ],
+        trust_domain_scope: vec![result.trust_domain],
+    });
+
+    // Persist governance units to graph.json.
+    let units = vec![taba_core::Unit::Governance(role_assignment)];
+    let graph_path = auth.state_dir().join("graph.json");
+    let json = serde_json::to_string(&units)?;
+    std::fs::write(&graph_path, json)?;
+
     println!("taba node initialized successfully.");
     println!();
     println!(
@@ -198,7 +242,7 @@ pub async fn run_apply(
     let unit = parser::parse_unit(&toml_str)?;
 
     // Load the client (initializes if needed).
-    let client = LocalClient::load_unverified(state_dir).await?;
+    let client = LocalClient::load(state_dir).await?;
 
     // Fill in identity.
     let unit = fill_identity(unit, &client);
@@ -595,12 +639,21 @@ image = "hello:latest"
         let result = run_apply(Some(state.clone()), &toml_file, false).await;
         assert!(result.is_ok(), "apply should succeed: {result:?}");
 
-        // Verify the unit is in the graph.
+        // Verify the workload unit is in the graph (governance
+        // units are also present but we filter to non-governance).
         let client = LocalClient::load_unverified(Some(state.clone()))
             .await
             .expect("load client");
         let units = client.list_units().await.expect("list units");
-        assert_eq!(units.len(), 1, "should have 1 unit after apply");
+        let non_gov: Vec<_> = units
+            .iter()
+            .filter(|u| !matches!(u, taba_core::Unit::Governance(_)))
+            .collect();
+        assert_eq!(
+            non_gov.len(),
+            1,
+            "should have 1 non-governance unit after apply, got {non_gov:?}"
+        );
     }
 
     #[tokio::test]

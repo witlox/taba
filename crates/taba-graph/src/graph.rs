@@ -22,7 +22,7 @@ use taba_core::{
     ConflictTuple, DefaultValidator, GovernanceUnit, RoleAssignment, Unit, UnitKind, UnitTypeScope,
     UnitValidator,
 };
-use taba_security::{DefaultScopeChecker, ScopeChecker, Verifier};
+use taba_security::{DefaultScopeChecker, ScopeChecker, Signer, Verifier};
 
 use crate::compaction::{Compactor, DefaultCompactor};
 use crate::crdt::{CompositionGraphData, GraphDelta};
@@ -301,6 +301,14 @@ pub struct DefaultGraph {
     max_spawn_depth: u8,
     /// Optional scope checker for role-assignment uniqueness (INV-S8).
     scope_checker: Option<Arc<DefaultScopeChecker>>,
+    /// Optional signer for producing real Ed25519 signatures on
+    /// insert. When `None`, units are wrapped with a zero-valued
+    /// signature (M2 compatibility).
+    signer: Option<Arc<dyn Signer + Send + Sync>>,
+    /// Trust domain for signing context.
+    signing_trust_domain: Option<taba_common::TrustDomainId>,
+    /// Cluster ID for signing context.
+    signing_cluster_id: Option<taba_common::ClusterId>,
 }
 
 impl DefaultGraph {
@@ -318,6 +326,9 @@ impl DefaultGraph {
             verifier: None,
             max_spawn_depth: 4,
             scope_checker: None,
+            signer: None,
+            signing_trust_domain: None,
+            signing_cluster_id: None,
         }
     }
 
@@ -341,6 +352,9 @@ impl DefaultGraph {
             verifier: None,
             max_spawn_depth: 4,
             scope_checker: None,
+            signer: None,
+            signing_trust_domain: None,
+            signing_cluster_id: None,
         }
     }
 
@@ -376,6 +390,24 @@ impl DefaultGraph {
     #[must_use]
     pub fn with_scope_checker(mut self, checker: Arc<DefaultScopeChecker>) -> Self {
         self.scope_checker = Some(checker);
+        self
+    }
+
+    /// Configures the graph to sign units with real Ed25519
+    /// signatures on insert (INV-S3). When set, `insert` uses
+    /// the signer instead of producing a zero-valued placeholder.
+    /// Also wire a [`with_verifier`](Self::with_verifier) so
+    /// signatures are verified.
+    #[must_use]
+    pub fn with_signer(
+        mut self,
+        signer: Arc<dyn Signer + Send + Sync>,
+        trust_domain: taba_common::TrustDomainId,
+        cluster_id: taba_common::ClusterId,
+    ) -> Self {
+        self.signer = Some(signer);
+        self.signing_trust_domain = Some(trust_domain);
+        self.signing_cluster_id = Some(cluster_id);
         self
     }
 
@@ -418,13 +450,35 @@ impl DefaultGraph {
             })
     }
 
-    /// Creates a [`SignedUnit`] with placeholder crypto for M2.
+    /// Creates a [`SignedUnit`] for insertion.
     ///
-    /// In M2, actual Ed25519 signing is deferred. This method wraps
-    /// a [`Unit`] in a [`SignedUnit`] with zero-valued signature,
-    /// context, and signer — structurally valid but not
-    /// cryptographically signed.
-    const fn wrap_signed(unit: Unit) -> taba_security::SignedUnit<Unit> {
+    /// When a signer is configured (via [`with_signer`](Self::with_signer)),
+    /// produces a real Ed25519 signature bound to the trust domain and
+    /// cluster (INV-S3). Otherwise, wraps with a zero-valued placeholder
+    /// (M2 compatibility for tests and local mode without signing).
+    fn wrap_signed(&self, unit: Unit) -> taba_security::SignedUnit<Unit> {
+        if let (Some(signer), Some(td), Some(cid)) = (
+            &self.signer,
+            self.signing_trust_domain,
+            self.signing_cluster_id,
+        ) {
+            let validity = taba_common::ValidityWindow {
+                lc_range: None,
+                wall_time_deadline: None,
+            };
+            if let Ok(signature) = signer.sign(&unit, &td, &cid, &validity) {
+                return taba_security::SignedUnit {
+                    unit,
+                    signature,
+                    context: taba_security::SignatureContext {
+                        trust_domain_id: td,
+                        cluster_id: cid,
+                        validity_window: validity,
+                    },
+                    signer: signer.public_key(),
+                };
+            }
+        }
         taba_security::SignedUnit {
             unit,
             signature: taba_security::Signature([0u8; 64]),
@@ -526,7 +580,7 @@ impl Graph for DefaultGraph {
         }
 
         // Phase 4: Wrap in SignedUnit and run security gates before WAL.
-        let signed = Self::wrap_signed(unit);
+        let signed = self.wrap_signed(unit);
 
         // Phase 4a: Signature verification gate (INV-S3).
         // In M2, insert receives a raw Unit. wrap_signed creates a
@@ -542,7 +596,7 @@ impl Graph for DefaultGraph {
                     &signed.context.trust_domain_id,
                     &signed.context.cluster_id,
                     &logical_clock,
-                    None,
+                    Some(&signed.context.validity_window),
                 )
                 .map_err(|e| GraphError::SignatureRejected {
                     unit: id,
@@ -942,7 +996,7 @@ impl Graph for DefaultGraph {
 
         // Compute references for the new policy before moving it.
         let references = compute_references(&new_policy);
-        let new_signed = Self::wrap_signed(new_policy);
+        let new_signed = self.wrap_signed(new_policy);
 
         // Add the new policy to the graph.
         let merged_at = {

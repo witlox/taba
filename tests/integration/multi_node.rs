@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 use taba_cli::client::LocalClient;
 use taba_cli::commands;
-use taba_core::UnitKind;
+use taba_core::{Unit, UnitKind};
 
 fn write_toml(dir: &std::path::Path, name: &str, toml: &str) -> PathBuf {
     let path = dir.join(format!("{name}.taba.toml"));
@@ -37,8 +37,8 @@ image = "nginx:alpine"
         .expect("node A load");
     assert_eq!(
         client_a.graph_stats().active_units,
-        1,
-        "node A should have 1 unit"
+        2,
+        "node A should have 1 workload + 1 governance"
     );
 
     // 2. Copy graph.json from node A to node B's state
@@ -56,12 +56,16 @@ image = "nginx:alpine"
         .await
         .expect("node B load");
     let units_b = client_b.list_units().await.expect("node B list units");
+    let non_gov_b: Vec<_> = units_b
+        .iter()
+        .filter(|u| !matches!(u, Unit::Governance(_)))
+        .collect();
     assert_eq!(
-        units_b.len(),
+        non_gov_b.len(),
         1,
-        "node B should see 1 unit (from node A via graph.json)"
+        "node B should see 1 non-governance unit (from node A via graph.json)"
     );
-    assert_eq!(units_b[0].kind(), UnitKind::Workload);
+    assert_eq!(non_gov_b[0].kind(), UnitKind::Workload);
 }
 
 #[tokio::test]
@@ -99,9 +103,21 @@ image = "app-b:v1"
         .await
         .expect("node B load");
     let units_b = client_b.list_units().await.expect("node B units");
-    assert_eq!(units_a.len(), 1, "node A should have 1 unit");
-    assert_eq!(units_a.len(), 1, "node A should have 1 unit");
-    assert_eq!(units_b.len(), 1, "node B should have 1 unit");
+    assert_eq!(
+        units_a.len(),
+        2,
+        "node A should have 1 workload + 1 governance"
+    );
+    assert_eq!(
+        units_a.len(),
+        2,
+        "node A should have 1 workload + 1 governance"
+    );
+    assert_eq!(
+        units_b.len(),
+        2,
+        "node B should have 1 workload + 1 governance"
+    );
 
     // 4. Merge units from B into A's graph (simulating CRDT merge)
     for unit in &units_b {
@@ -114,9 +130,12 @@ image = "app-b:v1"
     // 5. Node A should now have 2 units (merge is additive)
     let units_merged = client_a.list_units().await.expect("merged list");
     assert_eq!(
-        units_merged.len(),
+        units_merged
+            .iter()
+            .filter(|u| !matches!(u, Unit::Governance(_)))
+            .count(),
         2,
-        "node A should have 2 units after merge"
+        "node A should have 2 non-governance units after merge"
     );
 
     // 6. Solver should handle both units
@@ -161,7 +180,11 @@ image = "app2:v1"
         .await
         .expect("load");
     let units = client.list_units().await.expect("list");
-    let id_to_archive = units[0].id();
+    let id_to_archive = units
+        .iter()
+        .find(|u| !matches!(u, taba_core::Unit::Governance(_)))
+        .expect("non-gov unit")
+        .id();
     client.archive_unit(&id_to_archive).await.expect("archive");
 
     // 3. Drop client, reload
@@ -171,11 +194,21 @@ image = "app2:v1"
         .expect("reload");
 
     let stats2 = client2.graph_stats();
-    assert_eq!(stats2.active_units, 1, "should have 1 active");
+    assert_eq!(
+        stats2.active_units, 2,
+        "should have 1 workload + 1 governance"
+    );
     // Archived units are not persisted in M5 (graph.json only contains active units)
 
     let units2 = client2.list_units().await.expect("list after restart");
-    assert_eq!(units2.len(), 1, "list should show 1 active unit");
+    assert_eq!(
+        units2
+            .iter()
+            .filter(|u| !matches!(u, Unit::Governance(_)))
+            .count(),
+        1,
+        "list should show 1 active non-governance unit"
+    );
 
     let archived_in_list = units2.iter().any(|u| u.id() == id_to_archive);
     assert!(

@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use taba_cli::client::LocalClient;
 use taba_cli::commands;
-use taba_core::UnitKind;
+use taba_core::{Unit, UnitKind};
 use taba_k8s::K8sConverter;
 
 fn write_toml(dir: &std::path::Path, name: &str, toml: &str) -> PathBuf {
@@ -73,7 +73,14 @@ spec:
         .await
         .expect("load");
     let units = client.list_units().await.expect("list");
-    assert_eq!(units.len(), 3, "should have 3 units after migration");
+    assert_eq!(
+        units
+            .iter()
+            .filter(|u| !matches!(u, Unit::Governance(_)))
+            .count(),
+        3,
+        "should have 3 non-governance units after migration"
+    );
 
     let kinds: Vec<_> = units.iter().map(taba_core::Unit::kind).collect();
     assert!(
@@ -132,9 +139,20 @@ spec:
         .await
         .expect("load");
     let units = client.list_units().await.expect("list");
-    assert_eq!(units.len(), 1);
+    assert_eq!(
+        units
+            .iter()
+            .filter(|u| !matches!(u, Unit::Governance(_)))
+            .count(),
+        1
+    );
 
-    let taba_core::Unit::Workload(workload) = &units[0] else {
+    let workload_unit: Vec<_> = units
+        .iter()
+        .filter(|u| u.kind() == taba_core::UnitKind::Workload)
+        .cloned()
+        .collect();
+    let taba_core::Unit::Workload(workload) = &workload_unit[0] else {
         panic!("expected workload")
     };
     assert!(workload.artifact.artifact_ref.contains("postgres:16"));
@@ -220,8 +238,15 @@ data:
         .await
         .expect("load");
     let units = client.list_units().await.expect("list");
-    assert_eq!(units.len(), 1);
-    assert_eq!(units[0].kind(), UnitKind::Data);
+    assert_eq!(
+        units
+            .iter()
+            .filter(|u| !matches!(u, Unit::Governance(_)))
+            .count(),
+        1
+    );
+    let data_count = units.iter().filter(|u| u.kind() == UnitKind::Data).count();
+    assert_eq!(data_count, 1);
 }
 
 #[tokio::test]

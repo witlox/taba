@@ -70,10 +70,12 @@ taba apply hello.taba.toml
 The unit is:
 1. Parsed from TOML
 2. Identity filled in (author, trust domain, cluster ID from your keypair)
-3. Structurally validated (`DefaultValidator`)
-4. Scope-checked (INV-S8: no duplicate author scopes)
-5. Inserted into the composition graph
-6. Persisted to `~/.taba/graph.json`
+3. Signed with Ed25519 (INV-S3)
+4. Structurally validated (`DefaultValidator`)
+5. Scope-checked (INV-S8: no duplicate author scopes)
+6. Signature verified by the graph's verifier
+7. Inserted into the composition graph
+8. Persisted to `~/.taba/graph.json`
 
 ### 4. Check status
 

@@ -67,12 +67,22 @@ legal_basis = "test"
         .await
         .expect("load client");
     let graph_stats = client.graph_stats();
-    assert_eq!(graph_stats.active_units, 2, "should have 2 active units");
+    assert_eq!(
+        graph_stats.active_units, 3,
+        "should have 2 workload + 1 governance"
+    );
     assert_eq!(graph_stats.pending_units, 0, "should have 0 pending units");
 
     // 5. list units
     let units = client.list_units().await.expect("list units");
-    assert_eq!(units.len(), 2, "list_units should return 2");
+    assert_eq!(
+        units
+            .iter()
+            .filter(|u| !matches!(u, Unit::Governance(_)))
+            .count(),
+        2,
+        "list_units should return 2 non-governance"
+    );
     let kinds: Vec<_> = units.iter().map(taba_core::Unit::kind).collect();
     assert!(
         kinds.contains(&UnitKind::Workload),
@@ -106,20 +116,27 @@ legal_basis = "test"
         .await
         .expect("archive should succeed");
 
-    // 9. status after archive
+    // 9. status after archive (1 governance + 1 archived)
     let graph_stats2 = client.graph_stats();
     assert_eq!(
-        graph_stats2.active_units, 1,
-        "should have 1 active unit after archive"
+        graph_stats2.active_units, 2,
+        "should have 1 governance + 1 archived, 2 active"
     );
     assert_eq!(
         graph_stats2.archived_units, 1,
         "should have 1 archived unit"
     );
 
-    // 10. list after archive
+    // 10. list after archive (1 governance + 1 archived, 1 active workload)
     let units2 = client.list_units().await.expect("list units after archive");
-    assert_eq!(units2.len(), 1, "list_units should return 1 after archive");
+    let active_workload = units2
+        .iter()
+        .filter(|u| !matches!(u, Unit::Governance(_)) && !matches!(u, Unit::Policy(_)))
+        .count();
+    assert_eq!(
+        active_workload, 1,
+        "list_units should return 1 non-governance after archive"
+    );
 
     // 11. Restart -- drop client, create new one from same state
     drop(client);
@@ -130,7 +147,14 @@ legal_basis = "test"
         .list_units()
         .await
         .expect("list units after restart");
-    assert_eq!(units3.len(), 1, "graph should persist across restart");
+    let non_gov3 = units3
+        .iter()
+        .filter(|u| !matches!(u, Unit::Governance(_)))
+        .count();
+    assert_eq!(
+        non_gov3, 1,
+        "graph should persist across restart (1 non-governance)"
+    );
 
     // 12. Dry run -- validate without inserting
     let dry_toml = r#"
@@ -145,8 +169,8 @@ image = "busybox:latest"
 
     let graph_stats3 = client2.graph_stats();
     assert_eq!(
-        graph_stats3.active_units, 1,
-        "dry run should not add a unit"
+        graph_stats3.active_units, 2,
+        "dry run should not add a unit (1 governance + 1 workload)"
     );
 }
 
@@ -197,11 +221,22 @@ spec:
         .await
         .expect("load client");
     let units = client.list_units().await.expect("list units");
-    assert_eq!(units.len(), 1, "should have 1 unit after K8s migration");
-    assert_eq!(units[0].kind(), UnitKind::Workload);
+    assert_eq!(
+        units
+            .iter()
+            .filter(|u| !matches!(u, Unit::Governance(_)))
+            .count(),
+        1,
+        "should have 1 non-governance unit after K8s migration"
+    );
+    let workload_unit: Vec<_> = units
+        .iter()
+        .filter(|u| u.kind() == UnitKind::Workload)
+        .collect();
+    assert_eq!(workload_unit.len(), 1, "should have 1 workload");
 
     // 5. The generated TOML should contain the image
-    let Unit::Workload(workload) = &units[0] else {
+    let Unit::Workload(ref workload) = **workload_unit.first().expect("workload") else {
         panic!("expected workload")
     };
     assert!(workload.artifact.artifact_ref.contains("api:v2.1.0"));
@@ -290,6 +325,17 @@ image = "test:latest"
     let units: Vec<Unit> =
         serde_json::from_str(&json_str).expect("graph.json should be valid JSON array of units");
 
-    assert_eq!(units.len(), 1, "graph.json should contain 1 unit");
-    assert_eq!(units[0].kind(), UnitKind::Workload);
+    assert_eq!(
+        units
+            .iter()
+            .filter(|u| !matches!(u, Unit::Governance(_)))
+            .count(),
+        1,
+        "graph.json should contain 1 non-governance unit"
+    );
+    let workload_count = units
+        .iter()
+        .filter(|u| u.kind() == UnitKind::Workload)
+        .count();
+    assert_eq!(workload_count, 1, "should have 1 workload");
 }

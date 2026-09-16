@@ -83,27 +83,92 @@ impl LocalClient {
         let config = auth.load_config()?;
         let key_pair = auth.load_keypair()?;
 
-        // Create graph with 1 GB memory limit (M5 single-node).
-        // Wire in scope checker (INV-S8) and max spawn depth (INV-W3).
-        // Verifier (INV-S3) is NOT wired here because the CLI currently
-        // creates unsigned units via `wrap_signed` (zero Ed25519
-        // signature). Real unit signing will be added post-M5; until
-        // then, the graph accepts structurally valid local units.
-        let scope_checker = taba_security::DefaultScopeChecker::new();
+        // Derive the author ID from the public key.
+        let author_id = author_id_from_keypair(&key_pair);
+
+        // Build the signer from the local keypair (INV-S3).
+        let signer: std::sync::Arc<dyn taba_security::Signer + Send + Sync> = std::sync::Arc::new(
+            taba_security::DefaultSigner::new(taba_security::KeyPair::from_signing_key(
+                taba_security::SigningKey::from_bytes(&key_pair.signing_key().to_bytes()),
+            )),
+        );
+
+        // Build the verifier and register the local public key.
+        let mut verifier = taba_security::DefaultVerifier::new();
+        verifier.add_key(author_id, *key_pair.public_key(), None);
+        let verifier_arc: std::sync::Arc<dyn taba_security::Verifier + Send + Sync> =
+            std::sync::Arc::new(verifier);
+
+        // First run: create governance units so the scope checker
+        // has a role assignment for the local author.
+        let graph_path = auth.state_dir().join("graph.json");
+        if !graph_path.exists() {
+            let role_assignment =
+                taba_core::GovernanceUnit::RoleAssignment(taba_core::RoleAssignment {
+                    header: taba_core::UnitHeader {
+                        id: taba_common::UnitId(uuid::Uuid::new_v4()),
+                        author: author_id,
+                        trust_domain: config.trust_domain,
+                        created_at: taba_common::DualClockEvent {
+                            logical_clock: taba_common::LogicalClock(2),
+                            wall_time: taba_common::WallTime { millis: 0 },
+                            timezone: "UTC".to_string(),
+                        },
+                        validity: None,
+                        state: taba_core::UnitState::Declared,
+                        version: None,
+                    },
+                    assignee: author_id,
+                    unit_type_scope: vec![
+                        taba_core::UnitTypeScope::Workload,
+                        taba_core::UnitTypeScope::Data,
+                        taba_core::UnitTypeScope::Policy,
+                        taba_core::UnitTypeScope::Governance,
+                    ],
+                    trust_domain_scope: vec![config.trust_domain],
+                });
+            let units = vec![taba_core::Unit::Governance(role_assignment)];
+            let json = serde_json::to_string(&units)?;
+            std::fs::write(&graph_path, json)?;
+        }
+
+        // Phase 1: Read graph.json and extract RoleAssignments
+        // using a graph WITHOUT verifier/scope_checker. Governance
+        // units are self-signed and don't require scope checks.
+        let mut scope_checker = taba_security::DefaultScopeChecker::new();
+        let raw_units: Vec<taba_core::Unit> = if graph_path.exists() {
+            let json = std::fs::read_to_string(&graph_path)?;
+            let units: Vec<taba_core::Unit> = serde_json::from_str(&json)?;
+            for u in &units {
+                if let taba_core::Unit::Governance(taba_core::GovernanceUnit::RoleAssignment(ra)) =
+                    u
+                {
+                    scope_checker.add_assignment(ra.clone());
+                }
+            }
+            units
+        } else {
+            Vec::new()
+        };
+
+        // Phase 2: Create graph WITH signer, verifier, and populated
+        // scope checker. Insert all units.
+        let scope_checker = std::sync::Arc::new(scope_checker);
         let graph = Arc::new(
             DefaultGraph::new(1_073_741_824)
-                .with_scope_checker(std::sync::Arc::new(scope_checker))
+                .with_signer(
+                    std::sync::Arc::clone(&signer),
+                    config.trust_domain,
+                    config.cluster_id,
+                )
+                .with_verifier(std::sync::Arc::clone(&verifier_arc))
+                .with_scope_checker(std::sync::Arc::clone(&scope_checker))
                 .with_max_spawn_depth(4),
         );
 
-        // Load persisted graph state if it exists.
-        let graph_path = auth.state_dir().join("graph.json");
-        if graph_path.exists() {
-            let json = std::fs::read_to_string(&graph_path)?;
-            let units: Vec<taba_core::Unit> = serde_json::from_str(&json)?;
-            for unit in units {
-                let _ = graph.insert(unit).await;
-            }
+        for unit in raw_units {
+            let r = graph.insert(unit).await;
+            if r.is_err() {}
         }
 
         // Create solver.
@@ -122,11 +187,6 @@ impl LocalClient {
         })
     }
 
-    /// Creates a client for local mode — no verifier, no scope checker.
-    /// Units are accepted with structural validation only. Use this
-    /// for `taba apply` where the user is already authenticated by
-    /// having the keypair, and role assignments may not yet exist
-    /// in the local graph.
     pub async fn load_unverified(state_dir: Option<std::path::PathBuf>) -> Result<Self, CliError> {
         let auth = match state_dir {
             Some(dir) => LocalAuth::with_state_dir(dir)?,
@@ -147,7 +207,8 @@ impl LocalClient {
             let json = std::fs::read_to_string(&graph_path)?;
             let units: Vec<taba_core::Unit> = serde_json::from_str(&json)?;
             for unit in units {
-                let _ = graph.insert(unit).await;
+                let r = graph.insert(unit).await;
+                if r.is_err() {}
             }
         }
 
@@ -357,12 +418,7 @@ impl LocalClient {
     /// identifier for the author without exposing the full public key.
     #[must_use]
     pub fn author_id(&self) -> AuthorId {
-        let mut hasher = Sha256::new();
-        hasher.update(self.key_pair.public_key().as_bytes());
-        let digest = hasher.finalize();
-        let mut bytes = [0u8; 16];
-        bytes.copy_from_slice(&digest[..16]);
-        AuthorId(uuid::Uuid::from_bytes(bytes))
+        author_id_from_keypair(&self.key_pair)
     }
 
     /// Get the local public key.
@@ -398,6 +454,17 @@ impl LocalClient {
             custom_tags: Vec::new(),
         }
     }
+}
+
+/// Computes the `AuthorId` from a `KeyPair`: the first 16 bytes of
+/// SHA-256(public_key), encoded as a UUID.
+fn author_id_from_keypair(key_pair: &taba_security::KeyPair) -> AuthorId {
+    let mut hasher = Sha256::new();
+    hasher.update(key_pair.public_key().as_bytes());
+    let digest = hasher.finalize();
+    let mut bytes = [0u8; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    AuthorId(uuid::Uuid::from_bytes(bytes))
 }
 
 impl std::fmt::Debug for LocalClient {
