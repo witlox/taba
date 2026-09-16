@@ -1,8 +1,13 @@
 # WAL & Persistence
 
 The Write-Ahead Log (WAL) is the foundation of taba's durability
-guarantee (INV-C4): **every mutation is persisted to WAL before
+guarantee (INV-C4): **every mutation is appended to the WAL before
 its effects become visible to queries.**
+
+The graph crate uses an in-memory WAL. The `taba-node` crate
+provides a disk-backed `DiskWalManager` with CRC32C framing,
+segment rotation, and crash-safe compaction (write-then-delete).
+The CLI persists state to `graph.json` on every mutation.
 
 ## Frame format (DL-014)
 

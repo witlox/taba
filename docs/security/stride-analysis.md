@@ -20,7 +20,7 @@ Each is analyzed against taba's attack surfaces.
 **Attack surface**: Unit authoring, gossip message handling
 **Scenario**: Attacker generates an Ed25519 keypair, claims
 to be author "alice", and submits units to the graph.
-**Mitigation**: Every unit is signed with the author's
+**Mitigation**: Units are Ed25519-signed with the author's
 private key (INV-S3). The graph's `Verifier` (when configured)
 checks the signature against the registered public key. Units
 with invalid signatures are rejected at the synchronous gate

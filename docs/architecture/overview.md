@@ -37,7 +37,7 @@ state. There is no separate desired state store.
    deployed units' operational semantics. One unit = trivial
    control plane. A thousand = the union of their contracts.
 3. **Security as first class** — zero-access default, capability-based,
-   fail-closed on conflicts. Every unit is signed by its author.
+   fail-closed on conflicts. Units are Ed25519-signed by their author.
    Taint propagation is structural.
 4. **Data as first-class unit** — datasets carry schema,
    classification, provenance, retention, and consent. Lineage
