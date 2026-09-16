@@ -19,8 +19,8 @@ use std::sync::{Arc, Mutex};
 
 use taba_common::{AuthorId, DualClockEvent, TrustDomainId, UnitId};
 use taba_core::{
-    ConflictTuple, DefaultValidator, GovernanceUnit, RoleAssignment, Unit, UnitKind, UnitTypeScope,
-    UnitValidator,
+    ConflictTuple, DefaultValidator, GovernanceUnit, RetentionMode, RoleAssignment, Unit, UnitKind,
+    UnitTypeScope, UnitValidator,
 };
 use taba_security::{DefaultScopeChecker, ScopeChecker, Signer, Verifier};
 
@@ -555,6 +555,23 @@ impl Graph for DefaultGraph {
         self.validate(&unit)?;
 
         let id = unit.id();
+
+        // INV-D5: Local-only data with classification above Public
+        // requires explicit policy authorization. Enforcement is
+        // deferred to multi-node (M5: no policy lookup mechanism yet).
+        // We accept the unit but emit a warning so operators are aware
+        // that local-only classified data was admitted without a policy.
+        if let Unit::Data(d) = &unit {
+            if d.retention.mode == RetentionMode::LocalOnly {
+                tracing::warn!(
+                    unit = %id.0,
+                    classification = ?d.classification,
+                    "local-only data unit accepted without policy authorization; \
+                     enforcement deferred to multi-node (INV-D5)"
+                );
+            }
+        }
+
         let references = compute_references(&unit);
 
         // Phase 2: Determine if references are satisfied.
@@ -1308,9 +1325,12 @@ mod tests {
     use taba_common::{
         ClusterId, DelegationTokenId, LogicalClock, ValidityWindow, Version, WallTime,
     };
-    use taba_core::{RecoveryAction, RecoveryRelationship, SpawnContext, UnitHeader, UnitState};
+    use taba_core::{
+        Classification, RecoveryAction, RecoveryRelationship, RetentionMode, RetentionPolicy,
+        SpawnContext, UnitHeader, UnitState,
+    };
     use taba_security::{DefaultVerifier, PublicKey, Signature, SignatureContext};
-    use taba_test_harness::{PolicyUnitBuilder, WorkloadUnitBuilder};
+    use taba_test_harness::{DataUnitBuilder, PolicyUnitBuilder, WorkloadUnitBuilder};
 
     /// Creates a [`Unit::Workload`] with the given ID and trust domain.
     fn workload(id: UnitId, td: TrustDomainId, author: AuthorId) -> Unit {
@@ -2362,5 +2382,76 @@ mod tests {
             .insert(ra2)
             .await
             .expect("overlapping policy scopes should be allowed (INV-S8a)");
+    }
+
+    // -- INV-D5: LocalOnly retention enforcement -----------------------------
+
+    #[tokio::test]
+    async fn scenario_local_only_data_unit_accepted_with_warning() {
+        // INV-D5: A data unit with RetentionMode::LocalOnly and
+        // classification above Public requires explicit policy
+        // authorization. In M5, since there is no policy lookup
+        // mechanism, the unit is accepted with a tracing::warn! and
+        // enforcement is deferred to multi-node.
+        let graph = DefaultGraph::new(1_000_000_000);
+
+        let local_only_data = Unit::Data(
+            DataUnitBuilder::new()
+                .with_classification(Classification::Pii)
+                .with_retention(RetentionPolicy {
+                    mode: RetentionMode::LocalOnly,
+                    duration: None,
+                    legal_basis: "local-scratch".to_string(),
+                    mandatory: false,
+                })
+                .build(),
+        );
+
+        let id = local_only_data.id();
+
+        // The unit should be accepted (not rejected) even though it is
+        // LocalOnly with classification > Public. The warning is
+        // emitted but does not block insertion.
+        graph
+            .insert(local_only_data)
+            .await
+            .expect("local-only data unit should be accepted with warning (INV-D5)");
+
+        // The unit should be in the active graph (not removed).
+        let result = graph.get(&id);
+        assert!(
+            result.is_ok(),
+            "local-only data unit should be in the graph"
+        );
+        assert_eq!(result.expect("unit").id(), id);
+    }
+
+    #[tokio::test]
+    async fn scenario_non_local_only_data_unit_unaffected() {
+        // INV-D5: Non-LocalOnly data units should be unaffected by the
+        // LocalOnly enforcement check. They are inserted normally
+        // without the warning.
+        let graph = DefaultGraph::new(1_000_000_000);
+
+        // Persistent data unit with Internal classification.
+        let persistent_data = Unit::Data(
+            DataUnitBuilder::new()
+                .with_classification(Classification::Internal)
+                .build(),
+        );
+
+        let id = persistent_data.id();
+
+        graph
+            .insert(persistent_data)
+            .await
+            .expect("persistent data unit should be inserted normally");
+
+        let result = graph.get(&id);
+        assert!(
+            result.is_ok(),
+            "persistent data unit should be in the graph"
+        );
+        assert_eq!(result.expect("unit").id(), id);
     }
 }

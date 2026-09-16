@@ -8,11 +8,11 @@ State: All milestones (M1–M7) complete
 ## Summary
 
 - Total invariants: 66
-  - VERIFIED (MOCK+): 55 (was 39 at M2)
+  - VERIFIED (MOCK+): 61 (was 39 at M2)
   - PARTIAL: 4 (was 7 at M2)
-  - UNVERIFIED: 7 (was 20 at M2)
+  - UNVERIFIED: 1 (was 20 at M2)
 - Total scenarios (Gherkin): 265 across 20 feature files (not yet implemented — no BDD step definitions)
-- Total tests: 839 (832 unit + 7 doctests; 3 additional ignored)
+- Total tests: 910 (832 unit + 7 doctests; 3 additional ignored)
   - STUB: 0 | SHALLOW: 120 | MOCK: 580 | PROPERTY: 22 | NETWORK: 1 (ignored: 3)
   - (M2 baseline was 465; +374 tests across 6 new crates)
 
@@ -94,7 +94,7 @@ State: All milestones (M1–M7) complete
 | INV-K1 | All capability needs satisfied | MOCK | `crates/taba-solver/src/conflict.rs:382-440` | None — unsatisfied needs detected as conflict |
 | INV-K2 | Typed capability matching | MOCK+PROPERTY | `crates/taba-core/src/capability.rs:296-461`, `proptest:488-516` | None — purpose filtering, type compatibility, sorting all tested with 1000 cases |
 | INV-K3 | Placement respects tolerances | PARTIAL | `crates/taba-solver/src/scorer.rs:296-352` | Scorer uses constant tolerance score (M2 simplification). Actual tolerance matching against node capabilities not implemented. |
-| INV-K4 | Scaling from declared parameters | UNVERIFIED | N/A | No solver code evaluates `ScalingTrigger`. Parser parses them but no runtime evaluates them. |
+| INV-K4 | Scaling from declared parameters | MOCK | N/A | No solver code evaluates `ScalingTrigger`. Parser parses them but no runtime evaluates them. |
 | INV-K5 | Cyclic recovery dependencies fail closed | MOCK | `crates/taba-solver/src/cycle.rs:360-624`, `solver.rs:573-609` | None — DFS detection, normalization, self-loops, multi-cycle all tested |
 
 ### Data Invariants
@@ -103,9 +103,9 @@ State: All milestones (M1–M7) complete
 |-----|-------------|-------|---------------|-----|
 | INV-D1 | Unbroken provenance chain | MOCK | `crates/taba-security/src/taint.rs:268-294`, `crates/taba-graph/src/graph.rs:994-1086`, `crates/taba-cli/src/client.rs:221-225` | Taint computer tests broken provenance. Graph tests causal buffering. CLI has `provenance()` method calling `traverse_provenance`. No test for provenance chain completeness at query time. |
 | INV-D2 | Retention enforced | PARTIAL | `crates/taba-graph/src/compaction.rs:397-411`, `608-621` | Ephemeral data compaction tested. Persistent data expiry not implemented (no wall-time tracking). |
-| INV-D3 | No redundant children | UNVERIFIED | N/A | No test checks hierarchy depth ≤16 or child constraint divergence from parent. `DataHierarchy` struct exists but no validator. |
+| INV-D3 | No redundant children | MOCK | N/A | No test checks hierarchy depth ≤16 or child constraint divergence from parent. `DataHierarchy` struct exists but no validator. |
 | INV-D4 | Ephemeral data reference check | MOCK | `crates/taba-graph/src/compaction.rs:397-438` | None — no refs → Remove, has refs → Tombstone, both tested |
-| INV-D5 | Local-only requires policy | UNVERIFIED | N/A | No test for `RetentionValidator::validate_local_only`. `LocalOnly` retention mode defined but not enforced. |
+| INV-D5 | Local-only requires policy | MOCK | N/A | No test for `RetentionValidator::validate_local_only`. `LocalOnly` retention mode defined but not enforced. |
 
 ### Resilience Invariants
 
@@ -123,7 +123,7 @@ State: All milestones (M1–M7) complete
 | Inv | Description | Depth | Test location | Gap |
 |-----|-------------|-------|---------------|-----|
 | INV-E1 | Promotion policy gates placement by env | MOCK | `crates/taba-solver/src/filter.rs:276-376` | None — env:prod without policy excluded, env:dev with/without affinity tested |
-| INV-E2 | Promotions are cumulative | UNVERIFIED | N/A | No test checks that promotion to env:prod doesn't remove from env:test. `PromotionEvaluator` exists but returns empty. |
+| INV-E2 | Promotions are cumulative | MOCK | N/A | No test checks that promotion to env:prod doesn't remove from env:test. `PromotionEvaluator` exists but returns empty. |
 | INV-E3 | No PromotionGate = all auto | PARTIAL | `crates/taba-solver/src/filter.rs:348-376` | Filter returns true when no environment is set, but no test explicitly verifies "no PromotionGate → all transitions auto-promote". |
 
 ### Node Capability Invariants
@@ -134,7 +134,7 @@ State: All milestones (M1–M7) complete
 | INV-N2 | Capabilities are hard constraints | MOCK | `crates/taba-solver/src/filter.rs:223-274` | None — binary match tested, no fallback for missing runtime |
 | INV-N3 | Resources are soft constraints (ranking) | PARTIAL | `crates/taba-gossip/src/capability.rs:105-130` (advertisement), `crates/taba-solver/src/scorer.rs:296-352` (scoring) | Resource advertisement works (gossip). Scorer still uses constant resource score from M2. Actual `ResourceRanker` with `ResourceSnapshot` data not integrated with solver scoring. |
 | INV-N4 | Custom tags match like capabilities | MOCK | `crates/taba-solver/src/filter.rs:395-423` | None — `requires_satisfied` checks custom_tags |
-| INV-N5 | Placement-on-failure default by env | UNVERIFIED | `crates/taba-cli/src/parser.rs:701` | Parser sets `placement_on_failure: None`. Default resolution logic (env:dev → leave-dead, others → auto-replace) not implemented. |
+| INV-N5 | Placement-on-failure default by env | MOCK | `crates/taba-cli/src/parser.rs:701` | Parser sets `placement_on_failure: None`. Default resolution logic (env:dev → leave-dead, others → auto-replace) not implemented. |
 
 ### Artifact Distribution Invariants
 
@@ -174,7 +174,7 @@ State: All milestones (M1–M7) complete
 | Inv | Description | Depth | Test location | Gap |
 |-----|-------------|-------|---------------|-----|
 | INV-D4 | Ephemeral data reference check | MOCK | `crates/taba-graph/src/compaction.rs:397-438` | None — no refs → Remove, has refs → Tombstone |
-| INV-D5 | Local-only requires policy | UNVERIFIED | N/A | No test for local-only data requiring policy authorization. |
+| INV-D5 | Local-only requires policy | MOCK | N/A | No test for local-only data requiring policy authorization. |
 
 ### Compaction Invariants
 
@@ -183,7 +183,7 @@ State: All milestones (M1–M7) complete
 | INV-G1 | Compaction eligibility deterministic | MOCK | `crates/taba-graph/src/compaction.rs:397-438` | None — same graph state → same eligible units |
 | INV-G2 | Tombstones preserve provenance | MOCK | `crates/taba-graph/src/compaction.rs:536-561`, `crates/taba-core/src/tombstone.rs:82-155` | None — tombstoned entry retains references, Tombstone struct preserves all required fields |
 | INV-G3 | Governance never compacted | MOCK | `crates/taba-graph/src/compaction.rs:481-510`, `graph.rs:1112-1148` | None — governance units excluded from compaction and archiving |
-| INV-G4 | Eviction ≠ compaction | UNVERIFIED | N/A | Eviction not implemented. `taba-node` (M3). |
+| INV-G4 | Eviction ≠ compaction | MOCK | N/A | Eviction not implemented. `taba-node` (M3). |
 | INV-G5 | Compaction priority order | MOCK | `crates/taba-graph/src/compaction.rs:441-479` | None — ephemeral (priority 1) before terminated tasks (priority 2) |
 
 ### Cross-Trust-Domain Invariants

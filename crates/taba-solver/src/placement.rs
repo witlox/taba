@@ -16,7 +16,39 @@
 use serde::{Deserialize, Serialize};
 
 use taba_common::{NodeId, Ppm, UnitId};
-use taba_core::{Capability, CapabilityMatch, ConflictTuple};
+use taba_core::{Capability, CapabilityMatch, ConflictTuple, PlacementOnFailure, WorkloadUnit};
+
+// ===========================================================================
+// Placement-on-failure resolution (INV-N5)
+// ===========================================================================
+
+/// Resolves the placement-on-failure behavior for a unit on a node
+/// (INV-N5).
+///
+/// When the unit explicitly declares `placement_on_failure`, that
+/// declaration takes precedence. When `None`, the default is
+/// environment-derived: `env:dev` → [`PlacementOnFailure::LeaveDead`],
+/// all other environments (including `None`) →
+/// [`PlacementOnFailure::Replace`].
+///
+/// This is a pure function: no I/O, no side effects, deterministic
+/// (INV-C3).
+#[must_use]
+pub fn resolve_placement_on_failure(
+    unit: &WorkloadUnit,
+    node_env: Option<&str>,
+) -> PlacementOnFailure {
+    // Explicit declaration overrides the environment default.
+    if let Some(pof) = unit.placement_on_failure {
+        return pof;
+    }
+
+    // Environment-derived default (INV-N5).
+    match node_env {
+        Some("env:dev") => PlacementOnFailure::LeaveDead,
+        _ => PlacementOnFailure::Replace,
+    }
+}
 
 // ===========================================================================
 // Placement (simplified result used in SolverResult)
@@ -697,5 +729,71 @@ mod tests {
         let json = serde_json::to_string(&decision).expect("serialize");
         let decoded: ScalingDecision = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(decision, decoded);
+    }
+
+    // -- resolve_placement_on_failure (INV-N5) ------------------------------
+
+    #[test]
+    fn scenario_env_dev_defaults_to_leave_dead() {
+        // When placement_on_failure is None and the node environment is
+        // env:dev, the default is LeaveDead (INV-N5).
+        let mut unit = taba_core::unit::WorkloadUnit {
+            placement_on_failure: None,
+            ..taba_test_harness::WorkloadUnitBuilder::new().build()
+        };
+        unit.placement_on_failure = None;
+
+        let pof = resolve_placement_on_failure(&unit, Some("env:dev"));
+        assert_eq!(
+            pof,
+            taba_core::PlacementOnFailure::LeaveDead,
+            "env:dev should default to LeaveDead (INV-N5)"
+        );
+    }
+
+    #[test]
+    fn scenario_env_prod_defaults_to_replace() {
+        // When placement_on_failure is None and the node environment is
+        // env:prod (or anything other than env:dev), the default is
+        // Replace (INV-N5).
+        let unit = taba_test_harness::WorkloadUnitBuilder::new().build();
+
+        let pof = resolve_placement_on_failure(&unit, Some("env:prod"));
+        assert_eq!(
+            pof,
+            taba_core::PlacementOnFailure::Replace,
+            "env:prod should default to Replace (INV-N5)"
+        );
+    }
+
+    #[test]
+    fn scenario_no_env_defaults_to_replace() {
+        // When placement_on_failure is None and the node environment is
+        // also None, the default is Replace (INV-N5).
+        let unit = taba_test_harness::WorkloadUnitBuilder::new().build();
+
+        let pof = resolve_placement_on_failure(&unit, None);
+        assert_eq!(
+            pof,
+            taba_core::PlacementOnFailure::Replace,
+            "None environment should default to Replace (INV-N5)"
+        );
+    }
+
+    #[test]
+    fn scenario_explicit_declaration_overrides_environment() {
+        // When placement_on_failure is explicitly declared, it takes
+        // precedence over the environment default (INV-N5).
+        let mut unit = taba_test_harness::WorkloadUnitBuilder::new().build();
+        unit.placement_on_failure = Some(taba_core::PlacementOnFailure::LeaveDead);
+
+        // Even on env:prod (which would default to Replace), the
+        // explicit LeaveDead declaration wins.
+        let pof = resolve_placement_on_failure(&unit, Some("env:prod"));
+        assert_eq!(
+            pof,
+            taba_core::PlacementOnFailure::LeaveDead,
+            "explicit declaration should override environment default"
+        );
     }
 }

@@ -77,6 +77,7 @@
 pub mod artifact;
 pub mod discovery;
 pub mod error;
+pub mod eviction;
 pub mod health;
 pub mod health_check;
 pub mod mode;
@@ -90,6 +91,7 @@ pub mod wal;
 pub use artifact::{ArtifactFetcher, ArtifactRef, DefaultArtifactFetcher};
 pub use discovery::{CapabilityDiscoverer, DefaultCapabilityDiscoverer};
 pub use error::{NodeError, WalPosition};
+pub use eviction::{EvictionPolicy, ShardLocation};
 pub use health::{DefaultHealthReporter, HealthReporter, HealthStatus};
 pub use health_check::{
     DefaultHealthCheckOrchestrator, HealthCheckOrchestrator, HealthCheckResult,

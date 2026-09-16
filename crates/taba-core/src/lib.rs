@@ -106,7 +106,10 @@ pub use unit::{
     PromotionMode, PromotionPolicy, PromotionTransition, RoleAssignment, TrustDomainDef, Unit,
     UnitHeader, UnitKind, UnitState, UnitTypeScope, WorkloadKind, WorkloadUnit,
 };
-pub use validation::{CoreError, DefaultValidator, UnitValidator};
+pub use validation::{
+    CoreError, DefaultValidator, MAX_DATA_HIERARCHY_DEPTH, UnitValidator, validate_data_hierarchy,
+    validate_hierarchy_depth,
+};
 
 // Re-export Provenance from data (not in the main unit module).
 pub use data::Provenance;

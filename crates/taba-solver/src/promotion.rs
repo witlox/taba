@@ -408,6 +408,40 @@ mod tests {
     }
 
     #[test]
+    fn scenario_promote_to_prod_does_not_remove_from_test() {
+        // INV-E2: Promotion policies are cumulative and non-exclusive.
+        // Promoting to env:prod does NOT remove the unit from env:test.
+        // Environments are independent placement targets, not a
+        // pipeline with mutual exclusion.
+        let unit = workload();
+        let unit_id = unit.id();
+
+        // Promote to env:test first, then env:prod.
+        let promotions = vec![
+            promotion_policy(test_unit_id(), unit_id, "v1", "env:test"),
+            promotion_policy(test_unit_id(), unit_id, "v1", "env:prod"),
+        ];
+
+        let evaluator = DefaultPromotionEvaluator::new();
+        let result = evaluator.evaluate(&unit, &promotions, &[]);
+
+        // Both env:test AND env:prod should be authorized (cumulative).
+        assert!(
+            result.authorized_envs.contains(&"env:test".to_string()),
+            "env:test should still be authorized after promotion to env:prod (INV-E2)"
+        );
+        assert!(
+            result.authorized_envs.contains(&"env:prod".to_string()),
+            "env:prod should be authorized after promotion"
+        );
+        assert!(
+            result.authorized_envs.contains(&"env:dev".to_string()),
+            "env:dev should always be authorized"
+        );
+        assert!(result.blocked_envs.is_empty(), "nothing should be blocked");
+    }
+
+    #[test]
     fn test_evaluate_promotion_for_different_unit() {
         let unit = workload();
         let other_id = test_unit_id();

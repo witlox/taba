@@ -10,7 +10,10 @@ use thiserror::Error;
 
 use taba_common::{AuthorId, TrustDomainId, UnitId};
 
-use crate::unit::{GovernanceUnit, RoleAssignment, Unit, UnitKind, UnitTypeScope, WorkloadUnit};
+use crate::data::{RetentionMode, RetentionPolicy};
+use crate::unit::{
+    DataUnit, GovernanceUnit, RoleAssignment, Unit, UnitKind, UnitTypeScope, WorkloadUnit,
+};
 
 // ===========================================================================
 // CoreError
@@ -65,6 +68,130 @@ pub enum CoreError {
         /// Human-readable description of the storage failure.
         reason: String,
     },
+}
+
+// ===========================================================================
+// Data hierarchy validation (INV-D3, INV-S7)
+// ===========================================================================
+
+/// Maximum hierarchy depth for data units (INV-D3).
+///
+/// Children exist only where constraints diverge from parent. Beyond
+/// this depth, the hierarchy is too deep and rejected at merge.
+pub const MAX_DATA_HIERARCHY_DEPTH: u8 = 16;
+
+/// Validates that a child data unit's constraints narrow (or are equal
+/// to) the parent's constraints (INV-D3, INV-S7).
+///
+/// A child can narrow parent constraints freely (more restrictive) but
+/// can widen (less restrictive) only with explicit policy. This
+/// function checks the structural constraint; it does NOT verify
+/// policy authorization — callers that need widening must check for a
+/// declassification policy separately.
+///
+/// # Checks
+///
+/// 1. **Classification** (INV-S7): the child's classification must be
+///    ≥ the parent's in the lattice (`Public < Internal < Confidential
+///    < Pii`). Narrowing (child more restrictive) is always allowed.
+///    Widening (child less restrictive) is rejected.
+/// 2. **Retention** (INV-D3): the child's retention must be ≥ the
+///    parent's (longer or equal retention is narrowing, always
+///    allowed). Shorter retention (widening) is rejected without
+///    explicit policy.
+///
+/// # Errors
+///
+/// Returns [`CoreError::MalformedUnit`] if the child widens the
+/// parent's classification or retention constraints.
+pub fn validate_data_hierarchy(parent: &DataUnit, child: &DataUnit) -> Result<(), CoreError> {
+    // (b) Classification: child can narrow (more restrictive) but not
+    // widen (less restrictive) compared to parent (INV-S7).
+    //
+    // The Classification enum derives Ord with Public < Internal <
+    // Confidential < Pii. A child with classification >= parent is
+    // narrowing (or equal) — always allowed.
+    if child.classification < parent.classification {
+        return Err(CoreError::MalformedUnit {
+            reason: format!(
+                "data hierarchy violation: child classification {:?} widens parent classification {:?} (INV-S7)",
+                child.classification, parent.classification
+            ),
+        });
+    }
+
+    // (c) Retention: child can narrow (longer retention) but not widen
+    // (shorter retention) without a policy unit (INV-D3).
+    if !retention_narrows_or_equal(&parent.retention, &child.retention) {
+        return Err(CoreError::MalformedUnit {
+            reason: format!(
+                "data hierarchy violation: child retention mode {:?} widens parent retention mode {:?} (shorter without policy, INV-D3)",
+                child.retention.mode, parent.retention.mode
+            ),
+        });
+    }
+
+    Ok(())
+}
+
+/// Validates that a hierarchy depth does not exceed the maximum
+/// (INV-D3).
+///
+/// The maximum hierarchy depth is [`MAX_DATA_HIERARCHY_DEPTH`] (16).
+/// This is a standalone function because the depth is computed by
+/// traversing the parent chain in the graph, not from a single
+/// parent-child pair.
+///
+/// # Errors
+///
+/// Returns [`CoreError::MalformedUnit`] if `depth` exceeds
+/// [`MAX_DATA_HIERARCHY_DEPTH`].
+pub fn validate_hierarchy_depth(depth: u8) -> Result<(), CoreError> {
+    if depth > MAX_DATA_HIERARCHY_DEPTH {
+        return Err(CoreError::MalformedUnit {
+            reason: format!(
+                "data hierarchy depth {depth} exceeds maximum {MAX_DATA_HIERARCHY_DEPTH} (INV-D3)"
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// Returns `true` if the child's retention is at least as restrictive
+/// (≥ duration) as the parent's.
+///
+/// Retention ordering (most to least restrictive):
+/// - `Persistent` (with longer or no duration) > `Ephemeral` > `LocalOnly`
+///
+/// For two `Persistent` policies with explicit durations, the child's
+/// duration must be ≥ the parent's.
+fn retention_narrows_or_equal(parent: &RetentionPolicy, child: &RetentionPolicy) -> bool {
+    // Rank retention modes from least (0) to most (2) restrictive.
+    let parent_rank = match parent.mode {
+        RetentionMode::Persistent => 2,
+        RetentionMode::Ephemeral => 1,
+        RetentionMode::LocalOnly => 0,
+    };
+    let child_rank = match child.mode {
+        RetentionMode::Persistent => 2,
+        RetentionMode::Ephemeral => 1,
+        RetentionMode::LocalOnly => 0,
+    };
+
+    // Child must be at least as restrictive as the parent.
+    if child_rank < parent_rank {
+        return false;
+    }
+
+    // If both are Persistent with explicit durations, the child must
+    // retain for at least as long as the parent.
+    if parent.mode == RetentionMode::Persistent && child.mode == RetentionMode::Persistent {
+        if let (Some(p_dur), Some(c_dur)) = (parent.duration, child.duration) {
+            return c_dur >= p_dur;
+        }
+    }
+
+    true
 }
 
 // ===========================================================================
@@ -817,5 +944,190 @@ mod tests {
         };
         assert!(err.to_string().contains("store error"));
         assert!(err.to_string().contains("disk full"));
+    }
+
+    // -- validate_data_hierarchy (INV-D3, INV-S7) ---------------------------
+
+    /// Creates a [`DataUnit`] with the given classification and
+    /// retention policy.
+    fn data_unit_with(
+        classification: Classification,
+        retention: RetentionPolicy,
+    ) -> crate::unit::DataUnit {
+        crate::unit::DataUnit {
+            header: test_header(),
+            schema: DataSchema {
+                format: "json-schema".to_string(),
+                definition: "{}".to_string(),
+            },
+            classification,
+            provenance: None,
+            retention,
+            consent_scope: Vec::new(),
+            storage_requirements: StorageRequirements {
+                encrypted_at_rest: false,
+                jurisdictions: Vec::new(),
+                min_replicas: None,
+            },
+            parent: None,
+            provides: vec![Capability::new("storage", "dataset-x")],
+        }
+    }
+
+    fn persistent_retention(duration_secs: u64) -> RetentionPolicy {
+        RetentionPolicy {
+            mode: RetentionMode::Persistent,
+            duration: Some(std::time::Duration::from_secs(duration_secs)),
+            legal_basis: "consent".to_string(),
+            mandatory: false,
+        }
+    }
+
+    #[test]
+    fn scenario_child_pii_narrows_parent_internal_accepted() {
+        // INV-S7: A child with PII (more restrictive) narrows a parent
+        // with Internal (less restrictive). Narrowing is always allowed.
+        let parent = data_unit_with(Classification::Internal, persistent_retention(3600));
+        let child = data_unit_with(Classification::Pii, persistent_retention(3600));
+
+        assert!(
+            validate_data_hierarchy(&parent, &child).is_ok(),
+            "child PII narrowing parent Internal should be accepted (INV-S7)"
+        );
+    }
+
+    #[test]
+    fn scenario_child_public_widens_parent_internal_rejected() {
+        // INV-S7: A child with Public (less restrictive) widens a parent
+        // with Internal (more restrictive). Widening requires policy and
+        // is rejected without one.
+        let parent = data_unit_with(Classification::Internal, persistent_retention(3600));
+        let child = data_unit_with(Classification::Public, persistent_retention(3600));
+
+        let result = validate_data_hierarchy(&parent, &child);
+        assert!(
+            matches!(result, Err(CoreError::MalformedUnit { .. })),
+            "child Public widening parent Internal should be rejected (INV-S7)"
+        );
+    }
+
+    #[test]
+    fn scenario_child_same_classification_accepted() {
+        // Equal classification is not widening.
+        let parent = data_unit_with(Classification::Internal, persistent_retention(3600));
+        let child = data_unit_with(Classification::Internal, persistent_retention(3600));
+
+        assert!(
+            validate_data_hierarchy(&parent, &child).is_ok(),
+            "child with same classification as parent should be accepted"
+        );
+    }
+
+    #[test]
+    fn scenario_child_retention_longer_accepted() {
+        // INV-D3: A child with longer retention (more restrictive)
+        // narrows the parent. Always allowed.
+        let parent = data_unit_with(
+            Classification::Internal,
+            persistent_retention(3600), // 1 hour
+        );
+        let child = data_unit_with(
+            Classification::Internal,
+            persistent_retention(7200), // 2 hours — longer, narrowing
+        );
+
+        assert!(
+            validate_data_hierarchy(&parent, &child).is_ok(),
+            "child with longer retention should be accepted (narrowing, INV-D3)"
+        );
+    }
+
+    #[test]
+    fn scenario_child_retention_shorter_rejected() {
+        // INV-D3: A child with shorter retention (less restrictive)
+        // widens the parent. Rejected without policy.
+        let parent = data_unit_with(
+            Classification::Internal,
+            persistent_retention(7200), // 2 hours
+        );
+        let child = data_unit_with(
+            Classification::Internal,
+            persistent_retention(3600), // 1 hour — shorter, widening
+        );
+
+        let result = validate_data_hierarchy(&parent, &child);
+        assert!(
+            matches!(result, Err(CoreError::MalformedUnit { .. })),
+            "child with shorter retention should be rejected (widening, INV-D3)"
+        );
+    }
+
+    #[test]
+    fn scenario_child_ephemeral_widens_parent_persistent_rejected() {
+        // Ephemeral has shorter retention than Persistent — widening.
+        let parent = data_unit_with(Classification::Internal, persistent_retention(3600));
+        let child = data_unit_with(
+            Classification::Internal,
+            RetentionPolicy {
+                mode: RetentionMode::Ephemeral,
+                duration: None,
+                legal_basis: "task-scratch".to_string(),
+                mandatory: false,
+            },
+        );
+
+        let result = validate_data_hierarchy(&parent, &child);
+        assert!(
+            matches!(result, Err(CoreError::MalformedUnit { .. })),
+            "child Ephemeral widening parent Persistent should be rejected (INV-D3)"
+        );
+    }
+
+    #[test]
+    fn scenario_child_persistent_narrows_parent_ephemeral_accepted() {
+        // Persistent has longer retention than Ephemeral — narrowing.
+        let parent = data_unit_with(
+            Classification::Internal,
+            RetentionPolicy {
+                mode: RetentionMode::Ephemeral,
+                duration: None,
+                legal_basis: "task-scratch".to_string(),
+                mandatory: false,
+            },
+        );
+        let child = data_unit_with(Classification::Internal, persistent_retention(3600));
+
+        assert!(
+            validate_data_hierarchy(&parent, &child).is_ok(),
+            "child Persistent narrowing parent Ephemeral should be accepted (INV-D3)"
+        );
+    }
+
+    // -- validate_hierarchy_depth (INV-D3) ----------------------------------
+
+    #[test]
+    fn scenario_depth_at_maximum_accepted() {
+        assert!(
+            validate_hierarchy_depth(MAX_DATA_HIERARCHY_DEPTH).is_ok(),
+            "depth at maximum ({MAX_DATA_HIERARCHY_DEPTH}) should be accepted"
+        );
+    }
+
+    #[test]
+    fn scenario_depth_below_maximum_accepted() {
+        assert!(
+            validate_hierarchy_depth(5).is_ok(),
+            "depth below maximum should be accepted"
+        );
+    }
+
+    #[test]
+    fn scenario_depth_exceeds_maximum_rejected() {
+        // INV-D3: Hierarchy depth exceeding 16 is rejected at graph merge.
+        let result = validate_hierarchy_depth(17);
+        assert!(
+            matches!(result, Err(CoreError::MalformedUnit { .. })),
+            "depth > 16 should be rejected (INV-D3)"
+        );
     }
 }

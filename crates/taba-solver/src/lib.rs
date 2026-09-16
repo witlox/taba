@@ -53,6 +53,7 @@ pub mod membership;
 pub mod placement;
 pub mod promotion;
 pub mod resource;
+pub mod scaling;
 pub mod scorer;
 pub mod solver;
 
@@ -72,7 +73,7 @@ pub use placement::{
 };
 
 // Solver result
-pub use placement::SolverResult;
+pub use placement::{SolverResult, resolve_placement_on_failure};
 
 // Traits and default implementations
 pub use conflict::{ConflictDetector, DefaultConflictDetector};
@@ -82,5 +83,6 @@ pub use promotion::{
     DefaultPromotionEvaluator, PromotionCollision, PromotionEvaluator, PromotionResult,
 };
 pub use resource::{DefaultResourceRanker, ResourceRanker};
+pub use scaling::{DefaultScalingEvaluator, ScalingEvaluator};
 pub use scorer::{DefaultPlacementScorer, PlacementScorer};
 pub use solver::{DefaultSolver, Solver};
