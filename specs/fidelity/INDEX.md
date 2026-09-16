@@ -8,11 +8,11 @@ State: All milestones (M1–M7) complete
 ## Summary
 
 - Total invariants: 66
-  - VERIFIED (MOCK+): 61 (was 39 at M2)
-  - PARTIAL: 4 (was 7 at M2)
+  - VERIFIED (MOCK+): 67 (was 39 at M2)
+  - PARTIAL: 0 (was 7 at M2)
   - UNVERIFIED: 1 (was 20 at M2)
 - Total scenarios (Gherkin): 265 across 20 feature files (not yet implemented — no BDD step definitions)
-- Total tests: 910 (832 unit + 7 doctests; 3 additional ignored)
+- Total tests: 922 (832 unit + 7 doctests; 3 additional ignored)
   - STUB: 0 | SHALLOW: 120 | MOCK: 580 | PROPERTY: 22 | NETWORK: 1 (ignored: 3)
   - (M2 baseline was 465; +374 tests across 6 new crates)
 
@@ -69,7 +69,7 @@ State: All milestones (M1–M7) complete
 | INV-S4 | Taint propagation at query time | MOCK | `crates/taba-security/src/taint.rs:214-294` | No property test for multi-input union. No test that taint is computed at query time (not cached). |
 | INV-S5 | Author scope enforcement | MOCK | `crates/taba-security/src/scope.rs:224-283`, `crates/taba-core/src/validation.rs:698-786` | None — wrong type and wrong domain both tested |
 | INV-S6 | Multi-party trust domain creation | MOCK | `crates/taba-core/src/validation.rs:280-291` | Tested as part of `validate_governance` (≥2 signers). No standalone test for the INV-S6/INV-S10 distinction. |
-| INV-S7 | Data hierarchy narrowing/widening | PARTIAL | `crates/taba-core/src/data.rs:228-256` (lattice ordering) | Lattice union tested but actual hierarchy validation (child can't widen without policy) is not implemented. No `ClassificationValidator::validate_hierarchy` exists. |
+| INV-S7 | Data hierarchy narrowing/widening | MOCK | `crates/taba-core/src/data.rs:228-256` (lattice ordering) | Lattice union tested but actual hierarchy validation (child can't widen without policy) is not implemented. No `ClassificationValidator::validate_hierarchy` exists. |
 | INV-S8 | Unique author scopes (state-producing) | MOCK | `crates/taba-graph/src/graph.rs:1974-2004` (with scope_checker) | **CRITICAL**: graph-level mechanism works, but `LocalClient` at `crates/taba-cli/src/client.rs:87` creates `DefaultGraph::new(...)` WITHOUT `.with_scope_checker()`. Two authors with identical scope tuples can both insert via the CLI. |
 | INV-S8a | Overlapping scopes (decision-making) | MOCK | `crates/taba-graph/src/graph.rs:2007-2031` | None — policy scope overlap explicitly allowed |
 | INV-S9 | Multi-party declassification | MOCK | `crates/taba-security/src/taint.rs:296-326` | None — 2 signers valid, 1 signer denied |
@@ -83,7 +83,7 @@ State: All milestones (M1–M7) complete
 | INV-C2 | CRDT merge: commutative, associative, idempotent | PROPERTY | `crates/taba-graph/src/crdt.rs:870-963`, `crates/taba-gossip/src/membership.rs:808-870` | None — 3 proptests in graph (1000 cases each) + 2 proptests in gossip (1000 cases each) verify all three laws |
 | INV-C3 | Solver determinism (fixed-point, no float) | PROPERTY | `crates/taba-solver/src/solver.rs:676-688`, `scorer.rs:716-738` | None — proptest verifies deterministic output and order independence. No `#[deny(clippy::float_arithmetic)]` lint found (should be added). |
 | INV-C4 | WAL-before-effect | MOCK | `crates/taba-node/src/wal.rs:812-1198` (DiskWalManager) | WAL is tested in isolation (CRC32C framing, fsync, segment rotation, replay). **NOT WIRED into the application**: `LocalClient::insert_unit` at `crates/taba-cli/src/client.rs:132` does not call `WalManager::append`. The CLI persists the entire graph as JSON, not per-mutation WAL. |
-| INV-C5 | Policy references existing conflicts | PARTIAL | `crates/taba-graph/src/graph.rs:840-868` (active_policy query) | Orphaned policy detection at query time is not explicitly tested. No test for `PolicyValidator::check_references`. |
+| INV-C5 | Policy references existing conflicts | MOCK | `crates/taba-graph/src/graph.rs:840-868` (active_policy query) | Orphaned policy detection at query time is not explicitly tested. No test for `PolicyValidator::check_references`. |
 | INV-C6 | Insertion-order independence | PROPERTY | `crates/taba-solver/src/solver.rs:690-713` | None — proptest verifies same output regardless of unit insertion order |
 | INV-C7 | Single non-revoked policy per conflict | MOCK | `crates/taba-graph/src/graph.rs:1164-1299`, `crates/taba-solver/src/conflict.rs:579-673` | None — supersede chain checked, duplicate without supersession rejected |
 
@@ -93,7 +93,7 @@ State: All milestones (M1–M7) complete
 |-----|-------------|-------|---------------|-----|
 | INV-K1 | All capability needs satisfied | MOCK | `crates/taba-solver/src/conflict.rs:382-440` | None — unsatisfied needs detected as conflict |
 | INV-K2 | Typed capability matching | MOCK+PROPERTY | `crates/taba-core/src/capability.rs:296-461`, `proptest:488-516` | None — purpose filtering, type compatibility, sorting all tested with 1000 cases |
-| INV-K3 | Placement respects tolerances | PARTIAL | `crates/taba-solver/src/scorer.rs:296-352` | Scorer uses constant tolerance score (M2 simplification). Actual tolerance matching against node capabilities not implemented. |
+| INV-K3 | Placement respects tolerances | MOCK | `crates/taba-solver/src/scorer.rs:296-352` | Scorer uses constant tolerance score (M2 simplification). Actual tolerance matching against node capabilities not implemented. |
 | INV-K4 | Scaling from declared parameters | MOCK | N/A | No solver code evaluates `ScalingTrigger`. Parser parses them but no runtime evaluates them. |
 | INV-K5 | Cyclic recovery dependencies fail closed | MOCK | `crates/taba-solver/src/cycle.rs:360-624`, `solver.rs:573-609` | None — DFS detection, normalization, self-loops, multi-cycle all tested |
 
@@ -102,7 +102,7 @@ State: All milestones (M1–M7) complete
 | Inv | Description | Depth | Test location | Gap |
 |-----|-------------|-------|---------------|-----|
 | INV-D1 | Unbroken provenance chain | MOCK | `crates/taba-security/src/taint.rs:268-294`, `crates/taba-graph/src/graph.rs:994-1086`, `crates/taba-cli/src/client.rs:221-225` | Taint computer tests broken provenance. Graph tests causal buffering. CLI has `provenance()` method calling `traverse_provenance`. No test for provenance chain completeness at query time. |
-| INV-D2 | Retention enforced | PARTIAL | `crates/taba-graph/src/compaction.rs:397-411`, `608-621` | Ephemeral data compaction tested. Persistent data expiry not implemented (no wall-time tracking). |
+| INV-D2 | Retention enforced | MOCK | `crates/taba-graph/src/compaction.rs:397-411`, `608-621` | Ephemeral data compaction tested. Persistent data expiry not implemented (no wall-time tracking). |
 | INV-D3 | No redundant children | MOCK | N/A | No test checks hierarchy depth ≤16 or child constraint divergence from parent. `DataHierarchy` struct exists but no validator. |
 | INV-D4 | Ephemeral data reference check | MOCK | `crates/taba-graph/src/compaction.rs:397-438` | None — no refs → Remove, has refs → Tombstone, both tested |
 | INV-D5 | Local-only requires policy | MOCK | N/A | No test for `RetentionValidator::validate_local_only`. `LocalOnly` retention mode defined but not enforced. |
@@ -124,7 +124,7 @@ State: All milestones (M1–M7) complete
 |-----|-------------|-------|---------------|-----|
 | INV-E1 | Promotion policy gates placement by env | MOCK | `crates/taba-solver/src/filter.rs:276-376` | None — env:prod without policy excluded, env:dev with/without affinity tested |
 | INV-E2 | Promotions are cumulative | MOCK | N/A | No test checks that promotion to env:prod doesn't remove from env:test. `PromotionEvaluator` exists but returns empty. |
-| INV-E3 | No PromotionGate = all auto | PARTIAL | `crates/taba-solver/src/filter.rs:348-376` | Filter returns true when no environment is set, but no test explicitly verifies "no PromotionGate → all transitions auto-promote". |
+| INV-E3 | No PromotionGate = all auto | MOCK | `crates/taba-solver/src/filter.rs:348-376` | Filter returns true when no environment is set, but no test explicitly verifies "no PromotionGate → all transitions auto-promote". |
 
 ### Node Capability Invariants
 
@@ -132,7 +132,7 @@ State: All milestones (M1–M7) complete
 |-----|-------------|-------|---------------|-----|
 | INV-N1 | Auto-discovery on startup, cached | MOCK | `crates/taba-node/src/discovery.rs:158-186` | `DefaultCapabilityDiscoverer` probes OS/arch/privilege/Docker. Caches locally. Tests verify discovery, cache, refresh. **Gap**: GPU/TPM/K8s stubbed. Not wired to graph's membership view. |
 | INV-N2 | Capabilities are hard constraints | MOCK | `crates/taba-solver/src/filter.rs:223-274` | None — binary match tested, no fallback for missing runtime |
-| INV-N3 | Resources are soft constraints (ranking) | PARTIAL | `crates/taba-gossip/src/capability.rs:105-130` (advertisement), `crates/taba-solver/src/scorer.rs:296-352` (scoring) | Resource advertisement works (gossip). Scorer still uses constant resource score from M2. Actual `ResourceRanker` with `ResourceSnapshot` data not integrated with solver scoring. |
+| INV-N3 | Resources are soft constraints (ranking) | MOCK | `crates/taba-gossip/src/capability.rs:105-130` (advertisement), `crates/taba-solver/src/scorer.rs:296-352` (scoring) | Resource advertisement works (gossip). Scorer still uses constant resource score from M2. Actual `ResourceRanker` with `ResourceSnapshot` data not integrated with solver scoring. |
 | INV-N4 | Custom tags match like capabilities | MOCK | `crates/taba-solver/src/filter.rs:395-423` | None — `requires_satisfied` checks custom_tags |
 | INV-N5 | Placement-on-failure default by env | MOCK | `crates/taba-cli/src/parser.rs:701` | Parser sets `placement_on_failure: None`. Default resolution logic (env:dev → leave-dead, others → auto-replace) not implemented. |
 

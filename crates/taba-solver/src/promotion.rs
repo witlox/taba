@@ -565,4 +565,44 @@ mod tests {
         let decoded: PromotionCollision = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(collision, decoded);
     }
+
+    // -- INV-E3: no PromotionGate = all auto ------------------------------
+
+    #[test]
+    fn scenario_no_promotion_gate_all_transitions_auto() {
+        // INV-E3: If no PromotionGate exists, all transitions
+        // default to auto-promote (progressive disclosure: zero
+        // config = full auto).
+        //
+        // Setup: a workload unit promoted to env:test, with a
+        // promotion policy for env:prod. No PromotionGate governance
+        // units are provided (empty gates slice).
+        //
+        // Expected: env:prod is auto-authorized (not blocked), because
+        // the absence of a gate means the transition defaults to auto.
+        let unit = workload();
+        let unit_id = unit.id();
+
+        // Promotion to env:test (the unit's current environment).
+        let test_promotion = promotion_policy(test_unit_id(), unit_id, "v1", "env:test");
+        // Promotion to env:prod (the transition under test).
+        let prod_promotion = promotion_policy(test_unit_id(), unit_id, "v1", "env:prod");
+
+        // No gates — all transitions default to auto (INV-E3).
+        let evaluator = DefaultPromotionEvaluator::new();
+        let result = evaluator.evaluate(&unit, &[test_promotion, prod_promotion], &[]);
+
+        assert!(
+            result.authorized_envs.contains(&"env:test".to_string()),
+            "env:test should be authorized"
+        );
+        assert!(
+            result.authorized_envs.contains(&"env:prod".to_string()),
+            "env:prod should be auto-promoted when no PromotionGate exists (INV-E3)"
+        );
+        assert!(
+            result.blocked_envs.is_empty(),
+            "no transitions should be blocked when no PromotionGate exists (INV-E3)"
+        );
+    }
 }

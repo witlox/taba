@@ -21,8 +21,8 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
-use taba_common::UnitId;
-use taba_core::{Unit, UnitKind, UnitState};
+use taba_common::{UnitId, WallTime};
+use taba_core::{DataUnit, RetentionMode, Unit, UnitKind, UnitState};
 
 use crate::crdt::CompositionGraphData;
 use crate::entry::GraphEntry;
@@ -304,6 +304,90 @@ impl Compactor for DefaultCompactor {
         }
 
         Ok((compacted_count, freed_bytes))
+    }
+}
+
+// ===========================================================================
+// RetentionChecker (INV-D2)
+// ===========================================================================
+
+/// Checks whether a data unit's retention has expired based on
+/// wall-clock time (INV-D2).
+///
+/// Expired data units are eligible for compaction. The checker
+/// compares the data unit's `created_at` wall time plus its
+/// `retention.duration` against the current `WallTime`.
+///
+/// - **Persistent with duration**: expired if `created_at + duration
+///   <= now`.
+/// - **Persistent without duration**: never expires (returns
+///   `false`). The data is retained indefinitely.
+/// - **Ephemeral / `LocalOnly`**: not subject to wall-time expiry
+///   (ephemeral is handled by INV-D4 when the producing task
+///   terminates; local-only never enters the graph). Returns
+///   `false`.
+///
+/// The checker is a pure function: no I/O, no side effects.
+/// Given the same `WallTime` and `DataUnit`, the result is identical
+/// on every node (INV-G1, INV-C3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RetentionChecker {
+    /// The current wall-clock time used for expiry checks.
+    now: WallTime,
+}
+
+impl RetentionChecker {
+    /// Creates a new `RetentionChecker` with the given current time.
+    ///
+    /// The `now` value is the wall-clock time at which the retention
+    /// check is performed. It must be in milliseconds since the Unix
+    /// epoch (matching [`WallTime::millis`]).
+    #[must_use]
+    pub const fn new(now: WallTime) -> Self {
+        Self { now }
+    }
+
+    /// Returns the current wall-clock time this checker was created
+    /// with.
+    #[must_use]
+    pub const fn now(&self) -> WallTime {
+        self.now
+    }
+
+    /// Returns `true` if the given data unit's retention has expired
+    /// as of this checker's wall-clock time (INV-D2).
+    ///
+    /// Only `Persistent` data with an explicit `duration` is subject
+    /// to wall-time expiry. Data with no duration (retained
+    /// indefinitely) or non-persistent retention modes return
+    /// `false`.
+    ///
+    /// # Determinism
+    ///
+    /// This is a pure function: given the same `WallTime` and
+    /// `DataUnit`, the result is identical on every node. No
+    /// floating-point arithmetic is used.
+    #[must_use]
+    pub fn is_expired(&self, data: &DataUnit) -> bool {
+        // Only persistent data with a duration is subject to
+        // wall-time expiry.
+        if data.retention.mode != RetentionMode::Persistent {
+            return false;
+        }
+
+        let Some(duration) = data.retention.duration else {
+            // No duration — retained indefinitely (INV-D2).
+            return false;
+        };
+
+        let created_ms = u128::from(data.header.created_at.wall_time.millis);
+        let duration_ms = duration.as_millis();
+        let now_ms = u128::from(self.now.millis);
+
+        // Expired if the retention period has elapsed: created_at +
+        // duration <= now. Using u128 to avoid overflow on large
+        // durations.
+        created_ms.saturating_add(duration_ms) <= now_ms
     }
 }
 
@@ -632,6 +716,79 @@ mod tests {
         assert!(
             eligible.is_empty(),
             "active service should not be compacted (INV-W1)"
+        );
+    }
+
+    // -- RetentionChecker (INV-D2) ----------------------------------------
+
+    #[test]
+    fn scenario_retention_expired_persistent_data() {
+        // INV-D2: A persistent data unit whose retention duration has
+        // elapsed is expired and eligible for compaction.
+        let created_at = WallTime { millis: 1000 };
+        let duration = std::time::Duration::from_millis(1000);
+
+        let mut data = DataUnitBuilder::new().build();
+        data.header.created_at.wall_time = created_at;
+        data.retention = taba_core::RetentionPolicy {
+            mode: RetentionMode::Persistent,
+            duration: Some(duration),
+            legal_basis: "consent".to_string(),
+            mandatory: false,
+        };
+
+        // now = 3000ms → created_at + duration = 2000ms <= 3000ms → expired
+        let checker = RetentionChecker::new(WallTime { millis: 3000 });
+        assert!(
+            checker.is_expired(&data),
+            "persistent data created at 1000ms with 1000ms duration should be expired at 3000ms (INV-D2)"
+        );
+    }
+
+    #[test]
+    fn scenario_retention_non_expired_persistent_data() {
+        // INV-D2: A persistent data unit whose retention duration has
+        // not yet elapsed is NOT expired.
+        let created_at = WallTime { millis: 1000 };
+        let duration = std::time::Duration::from_secs(86_400); // 1 day
+
+        let mut data = DataUnitBuilder::new().build();
+        data.header.created_at.wall_time = created_at;
+        data.retention = taba_core::RetentionPolicy {
+            mode: RetentionMode::Persistent,
+            duration: Some(duration),
+            legal_basis: "consent".to_string(),
+            mandatory: false,
+        };
+
+        // now = 2000ms → created_at + duration = 86401000ms > 2000ms → not expired
+        let checker = RetentionChecker::new(WallTime { millis: 2000 });
+        assert!(
+            !checker.is_expired(&data),
+            "persistent data created at 1000ms with 1-day duration should NOT be expired at 2000ms (INV-D2)"
+        );
+    }
+
+    #[test]
+    fn scenario_retention_no_duration_never_expires() {
+        // INV-D2: A persistent data unit with no duration is retained
+        // indefinitely and never expires.
+        let created_at = WallTime { millis: 1000 };
+
+        let mut data = DataUnitBuilder::new().build();
+        data.header.created_at.wall_time = created_at;
+        data.retention = taba_core::RetentionPolicy {
+            mode: RetentionMode::Persistent,
+            duration: None,
+            legal_basis: "indefinite".to_string(),
+            mandatory: false,
+        };
+
+        // now = very far in the future → still not expired (no duration)
+        let checker = RetentionChecker::new(WallTime { millis: u64::MAX });
+        assert!(
+            !checker.is_expired(&data),
+            "persistent data with no duration should never expire (INV-D2)"
         );
     }
 }

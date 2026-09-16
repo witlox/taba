@@ -76,17 +76,23 @@ impl DefaultResourceRanker {
         Self
     }
 
-    /// Computes a memory availability score as a ratio in ppm.
+    /// Computes a memory availability score based on absolute
+    /// available memory (INV-N3: best-fit ranking).
     ///
-    /// Returns `Ppm(0)` if `total` is zero (no memory to measure).
+    /// A node with more available memory ranks higher, regardless of
+    /// total memory. The score is `available_gib * 50_000` ppm,
+    /// capped at `Ppm::ONE` (1,000,000). A node with 20 GiB or more
+    /// available scores the maximum.
+    ///
+    /// Returns `Ppm(0)` if `available` is zero (no memory available).
     fn memory_score(rs: &ResourceSnapshot) -> Ppm {
-        if rs.memory_total_bytes == 0 {
+        if rs.memory_available_bytes == 0 {
             return Ppm(0);
         }
+        let gib: u128 = 1024 * 1024 * 1024;
         let avail = u128::from(rs.memory_available_bytes);
-        let total = u128::from(rs.memory_total_bytes);
-        let million: u128 = 1_000_000;
-        Ppm(u64::try_from(avail * million / total).unwrap_or(u64::MAX))
+        let score = (avail / gib) * 50_000;
+        Ppm(u64::try_from(score.min(1_000_000)).unwrap_or(u64::MAX))
     }
 
     /// Computes a CPU availability score — inverse of CPU load.
@@ -387,5 +393,91 @@ mod tests {
         };
         let score = DefaultResourceRanker::memory_score(&rs);
         assert_eq!(score, Ppm(0), "zero total memory should score zero");
+    }
+
+    // -- INV-N3: absolute available memory ranking -------------------------
+
+    #[test]
+    fn scenario_16gb_vs_8gb_available_ranks_higher() {
+        // INV-N3: A node with more available resources should rank
+        // higher (best-fit). Both nodes have the same CPU load and
+        // GPU count; the only difference is available memory.
+        let node_16gb = test_node_id();
+        let node_8gb = test_node_id();
+
+        let rs_16gb = resource_snapshot(
+            node_16gb,
+            32 * 1024 * 1024 * 1024, // 32 GiB total
+            16 * 1024 * 1024 * 1024, // 16 GiB available
+            Ppm(500_000),            // 50% CPU load
+            0,                       // no GPUs
+        );
+        let rs_8gb = resource_snapshot(
+            node_8gb,
+            32 * 1024 * 1024 * 1024, // 32 GiB total
+            8 * 1024 * 1024 * 1024,  // 8 GiB available
+            Ppm(500_000),            // 50% CPU load (same)
+            0,                       // no GPUs (same)
+        );
+
+        let eligible = vec![node_16gb, node_8gb];
+        let resources = vec![(node_16gb, rs_16gb), (node_8gb, rs_8gb)];
+
+        let ranker = DefaultResourceRanker::new();
+        let ranked = ranker.rank(&test_unit(), &eligible, &resources);
+
+        assert_eq!(
+            ranked[0].0, node_16gb,
+            "node with 16 GiB available should rank higher than 8 GiB (INV-N3)"
+        );
+        assert!(
+            ranked[0].1 > ranked[1].1,
+            "16 GiB score ({:?}) should be higher than 8 GiB score ({:?})",
+            ranked[0].1,
+            ranked[1].1
+        );
+    }
+
+    #[test]
+    fn scenario_no_resources_ranks_lowest() {
+        // INV-N3: A node with no available resources should rank
+        // lowest among all candidates.
+        let node_rich = test_node_id();
+        let node_empty = test_node_id();
+
+        let rs_rich = resource_snapshot(
+            node_rich,
+            16 * 1024 * 1024 * 1024, // 16 GiB total
+            12 * 1024 * 1024 * 1024, // 12 GiB available
+            Ppm(100_000),            // 10% CPU load
+            2,                       // 2 GPUs
+        );
+        let rs_empty = resource_snapshot(
+            node_empty,
+            0,              // no total memory
+            0,              // no available memory
+            Ppm(1_000_000), // 100% CPU load (fully busy)
+            0,              // no GPUs
+        );
+
+        let eligible = vec![node_rich, node_empty];
+        let resources = vec![(node_rich, rs_rich), (node_empty, rs_empty)];
+
+        let ranker = DefaultResourceRanker::new();
+        let ranked = ranker.rank(&test_unit(), &eligible, &resources);
+
+        assert_eq!(
+            ranked[0].0, node_rich,
+            "node with resources should rank first"
+        );
+        assert_eq!(
+            ranked[1].0, node_empty,
+            "node with no resources should rank last (INV-N3)"
+        );
+        assert_eq!(
+            ranked[1].1,
+            Ppm(0),
+            "node with no resources should have score zero (INV-N3)"
+        );
     }
 }

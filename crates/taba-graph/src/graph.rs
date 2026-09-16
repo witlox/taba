@@ -20,7 +20,7 @@ use std::sync::{Arc, Mutex};
 use taba_common::{AuthorId, DualClockEvent, TrustDomainId, UnitId};
 use taba_core::{
     ConflictTuple, DefaultValidator, GovernanceUnit, RetentionMode, RoleAssignment, Unit, UnitKind,
-    UnitTypeScope, UnitValidator,
+    UnitTypeScope, UnitValidator, validate_data_hierarchy,
 };
 use taba_security::{DefaultScopeChecker, ScopeChecker, Signer, Verifier};
 
@@ -523,6 +523,30 @@ impl DefaultGraph {
                 .all(|ref_id| active_ids.contains(ref_id));
 
             if now_satisfied {
+                // INV-S7, INV-D3: validate data hierarchy before
+                // promoting. If the child widens the parent's
+                // constraints, the entry is NOT promoted (stays in
+                // pending until corrected or a declassification policy
+                // is added).
+                if let Unit::Data(ref child) = pending.signed_unit.unit {
+                    if let Some(parent_id) = child.parent {
+                        if let Some(parent_entry) = state.entries.get(&parent_id) {
+                            if let Unit::Data(parent) = parent_entry.unit() {
+                                if validate_data_hierarchy(parent, child).is_err() {
+                                    tracing::warn!(
+                                        unit = %pending.unit_id().0,
+                                        parent = %parent_id.0,
+                                        "data hierarchy violation: child widens parent \
+                                         constraints, not promoting (INV-S7)"
+                                    );
+                                    still_pending.push(pending);
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+
                 let id = pending.unit_id();
                 if let std::collections::btree_map::Entry::Vacant(e) = state.entries.entry(id) {
                     let entry = GraphEntry::from_signed_unit(
@@ -545,6 +569,56 @@ impl DefaultGraph {
 
         state.pending = still_pending;
         promoted
+    }
+
+    /// Detects orphaned policies — active policies whose conflict
+    /// tuple references units no longer in the active (non-archived)
+    /// graph (INV-C5).
+    ///
+    /// Policy validity is checked on query, not merge. A policy
+    /// becomes orphaned when one or more units in its conflict tuple
+    /// are archived or removed. Orphaned policies are eligible for
+    /// archival.
+    ///
+    /// Returns a sorted list of orphaned policy unit IDs.
+    #[must_use]
+    pub fn orphaned_policies(&self) -> Vec<UnitId> {
+        let state = self
+            .state
+            .lock()
+            .expect("graph mutex should not be poisoned");
+
+        // Collect IDs of active (non-archived) entries.
+        let active_ids: BTreeSet<UnitId> = state
+            .entries
+            .iter()
+            .filter(|(_, e)| !e.archived)
+            .map(|(id, _)| *id)
+            .collect();
+
+        let mut orphaned = Vec::new();
+        for chain in state.policy_chains.values() {
+            if let Some(policy_id) = &chain.active_policy {
+                if let Some(entry) = state.entries.get(policy_id) {
+                    if let Unit::Policy(p) = entry.unit() {
+                        // A policy is orphaned if any unit in its
+                        // conflict tuple is not in the active set.
+                        let all_active = p
+                            .conflict
+                            .unit_ids
+                            .iter()
+                            .all(|uid| active_ids.contains(uid));
+
+                        if !all_active {
+                            orphaned.push(*policy_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        orphaned.sort();
+        orphaned
     }
 }
 
@@ -741,6 +815,30 @@ impl Graph for DefaultGraph {
             }
         } else {
             // M2: no scope checker configured, scope uniqueness not enforced
+        }
+
+        // Phase 4d: Data hierarchy validation (INV-S7, INV-D3).
+        // If this is a child data unit (has a parent), validate that
+        // the child's constraints narrow (or equal) the parent's.
+        // Widening (child less restrictive) is rejected without
+        // explicit policy.
+        if let Unit::Data(child) = &signed.unit {
+            if let Some(parent_id) = child.parent {
+                let state = self
+                    .state
+                    .lock()
+                    .expect("graph mutex should not be poisoned");
+                if let Some(parent_entry) = state.entries.get(&parent_id) {
+                    if let Unit::Data(parent) = parent_entry.unit() {
+                        validate_data_hierarchy(parent, child).map_err(|e| {
+                            GraphError::SignatureRejected {
+                                unit: id,
+                                reason: e.to_string(),
+                            }
+                        })?;
+                    }
+                }
+            }
         }
 
         // Phase 5: WAL-before-effect (INV-C4).
@@ -2453,5 +2551,171 @@ mod tests {
             "persistent data unit should be in the graph"
         );
         assert_eq!(result.expect("unit").id(), id);
+    }
+
+    // -- INV-S7: Data hierarchy validation on insert -----------------------
+
+    #[tokio::test]
+    async fn scenario_child_data_widens_classification_rejected() {
+        // INV-S7: A child data unit that widens the parent's
+        // classification (child Public, parent Internal) must be
+        // rejected by the graph when the parent is already in the
+        // active set.
+        let graph = DefaultGraph::new(1_000_000_000);
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+
+        // Insert the parent data unit with Internal classification.
+        let parent_id = UnitId(uuid::Uuid::new_v4());
+        let parent = Unit::Data(
+            DataUnitBuilder::new()
+                .with_id(parent_id)
+                .with_author(author)
+                .with_trust_domain(td)
+                .with_classification(Classification::Internal)
+                .build(),
+        );
+        graph
+            .insert(parent)
+            .await
+            .expect("parent data unit should be inserted");
+
+        // Insert a child data unit with Public classification —
+        // widening the parent's Internal classification (INV-S7).
+        // This must be rejected.
+        let child = Unit::Data(
+            DataUnitBuilder::new()
+                .with_author(author)
+                .with_trust_domain(td)
+                .with_classification(Classification::Public)
+                .with_parent(parent_id)
+                .build(),
+        );
+        let child_id = child.id();
+        let result = graph.insert(child).await;
+        assert!(
+            result.is_err(),
+            "child data unit with Public classification widening parent \
+             Internal should be rejected (INV-S7)"
+        );
+        assert!(
+            matches!(result, Err(GraphError::SignatureRejected { unit, .. }) if unit == child_id),
+            "expected SignatureRejected for hierarchy violation, got: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn scenario_child_data_narrows_classification_accepted() {
+        // INV-S7: A child data unit that narrows the parent's
+        // classification (child Pii, parent Internal) is always
+        // allowed and should be accepted by the graph.
+        let graph = DefaultGraph::new(1_000_000_000);
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+
+        // Insert the parent data unit with Internal classification.
+        let parent_id = UnitId(uuid::Uuid::new_v4());
+        let parent = Unit::Data(
+            DataUnitBuilder::new()
+                .with_id(parent_id)
+                .with_author(author)
+                .with_trust_domain(td)
+                .with_classification(Classification::Internal)
+                .build(),
+        );
+        graph
+            .insert(parent)
+            .await
+            .expect("parent data unit should be inserted");
+
+        // Insert a child data unit with Pii classification —
+        // narrowing the parent's Internal classification (INV-S7).
+        // This must be accepted.
+        let child = Unit::Data(
+            DataUnitBuilder::new()
+                .with_author(author)
+                .with_trust_domain(td)
+                .with_classification(Classification::Pii)
+                .with_parent(parent_id)
+                .build(),
+        );
+        let child_id = child.id();
+        graph.insert(child).await.expect(
+            "child data unit with Pii narrowing parent Internal should be accepted (INV-S7)",
+        );
+
+        let result = graph.get(&child_id);
+        assert!(
+            result.is_ok(),
+            "child data unit should be in the active graph"
+        );
+    }
+
+    // -- INV-C5: Orphaned policy detection at query time ------------------
+
+    #[tokio::test]
+    async fn scenario_orphaned_policy_detected_after_archival() {
+        // INV-C5: Every policy unit references the specific conflict
+        // it resolves. Orphaned policies (referencing non-existent
+        // conflicts) are detected at query time and eligible for
+        // archival.
+        //
+        // Setup: two workload units + a policy resolving their conflict.
+        // Archive one workload unit. The policy's conflict tuple now
+        // references a unit no longer in the active graph — it is
+        // orphaned.
+        let graph = DefaultGraph::new(1_000_000_000);
+        let td = TrustDomainId(uuid::Uuid::new_v4());
+        let author = AuthorId(uuid::Uuid::new_v4());
+
+        // Insert two workload units.
+        let unit_a = workload(UnitId(uuid::Uuid::new_v4()), td, author);
+        let unit_b = workload(UnitId(uuid::Uuid::new_v4()), td, author);
+        let id_a = unit_a.id();
+        let id_b = unit_b.id();
+
+        graph.insert(unit_a).await.expect("insert unit A");
+        graph.insert(unit_b).await.expect("insert unit B");
+
+        // Insert a policy resolving a conflict between both units.
+        let conflict = ConflictTuple {
+            unit_ids: BTreeSet::from([id_a, id_b]),
+            capability_name: "storage".to_string(),
+        };
+
+        let policy = PolicyUnitBuilder::new()
+            .with_conflict(conflict.clone())
+            .with_author(author)
+            .with_trust_domain(td)
+            .build();
+        let policy_id = policy.header.id;
+
+        graph
+            .insert(Unit::Policy(policy))
+            .await
+            .expect("insert policy");
+
+        // Before archiving, the policy should NOT be orphaned.
+        let orphaned = graph.orphaned_policies();
+        assert!(
+            orphaned.is_empty(),
+            "policy should not be orphaned before any unit is archived"
+        );
+
+        // Archive one of the workload units.
+        graph.archive(&id_a).await.expect("archive unit A");
+
+        // Now the policy's conflict tuple references unit_a which is
+        // no longer in the active graph — it is orphaned (INV-C5).
+        let orphaned = graph.orphaned_policies();
+        assert_eq!(
+            orphaned.len(),
+            1,
+            "exactly one policy should be orphaned after archiving unit A (INV-C5)"
+        );
+        assert_eq!(
+            orphaned[0], policy_id,
+            "the orphaned policy should be the one referencing unit A"
+        );
     }
 }

@@ -21,7 +21,7 @@
 //!   constant (no per-node placement state in the graph snapshot).
 
 use taba_common::{NodeId, Ppm};
-use taba_core::{ArtifactType, RuntimeCapability, Unit};
+use taba_core::{ArtifactType, NodeCapabilitySet, RuntimeCapability, Tolerances, Unit};
 use taba_graph::GraphSnapshot;
 
 use crate::SolverError;
@@ -148,19 +148,30 @@ impl DefaultPlacementScorer {
     ///
     /// Returns `None` if the node cannot host the unit (no matching
     /// runtime for workload units).
+    ///
+    /// Tolerance scoring (INV-K3):
+    /// - **Latency**: if the workload declares `max_latency` and the
+    ///   node advertises a `latency` custom tag, the node's latency
+    ///   must be ≤ the tolerance. Meeting the tolerance scores higher;
+    ///   exceeding it scores lower.
+    /// - **Failure modes**: if the workload declares `failure_modes`
+    ///   and the node advertises `supports_failure` custom tags, the
+    ///   node must support at least one declared failure mode.
+    ///   Supporting at least one scores higher; supporting none
+    ///   scores lower.
     fn compute_score(
         unit: &Unit,
-        caps_runtimes: &[RuntimeCapability],
+        caps: &NodeCapabilitySet,
         health: NodeHealth,
     ) -> Option<PlacementScore> {
         // Determine capability match quality.
         let (cap_bonus, has_match) = match unit {
             Unit::Workload(w) => {
                 let at = w.artifact.artifact_type;
-                if !Self::can_host(at, caps_runtimes) {
+                if !Self::can_host(at, &caps.runtimes) {
                     return None;
                 }
-                let bonus = if Self::is_exact_runtime_match(at, caps_runtimes) {
+                let bonus = if Self::is_exact_runtime_match(at, &caps.runtimes) {
                     Ppm(200_000)
                 } else {
                     Ppm(100_000)
@@ -181,17 +192,32 @@ impl DefaultPlacementScorer {
             NodeHealth::Suspected => (Ppm(50_000), Ppm(150_000)),
         };
 
-        // Constant factors for M2.
-        let base = Ppm(500_000);
+        // Tolerance scoring (INV-K3). Extract the workload's
+        // tolerances (non-workload units have no tolerance
+        // declarations — use neutral defaults).
+        let neutral_tolerances = Tolerances {
+            max_latency: None,
+            failure_modes: Vec::new(),
+            consistency: None,
+        };
+        let tolerances = match unit {
+            Unit::Workload(w) => &w.tolerates,
+            _ => &neutral_tolerances,
+        };
+
         let resource_score = Ppm(100_000);
-        let latency_score = Ppm(100_000);
-        let affinity_score = Ppm(100_000);
+        let latency_score = Self::latency_tolerance_score(tolerances, caps);
+        let affinity_score = Self::failure_mode_tolerance_score(tolerances, caps);
 
         // Total = base + cap + health + resource + latency + affinity - penalty.
         // All Ppm operations saturate, so this is safe.
-        let total =
-            base + cap_bonus + health_score + resource_score + latency_score + affinity_score
-                - suspected_penalty;
+        let total = Ppm(500_000)
+            + cap_bonus
+            + health_score
+            + resource_score
+            + latency_score
+            + affinity_score
+            - suspected_penalty;
 
         Some(PlacementScore {
             total,
@@ -201,6 +227,96 @@ impl DefaultPlacementScorer {
             health_score,
             suspected_penalty,
         })
+    }
+
+    /// Computes the latency tolerance score (INV-K3).
+    ///
+    /// If the workload declares `max_latency` and the node advertises
+    /// a `latency` custom tag (in milliseconds, e.g., `"50ms"`):
+    /// - Node latency ≤ tolerance → `Ppm(150_000)` (meets tolerance)
+    /// - Node latency > tolerance → `Ppm(50_000)` (exceeds tolerance)
+    ///
+    /// If either the workload or the node has no latency declaration,
+    /// returns the neutral default `Ppm(100_000)`.
+    fn latency_tolerance_score(tolerances: &Tolerances, caps: &NodeCapabilitySet) -> Ppm {
+        let Some(max_latency) = tolerances.max_latency else {
+            return Ppm(100_000);
+        };
+        let Some(node_latency_ms) = Self::node_latency_ms(caps) else {
+            return Ppm(100_000);
+        };
+
+        let max_latency_ms = max_latency.as_millis();
+        if node_latency_ms <= max_latency_ms {
+            Ppm(150_000)
+        } else {
+            Ppm(50_000)
+        }
+    }
+
+    /// Computes the failure-mode tolerance score (INV-K3).
+    ///
+    /// If the workload declares `failure_modes` and the node
+    /// advertises `supports_failure` custom tags:
+    /// - Node supports at least one declared mode → `Ppm(150_000)`
+    /// - Node supports none → `Ppm(50_000)`
+    ///
+    /// If either the workload or the node has no failure-mode
+    /// declarations, returns the neutral default `Ppm(100_000)`.
+    fn failure_mode_tolerance_score(tolerances: &Tolerances, caps: &NodeCapabilitySet) -> Ppm {
+        if tolerances.failure_modes.is_empty() {
+            return Ppm(100_000);
+        }
+
+        let supported: Vec<&str> = caps
+            .custom_tags
+            .iter()
+            .filter(|(k, _)| k == "supports_failure")
+            .map(|(_, v)| v.as_str())
+            .collect();
+
+        if supported.is_empty() {
+            return Ppm(100_000);
+        }
+
+        let node_supports_any = tolerances
+            .failure_modes
+            .iter()
+            .any(|fm| supported.contains(&fm.as_str()));
+
+        if node_supports_any {
+            Ppm(150_000)
+        } else {
+            Ppm(50_000)
+        }
+    }
+
+    /// Parses a latency string from a node's custom tags into
+    /// milliseconds.
+    ///
+    /// Supports `"50ms"`, `"100ms"`, `"1s"` (converted to 1000ms),
+    /// or a bare number (interpreted as milliseconds).
+    fn parse_latency_ms(s: &str) -> Option<u128> {
+        if let Some(ms_str) = s.strip_suffix("ms") {
+            return ms_str.parse::<u128>().ok();
+        }
+        if let Some(s_str) = s.strip_suffix('s') {
+            return s_str.parse::<u128>().ok().map(|v| v.saturating_mul(1000));
+        }
+        s.parse::<u128>().ok()
+    }
+
+    /// Extracts the node's advertised latency (in milliseconds) from
+    /// its custom tags.
+    ///
+    /// Looks for a `("latency", "Xms")` entry where X is a number.
+    /// Returns `None` if no latency tag is present or it cannot be
+    /// parsed.
+    fn node_latency_ms(caps: &NodeCapabilitySet) -> Option<u128> {
+        caps.custom_tags
+            .iter()
+            .find(|(k, _)| k == "latency")
+            .and_then(|(_, v)| Self::parse_latency_ms(v))
     }
 }
 
@@ -220,7 +336,7 @@ impl PlacementScorer for DefaultPlacementScorer {
             })?;
 
         // Compute the score. Returns None if the node cannot host the unit.
-        let score = Self::compute_score(unit, &caps.runtimes, *health).ok_or_else(|| {
+        let score = Self::compute_score(unit, caps, *health).ok_or_else(|| {
             // Determine unmet capabilities for the error.
             let unmet: Vec<_> = match unit {
                 Unit::Workload(w) => w.needs.clone(),
@@ -529,5 +645,146 @@ mod tests {
         let graph = empty_graph();
         let result = scorer.score(&Unit::Policy(policy), &node, &graph, &membership);
         assert!(result.is_ok(), "non-workload should score on any node");
+    }
+
+    // -- INV-K3: Tolerance matching ---------------------------------------
+
+    #[test]
+    fn scenario_latency_meets_tolerance_scores_higher() {
+        // INV-K3: If the workload tolerates max_latency:50ms and the
+        // node's latency is 30ms (≤ tolerance), the score should be
+        // higher than a node whose latency is 100ms (> tolerance).
+        let node_good = test_node_id();
+        let node_bad = test_node_id();
+
+        let caps_good = NodeCapabilitySetBuilder::new()
+            .with_runtimes(vec![RuntimeCapability::Oci])
+            .with_custom_tags(vec![("latency".to_string(), "30ms".to_string())])
+            .build();
+        let caps_bad = NodeCapabilitySetBuilder::new()
+            .with_runtimes(vec![RuntimeCapability::Oci])
+            .with_custom_tags(vec![("latency".to_string(), "100ms".to_string())])
+            .build();
+
+        let mut workload = WorkloadUnitBuilder::new().build();
+        workload.tolerates = taba_core::Tolerances {
+            max_latency: Some(std::time::Duration::from_millis(50)),
+            failure_modes: Vec::new(),
+            consistency: None,
+        };
+        let unit = Unit::Workload(workload);
+
+        let membership = MembershipSnapshot {
+            nodes: vec![
+                (node_good, caps_good, NodeHealth::Active),
+                (node_bad, caps_bad, NodeHealth::Active),
+            ],
+            generation: 1,
+        };
+
+        let scorer = DefaultPlacementScorer::new();
+        let graph = empty_graph();
+
+        let score_good = scorer
+            .score(&unit, &node_good, &graph, &membership)
+            .expect("good node should score");
+        let score_bad = scorer
+            .score(&unit, &node_bad, &graph, &membership)
+            .expect("bad node should score");
+
+        assert!(
+            score_good > score_bad,
+            "node with latency 30ms (≤ tolerance 50ms) should score higher \
+             ({score_good:?}) than node with latency 100ms (> tolerance) ({score_bad:?}) (INV-K3)"
+        );
+    }
+
+    #[test]
+    fn scenario_failure_mode_supported_scores_higher() {
+        // INV-K3: If the workload tolerates failure:restart and the
+        // node supports restart, the score should be higher than a
+        // node that does not support restart.
+        let node_good = test_node_id();
+        let node_bad = test_node_id();
+
+        let caps_good = NodeCapabilitySetBuilder::new()
+            .with_runtimes(vec![RuntimeCapability::Oci])
+            .with_custom_tags(vec![(
+                "supports_failure".to_string(),
+                "restart".to_string(),
+            )])
+            .build();
+        let caps_bad = NodeCapabilitySetBuilder::new()
+            .with_runtimes(vec![RuntimeCapability::Oci])
+            .with_custom_tags(vec![("supports_failure".to_string(), "crash".to_string())])
+            .build();
+
+        let mut workload = WorkloadUnitBuilder::new().build();
+        workload.tolerates = taba_core::Tolerances {
+            max_latency: None,
+            failure_modes: vec!["restart".to_string()],
+            consistency: None,
+        };
+        let unit = Unit::Workload(workload);
+
+        let membership = MembershipSnapshot {
+            nodes: vec![
+                (node_good, caps_good, NodeHealth::Active),
+                (node_bad, caps_bad, NodeHealth::Active),
+            ],
+            generation: 1,
+        };
+
+        let scorer = DefaultPlacementScorer::new();
+        let graph = empty_graph();
+
+        let score_good = scorer
+            .score(&unit, &node_good, &graph, &membership)
+            .expect("good node should score");
+        let score_bad = scorer
+            .score(&unit, &node_bad, &graph, &membership)
+            .expect("bad node should score");
+
+        assert!(
+            score_good > score_bad,
+            "node supporting failure mode 'restart' should score higher \
+             ({score_good:?}) than node supporting 'crash' only ({score_bad:?}) (INV-K3)"
+        );
+    }
+
+    #[test]
+    fn scenario_no_tolerance_info_uses_neutral_score() {
+        // INV-K3: When neither the workload nor the node declares
+        // tolerance information, the score should be the same as the
+        // neutral default (no penalty, no bonus).
+        let node = test_node_id();
+        let caps = NodeCapabilitySetBuilder::new()
+            .with_runtimes(vec![RuntimeCapability::Oci])
+            .build(); // no custom tags
+
+        let mut workload = WorkloadUnitBuilder::new().build();
+        workload.tolerates = taba_core::Tolerances {
+            max_latency: None,
+            failure_modes: Vec::new(),
+            consistency: None,
+        };
+        let unit = Unit::Workload(workload);
+
+        let membership = membership_with(node, caps, NodeHealth::Active);
+        let scorer = DefaultPlacementScorer::new();
+        let graph = empty_graph();
+
+        let score = scorer
+            .score(&unit, &node, &graph, &membership)
+            .expect("should score");
+
+        // Neutral latency + affinity = 100,000 + 100,000 = 200,000
+        // (base 500,000 + cap 200,000 + health 200,000 + resource 100,000
+        //  + latency 100,000 + affinity 100,000 = 1,200,000)
+        assert_eq!(
+            score,
+            Ppm(1_200_000),
+            "neutral tolerance (no info) should produce score 1,200,000, got {score:?}"
+        );
     }
 }
