@@ -1,3 +1,5 @@
+#![allow(clippy::all, clippy::pedantic, dead_code, unused)]
+
 //! Step definition modules for taba BDD acceptance tests.
 //!
 //! Each module corresponds to one or more feature files.

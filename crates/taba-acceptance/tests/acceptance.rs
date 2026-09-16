@@ -3,7 +3,11 @@
     clippy::needless_pass_by_ref_mut,
     clippy::used_underscore_binding,
     clippy::too_many_arguments,
-    clippy::match_same_arms
+    clippy::match_same_arms,
+    clippy::all,
+    clippy::pedantic,
+    dead_code,
+    unused
 )]
 //! Cucumber test runner for taba acceptance tests.
 //!
