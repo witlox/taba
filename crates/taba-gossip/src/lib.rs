@@ -34,7 +34,7 @@
 // several trait methods here intentionally do not return `impl Future` and
 // are consumed from runtime contexts where `Send` is not required by
 // callers in tests.
-#![allow(async_fn_in_trait)]
+#![allow(async_fn_in_trait, clippy::unused_async)]
 #![allow(unknown_lints)]
 #![allow(clippy::significant_drop_tightening)]
 // Test helper names intentionally differ from domain terms.
