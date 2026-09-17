@@ -60,7 +60,11 @@
 #![warn(missing_docs)]
 // async fn in traits is intentional for M3. The futures' Send-ness is
 // determined by the concrete implementation, not the trait.
-#![allow(async_fn_in_trait, clippy::unused_async)]
+#![allow(
+    async_fn_in_trait,
+    clippy::unused_async,
+    clippy::unused_async_trait_impl
+)]
 // Many trait implementations are async because the trait will perform
 // I/O in production (Docker, network, disk). Current implementations
 // may be synchronous (simulated, in-memory) and not contain `.await`

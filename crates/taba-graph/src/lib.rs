@@ -36,7 +36,7 @@
 
 #![warn(missing_docs)]
 // Methods are async for future WAL I/O (M3). Currently synchronous.
-#![allow(unknown_lints)]
+#![allow(unknown_lints, clippy::unused_async_trait_impl)]
 // MutexGuard drop timing is not a correctness issue for in-memory M2.
 #![allow(clippy::significant_drop_tightening)]
 

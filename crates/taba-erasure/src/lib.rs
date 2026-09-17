@@ -53,7 +53,11 @@
 #![warn(missing_docs)]
 // async fn in traits is intentional for M4. The futures' Send-ness is
 // determined by the concrete implementation, not the trait.
-#![allow(async_fn_in_trait, clippy::unused_async)]
+#![allow(
+    async_fn_in_trait,
+    clippy::unused_async,
+    clippy::unused_async_trait_impl
+)]
 // Many trait implementations are async because the trait will perform
 // I/O in production (network, disk). Current implementations are
 // synchronous (in-memory) and do not contain `.await` points yet.
