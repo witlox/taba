@@ -65,7 +65,7 @@
 // I/O in production (Docker, network, disk). Current implementations
 // may be synchronous (simulated, in-memory) and not contain `.await`
 // points yet.
-#![allow(clippy::unused_async_trait_impl)]
+#![allow(unknown_lints)]
 // Mutex guards are short-lived and held only for a few operations.
 // Explicit `drop()` calls add noise without meaningful benefit.
 #![allow(clippy::significant_drop_tightening)]

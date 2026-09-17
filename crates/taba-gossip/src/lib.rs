@@ -35,7 +35,7 @@
 // are consumed from runtime contexts where `Send` is not required by
 // callers in tests.
 #![allow(async_fn_in_trait)]
-#![allow(clippy::unused_async_trait_impl)]
+#![allow(unknown_lints)]
 #![allow(clippy::significant_drop_tightening)]
 // Test helper names intentionally differ from domain terms.
 #![allow(clippy::similar_names)]

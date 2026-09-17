@@ -726,7 +726,7 @@ mod tests {
         // INV-D2: A persistent data unit whose retention duration has
         // elapsed is expired and eligible for compaction.
         let created_at = WallTime { millis: 1000 };
-        let duration = std::time::Duration::from_millis(1000);
+        let duration = std::time::Duration::from_secs(1);
 
         let mut data = DataUnitBuilder::new().build();
         data.header.created_at.wall_time = created_at;

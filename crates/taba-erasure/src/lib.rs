@@ -57,7 +57,7 @@
 // Many trait implementations are async because the trait will perform
 // I/O in production (network, disk). Current implementations are
 // synchronous (in-memory) and do not contain `.await` points yet.
-#![allow(clippy::unused_async_trait_impl)]
+#![allow(unknown_lints)]
 // Futures returned by async trait methods may not be Send when used
 // with in-memory mutexes. Send-ness is determined by the concrete
 // implementation, not the trait.
