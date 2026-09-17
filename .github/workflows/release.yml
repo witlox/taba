@@ -52,6 +52,9 @@ jobs:
       - name: Integration tests
         run: cargo test --locked -p taba-integration
 
+      - name: Binary E2E
+        run: cargo build --workspace --bins --locked && cargo test --locked -p taba-e2e --test binary
+
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   # ---------------------------------------------------------------------------

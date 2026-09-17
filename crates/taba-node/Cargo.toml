@@ -36,6 +36,3 @@ tempfile = { workspace = true }
 testcontainers = { workspace = true }
 taba-test-harness = { path = "../taba-test-harness" }
 
-[[bin]]
-name = "taba"
-path = "src/main.rs"

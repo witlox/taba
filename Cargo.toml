@@ -13,6 +13,7 @@ members = [
     "crates/taba-cli",
     "crates/taba-k8s",
     "crates/taba-acceptance",
+    "tests/e2e",
     "crates/taba-test-harness",
     "tests/integration",
 ]

@@ -1,0 +1,28 @@
+[package]
+name = "taba-e2e"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "End-to-end tests that spawn the taba and taba-k8s binaries"
+
+[lints]
+workspace = true
+
+[dependencies]
+tempfile = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+taba-core = { path = "../../crates/taba-core" }
+taba-common = { path = "../../crates/taba-common" }
+taba-node = { path = "../../crates/taba-node" }
+taba-test-harness = { path = "../../crates/taba-test-harness" }
+
+[[test]]
+name = "binary"
+path = "binary.rs"
+
+[[test]]
+name = "docker"
+path = "docker.rs"

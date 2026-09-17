@@ -100,4 +100,6 @@ jobs:
       # ubuntu-latest has Docker pre-installed. The bollard-based
       # DockerRuntime tests connect to /var/run/docker.sock.
       - run: docker info
+      - run: cargo test --locked -p taba-e2e --test binary
+      - run: cargo test --locked -p taba-e2e --test docker -- --ignored
       - run: cargo nextest run -p taba-node --run-ignored=only --locked

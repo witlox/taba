@@ -2611,6 +2611,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "taba-e2e"
+version = "2026.6.0"
+dependencies = [
+ "serde_json",
+ "taba-common",
+ "taba-core",
+ "taba-node",
+ "taba-test-harness",
+ "tempfile",
+ "uuid",
+]
+
+[[package]]
 name = "taba-erasure"
 version = "2026.6.0"
 dependencies = [

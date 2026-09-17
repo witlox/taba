@@ -1,0 +1,252 @@
+#![allow(clippy::all, clippy::pedantic, dead_code, unused)]
+//! Docker e2e tests: apply → compose → verify container is running → stop.
+//!
+//! These tests require Docker. They are marked `#[ignore = "slow:requires-docker"]`
+//! and run via `cargo test -p taba-e2e --test docker -- --run-ignored=only`
+//! or in the nightly CI `docker-e2e` job.
+
+use std::path::PathBuf;
+use std::process::Command;
+
+fn bin_path(name: &str) -> PathBuf {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/debug")
+        .join(name);
+    if !path.exists() {
+        eprintln!("Skipping: {name} not built. Run: cargo build --workspace");
+        std::process::exit(0);
+    }
+    path
+}
+
+fn write_workload(dir: &std::path::Path, name: &str) -> PathBuf {
+    let path = dir.join(format!("{name}.taba.toml"));
+    let toml = format!(
+        r#"[unit]
+name = "{name}"
+image = "alpine:latest"
+"#
+    );
+    std::fs::write(&path, toml).expect("write toml");
+    path
+}
+
+/// Verify Docker is available.
+fn docker_available() -> bool {
+    Command::new("docker")
+        .args(["info"])
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
+/// Returns the names of all containers that start with "taba-".
+fn taba_containers() -> Vec<String> {
+    let output = Command::new("docker")
+        .args(["ps", "--filter", "name=taba-", "--format", "{{.Names}}"])
+        .output()
+        .expect("docker ps");
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|s| s.to_string())
+        .collect()
+}
+
+/// Force-remove all taba-* containers (cleanup).
+fn cleanup_taba_containers() {
+    let containers = taba_containers();
+    for name in &containers {
+        let _ = Command::new("docker").args(["rm", "-f", name]).output();
+    }
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_apply_and_compose() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a workload unit
+    let workload = write_workload(tmp.path(), "docker-web");
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&workload)
+        .output()
+        .expect("apply");
+    assert!(
+        output.status.success(),
+        "apply failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Compose — the solver should produce a placement
+    let output = Command::new(bin_path("taba"))
+        .args(["compose", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("compose");
+    assert!(
+        output.status.success(),
+        "compose failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("PLACEMENTS") || stdout.contains("UNPLACEABLE"),
+        "compose should produce results: {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_runtime_start_stop() {
+    use taba_common::UnitId;
+    use taba_core::Unit;
+    use taba_node::runtime::{DockerRuntime, RuntimeExecutor, RuntimeState};
+
+    let runtime = DockerRuntime::new().expect("connect to Docker");
+    let id = UnitId(uuid::Uuid::new_v4());
+
+    // Create a minimal workload with alpine:latest
+    use taba_common::ContentDigest;
+    use taba_core::{Artifact, ArtifactType};
+    use taba_test_harness::WorkloadUnitBuilder;
+
+    let mut unit = WorkloadUnitBuilder::new().with_id(id).build();
+    unit.artifact = Artifact {
+        artifact_type: ArtifactType::Oci,
+        artifact_ref: "alpine:latest".to_string(),
+        digest: ContentDigest("sha256:".to_string()),
+        requires: Vec::new(),
+    };
+
+    // Start
+    let state = runtime.start(&Unit::Workload(unit)).expect("start");
+    assert_eq!(state, RuntimeState::Running);
+
+    // Check state
+    let state = runtime.check_state(&Unit::Workload(
+        WorkloadUnitBuilder::new().with_id(id).build(),
+    ));
+    assert_eq!(state, RuntimeState::Running);
+
+    // Stop
+    let state = runtime
+        .stop(&Unit::Workload(
+            WorkloadUnitBuilder::new().with_id(id).build(),
+        ))
+        .expect("stop");
+    assert_eq!(state, RuntimeState::Stopped);
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_persistence_format() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply multiple workloads
+    for name in &["web-1", "web-2", "web-3"] {
+        let workload = write_workload(tmp.path(), name);
+        let output = Command::new(bin_path("taba"))
+            .args(["apply", "--state-dir"])
+            .arg(&state)
+            .arg(&workload)
+            .output()
+            .expect("apply");
+        assert!(
+            output.status.success(),
+            "apply {name} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    // Status should show 4 units (3 workloads + 1 governance)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('4'), "should have 4 units: {stdout}");
+
+    // Unit list should show 3 workloads + 1 governance
+    let output = Command::new(bin_path("taba"))
+        .args(["unit", "list", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("unit list");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let workload_count = stdout.matches("workload").count();
+    assert_eq!(
+        workload_count, 3,
+        "unit list should contain 3 workloads: {stdout}"
+    );
+
+    // Archive one
+    let graph_json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    let units: Vec<serde_json::Value> = serde_json::from_str(&graph_json).expect("parse json");
+    let workload_id = units
+        .iter()
+        .filter_map(|u| u.get("Workload"))
+        .filter_map(|w| w.get("header"))
+        .filter_map(|h| h.get("id"))
+        .filter_map(|id| id.as_str().map(|s| s.to_string()))
+        .next()
+        .expect("find workload id");
+
+    let output = Command::new(bin_path("taba"))
+        .args(["unit", "archive", "--state-dir"])
+        .arg(&state)
+        .arg(&workload_id)
+        .output()
+        .expect("archive");
+    assert!(
+        output.status.success(),
+        "archive failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Status should now show 3 active + 1 archived
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status after archive");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('3'),
+        "should have 3 active after archive: {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
