@@ -33,3 +33,21 @@ path = "wal.rs"
 
 [dependencies.tokio]
 workspace = true
+
+[dependencies.sha2]
+workspace = true
+
+[dependencies.hex]
+version = "0.4"
+
+[dependencies.taba-erasure]
+path = "../../crates/taba-erasure"
+
+[dependencies.futures]
+workspace = true
+
+[dependencies.taba-solver]
+path = "../../crates/taba-solver"
+
+[dependencies.taba-graph]
+path = "../../crates/taba-graph"

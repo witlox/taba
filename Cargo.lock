@@ -2614,10 +2614,16 @@ dependencies = [
 name = "taba-e2e"
 version = "2026.6.0"
 dependencies = [
+ "futures",
+ "hex",
  "serde_json",
+ "sha2",
  "taba-common",
  "taba-core",
+ "taba-erasure",
+ "taba-graph",
  "taba-node",
+ "taba-solver",
  "taba-test-harness",
  "tempfile",
  "tokio",
