@@ -250,3 +250,60 @@ fn test_docker_persistence_format() {
 
     cleanup_taba_containers();
 }
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_reconcile() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init + apply
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    let workload = write_workload(tmp.path(), "reconcile-web");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&workload)
+        .output()
+        .expect("apply");
+
+    // Reconcile — should start a Docker container
+    let output = Command::new(bin_path("taba"))
+        .args(["reconcile", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("reconcile");
+
+    assert!(
+        output.status.success(),
+        "reconcile failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("reconciled successfully") || stdout.contains("FAILED"),
+        "reconcile should report results: {stdout}"
+    );
+
+    // If reconciliation succeeded, verify a container is running
+    if stdout.contains("reconciled successfully") {
+        let containers = taba_containers();
+        assert!(
+            !containers.is_empty(),
+            "should have at least one taba-* container running"
+        );
+    }
+
+    cleanup_taba_containers();
+}

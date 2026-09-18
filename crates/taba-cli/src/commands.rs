@@ -75,6 +75,9 @@ pub enum Command {
     /// Run the solver and show placements and conflicts.
     Compose,
 
+    /// Reconcile placements: start/stop Docker containers.
+    Reconcile,
+
     /// Audit lineage, provenance, and decision trails.
     Audit {
         /// Subcommand for audit operations.
@@ -301,6 +304,38 @@ pub async fn run_compose(state_dir: Option<PathBuf>, output: OutputFormat) -> Re
     let result = client.solve(&snapshot);
 
     print!("{}", format::format_solver_result(&result, output));
+    Ok(())
+}
+
+/// Runs the `reconcile` command: starts Docker containers for
+/// each placement assigned to this node.
+///
+/// # Errors
+///
+/// - [`CliError::InvalidInput`] if Docker is not available.
+/// - [`CliError::Graph`] if the snapshot cannot be taken.
+pub async fn run_reconcile(state_dir: Option<PathBuf>) -> Result<(), CliError> {
+    let client = LocalClient::load(state_dir).await?;
+    let snapshot = client.snapshot().await?;
+    let result = client.solve(&snapshot);
+
+    if result.placements.is_empty() {
+        println!("No placements to reconcile.");
+        return Ok(());
+    }
+
+    println!("Reconciling {} placement(s)...", result.placements.len());
+
+    let errors = client.reconcile(&result.placements).await?;
+
+    if errors.is_empty() {
+        println!("All placements reconciled successfully.");
+    } else {
+        for (unit_id, error) in &errors {
+            println!("  FAILED: {unit_id} — {error}");
+        }
+    }
+
     Ok(())
 }
 

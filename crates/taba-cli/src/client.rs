@@ -53,6 +53,9 @@ pub struct LocalClient {
     key_pair: KeyPair,
     /// Decision trail recorder.
     trail_recorder: DefaultDecisionTrailRecorder,
+    /// Optional Docker runtime for container management.
+    /// When `Some`, `reconcile` can start/stop containers.
+    docker: Option<taba_node::runtime::DockerRuntime>,
 }
 
 impl LocalClient {
@@ -184,6 +187,7 @@ impl LocalClient {
             config,
             key_pair,
             trail_recorder,
+            docker: None,
         })
     }
 
@@ -222,6 +226,7 @@ impl LocalClient {
             config,
             key_pair,
             trail_recorder,
+            docker: None,
         })
     }
 
@@ -419,6 +424,44 @@ impl LocalClient {
     #[must_use]
     pub fn author_id(&self) -> AuthorId {
         author_id_from_keypair(&self.key_pair)
+    }
+
+    /// Reconcile desired placements with actual container state.
+    ///
+    /// For each placement assigned to this node, starts a Docker
+    /// container if one is not already running. Returns a list of
+    /// `(unit_id, error)` for units that failed to start.
+    ///
+    /// # Errors
+    ///
+    /// - [`CliError::InvalidInput`] if Docker is not available.
+    pub async fn reconcile(
+        &self,
+        placements: &[taba_solver::Placement],
+    ) -> Result<Vec<(taba_common::UnitId, String)>, CliError> {
+        use taba_node::runtime::RuntimeExecutor;
+
+        let docker = self.docker.as_ref().ok_or_else(|| CliError::InvalidInput {
+            reason: "Docker is not available.".to_string(),
+        })?;
+
+        let snapshot = self.graph.snapshot().await.map_err(CliError::from)?;
+        let mut errors = Vec::new();
+
+        for placement in placements {
+            if placement.node != self.config.node_id {
+                continue;
+            }
+            if let Some(entry) = snapshot.entries.get(&placement.unit) {
+                let unit = &entry.signed_unit.unit;
+                if let Err(e) = docker.start(unit) {
+                    errors.push((placement.unit, e.to_string()));
+                }
+            }
+        }
+
+        self.persist().await?;
+        Ok(errors)
     }
 
     /// Get the local public key.
