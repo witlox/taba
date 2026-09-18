@@ -187,7 +187,7 @@ impl LocalClient {
             config,
             key_pair,
             trail_recorder,
-            docker: None,
+            docker: taba_node::runtime::DockerRuntime::new().ok(),
         })
     }
 
@@ -453,8 +453,14 @@ impl LocalClient {
                 continue;
             }
             if let Some(entry) = snapshot.entries.get(&placement.unit) {
-                let unit = &entry.signed_unit.unit;
-                if let Err(e) = docker.start(unit) {
+                let unit_clone = entry.signed_unit.unit.clone();
+                let docker_clone = docker.clone();
+                let result = std::thread::spawn(move || docker_clone.start(&unit_clone))
+                    .join()
+                    .map_err(|e| CliError::InvalidInput {
+                        reason: format!("thread panic: {e:?}"),
+                    })?;
+                if let Err(e) = result {
                     errors.push((placement.unit, e.to_string()));
                 }
             }

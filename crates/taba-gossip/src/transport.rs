@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::net::SocketAddr;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
@@ -261,64 +261,207 @@ impl GossipTransport for InMemoryTransport {
 }
 
 // ---------------------------------------------------------------------------
-// UdpTransport (stub for M5+)
+// UdpTransport
 // ---------------------------------------------------------------------------
 
-/// UDP gossip transport (stub).
+/// Maximum UDP datagram receive buffer (64 KiB — the IPv4 max payload).
 ///
-/// M4 uses [`InMemoryTransport`] for deterministic testing. This stub
-/// returns [`GossipError::TransportError`] for all operations; a real
-/// implementation using `tokio::net::UdpSocket` is deferred to M5+ when
-/// real network I/O is exercised in end-to-end tests.
-#[derive(Debug, Default)]
-#[allow(dead_code)]
+/// Gossip messages are compact JSON envelopes; this is well below the
+/// 65 507-byte practical UDP MTU on loopback.
+const RECV_BUF_SIZE: usize = 65_536;
+
+/// UDP gossip transport backed by [`tokio::net::UdpSocket`].
+///
+/// Messages are serialized with `serde_json` and sent as a single UDP
+/// datagram — UDP is self-delimiting, so no explicit length prefix is
+/// required (one `send_to` corresponds to one `recv_from`). The
+/// transport is **not** connected: `send` may target any reachable
+/// address, and `recv` returns the next datagram from any peer.
+///
+/// # Concurrency
+///
+/// The socket is stored as `Arc<UdpSocket>` behind a [`std::sync::Mutex`].
+/// The lock is held only long enough to clone the `Arc` (cheap) and is
+/// never held across an `await` point. `UdpSocket::send_to` and
+/// `recv_from` take `&self`, so a single shared socket is reused by all
+/// senders and the single receiver.
+///
+/// # Cancellation safety
+///
+/// [`GossipTransport::recv`] is cancellation-safe: `UdpSocket::recv_from`
+/// is cancel-safe per the tokio docs, and a cancelled future loses no
+/// already-delivered datagram.
 pub struct UdpTransport {
-    _marker: (),
+    /// The bound UDP socket, set by [`GossipTransport::bind`].
+    socket: Mutex<Option<Arc<tokio::net::UdpSocket>>>,
+}
+
+impl std::fmt::Debug for UdpTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UdpTransport").finish_non_exhaustive()
+    }
+}
+
+impl Default for UdpTransport {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl UdpTransport {
-    /// Creates a new UDP transport stub.
+    /// Creates a new, unbound UDP transport.
+    ///
+    /// Call [`GossipTransport::bind`] before sending or receiving.
     #[must_use]
     pub const fn new() -> Self {
-        Self { _marker: () }
+        Self {
+            socket: Mutex::new(None),
+        }
+    }
+
+    /// Returns `true` if the transport is currently bound.
+    #[cfg(test)]
+    fn is_bound(&self) -> bool {
+        self.socket.lock().is_ok_and(|guard| guard.is_some())
+    }
+
+    /// Clones the bound socket handle out from under the mutex,
+    /// returning an error if the transport has not been bound yet. The
+    /// lock is released before the handle is used, so no `await` happens
+    /// while holding it.
+    fn socket_handle(&self) -> Result<Arc<tokio::net::UdpSocket>, GossipError> {
+        let guard = self
+            .socket
+            .lock()
+            .map_err(|e| GossipError::TransportError {
+                reason: format!("socket mutex poisoned: {e}"),
+            })?;
+        let socket = guard
+            .as_ref()
+            .ok_or_else(|| GossipError::TransportError {
+                reason: "transport not bound — call bind() first".to_string(),
+            })?
+            .clone();
+        Ok(socket)
+    }
+
+    /// Resolves a [`NodeAddr`] to a concrete [`SocketAddr`].
+    ///
+    /// Uses blocking `to_socket_addrs` via a dedicated blocking thread
+    /// pool (`spawn_blocking`) so the async runtime is never blocked on
+    /// DNS. Hostnames that resolve to multiple addresses use the first.
+    async fn resolve(addr: &NodeAddr) -> Result<SocketAddr, GossipError> {
+        let host = addr.host.clone();
+        let port = addr.port;
+        tokio::task::spawn_blocking(move || {
+            use std::net::ToSocketAddrs;
+            (host.as_str(), port)
+                .to_socket_addrs()
+                .map_err(|e| GossipError::TransportError {
+                    reason: format!("failed to resolve {host}:{port}: {e}"),
+                })?
+                .next()
+                .ok_or_else(|| GossipError::TransportError {
+                    reason: format!("no addresses resolved for {host}:{port}"),
+                })
+        })
+        .await
+        .map_err(|e| GossipError::TransportError {
+            reason: format!("resolve task failed: {e}"),
+        })?
     }
 }
 
 impl GossipTransport for UdpTransport {
-    async fn send(&self, _target: &NodeAddr, _message: &GossipMessage) -> Result<(), GossipError> {
-        Err(GossipError::TransportError {
-            reason: "UDP transport not implemented until M5+".to_string(),
-        })
+    async fn send(&self, target: &NodeAddr, message: &GossipMessage) -> Result<(), GossipError> {
+        let socket = self.socket_handle()?;
+
+        let bytes = serde_json::to_vec(message).map_err(|e| GossipError::TransportError {
+            reason: format!("failed to serialize gossip message: {e}"),
+        })?;
+
+        let dst = Self::resolve(target).await?;
+        socket
+            .send_to(&bytes, dst)
+            .await
+            .map_err(|e| GossipError::TransportError {
+                reason: format!("udp send_to {dst} failed: {e}"),
+            })?;
+        Ok(())
     }
 
     async fn send_many(
         &self,
         targets: &[NodeAddr],
-        _message: &GossipMessage,
+        message: &GossipMessage,
     ) -> Vec<(NodeAddr, GossipError)> {
-        targets
-            .iter()
-            .map(|t| {
-                (
-                    t.clone(),
-                    GossipError::TransportError {
-                        reason: "UDP transport not implemented until M5+".to_string(),
-                    },
-                )
-            })
-            .collect()
+        let mut failures = Vec::new();
+        for target in targets {
+            if let Err(e) = self.send(target, message).await {
+                failures.push((target.clone(), e));
+            }
+        }
+        failures
     }
 
     async fn recv(&self) -> Result<GossipMessage, GossipError> {
-        Err(GossipError::TransportError {
-            reason: "UDP transport not implemented until M5+".to_string(),
+        let socket = self.socket_handle()?;
+
+        let mut buf = vec![0u8; RECV_BUF_SIZE];
+        let (n, _peer) =
+            socket
+                .recv_from(&mut buf)
+                .await
+                .map_err(|e| GossipError::TransportError {
+                    reason: format!("udp recv_from failed: {e}"),
+                })?;
+        buf.truncate(n);
+        serde_json::from_slice(&buf).map_err(|e| GossipError::TransportError {
+            reason: format!("failed to deserialize gossip message: {e}"),
         })
     }
 
-    async fn bind(&self, _addr: &NodeAddr) -> Result<(), GossipError> {
-        Err(GossipError::TransportError {
-            reason: "UDP transport not implemented until M5+".to_string(),
-        })
+    async fn bind(&self, addr: &NodeAddr) -> Result<(), GossipError> {
+        let socket_addr = Self::resolve(addr).await?;
+        let socket = tokio::net::UdpSocket::bind(socket_addr)
+            .await
+            .map_err(|e| GossipError::TransportError {
+                reason: format!("failed to bind udp socket to {socket_addr}: {e}"),
+            })?;
+
+        let mut guard = self
+            .socket
+            .lock()
+            .map_err(|e| GossipError::TransportError {
+                reason: format!("socket mutex poisoned: {e}"),
+            })?;
+        *guard = Some(Arc::new(socket));
+        Ok(())
+    }
+}
+
+impl UdpTransport {
+    /// Returns the local address the socket is bound to, if any.
+    ///
+    /// After a successful [`GossipTransport::bind`], this reflects the
+    /// concrete address (including any ephemeral port assigned by the
+    /// OS when binding to port 0). Returns `None` if the transport is
+    /// not bound or the local address cannot be queried.
+    #[must_use]
+    pub fn local_addr(&self) -> Option<SocketAddr> {
+        self.socket
+            .lock()
+            .ok()
+            .and_then(|guard| guard.as_ref().and_then(|s| s.local_addr().ok()))
+    }
+}
+
+#[cfg(test)]
+impl UdpTransport {
+    /// Returns `true` if the transport has a bound socket (test helper).
+    #[must_use]
+    pub fn bound_for_test(&self) -> bool {
+        self.is_bound()
     }
 }
 

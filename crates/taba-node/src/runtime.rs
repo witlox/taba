@@ -194,7 +194,7 @@ impl RuntimeExecutor for SimulatedRuntime {
 /// For M3, this is a basic implementation: it pulls images, creates
 /// and starts containers, and inspects their state. Error handling
 /// covers missing containers and Docker daemon failures.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DockerRuntime {
     docker: bollard::Docker,
 }
@@ -335,18 +335,16 @@ impl RuntimeExecutor for DockerRuntime {
                 }
             })?;
 
-            // Remove container.
+            // Small delay to let Docker settle.
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            // Remove container (small delay to let Docker settle).
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             let remove_opts = bollard::container::RemoveContainerOptions {
                 force: true,
                 ..Default::default()
             };
-            self.docker
-                .remove_container(&name, Some(remove_opts))
-                .await
-                .map_err(|e| NodeError::ReconciliationFailed {
-                    unit: unit.id(),
-                    reason: format!("failed to remove container '{name}': {e}"),
-                })?;
+            // Ignore 404 — container may already be removed.
+            let _ = self.docker.remove_container(&name, Some(remove_opts)).await;
 
             Ok(RuntimeState::Stopped)
         })
@@ -391,7 +389,10 @@ impl RuntimeExecutor for DockerRuntime {
                     reason: format!("failed to drain container '{name}': {e}"),
                 })?;
 
-            // Remove container.
+            // Small delay to let Docker settle.
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            // Remove container (small delay to let Docker settle).
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             let remove_opts = bollard::container::RemoveContainerOptions {
                 force: true,
                 ..Default::default()

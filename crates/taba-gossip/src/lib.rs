@@ -70,7 +70,7 @@ pub use message::{
     WitnessConfirmation,
 };
 pub use swim::{MembershipProtocol, ProbeOutcome, SwimProtocol};
-pub use transport::{GossipTransport, InMemoryTransport, NodeAddr};
+pub use transport::{GossipTransport, InMemoryTransport, NodeAddr, UdpTransport};
 
 // Re-export the real MembershipSnapshot from taba-solver (A009). taba-gossip
 // populates this snapshot from its live membership view; the solver reads it

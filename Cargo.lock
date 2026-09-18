@@ -2620,6 +2620,7 @@ dependencies = [
  "taba-node",
  "taba-test-harness",
  "tempfile",
+ "tokio",
  "uuid",
 ]
 
