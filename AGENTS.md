@@ -60,6 +60,29 @@ cargo fmt --all -- --check
 cargo deny check
 ```
 
+With `just` (cascading test tiers):
+
+```
+just            # fmt-check + lint + deny + Tier 1
+just test       # Tier 1: nextest + doc tests + BDD @smoke
+just test-slow  # Tier 2: + ignored tests + full BDD
+just test-full  # Tier 3: + integration tests
+just docs       # mdbook build
+```
+
+Binary and Docker e2e:
+
+```
+cargo test -p taba-e2e --test binary                    # 22 binary subprocess tests
+cargo test -p taba-e2e --test docker -- --ignored       # 4 Docker container tests
+cargo test -p taba-e2e --test wal -- --ignored          # 2 WAL crash recovery tests
+cargo test -p taba-gossip --test udp -- --ignored       # 2 UDP transport tests
+```
+
+Environment variables:
+- `TABA_BDD_FAST=1` — run only `@smoke` tagged BDD scenarios
+- `TABA_BDD_ACCEPTANCE=1` — run all 265 BDD scenarios (currently no-ops except @smoke)
+
 ## Development conventions
 
 - All public types derive `Debug, Clone, Serialize, Deserialize` where sensible
@@ -71,9 +94,12 @@ cargo deny check
 ## Project state
 
 **Phase**: Post-implementation validation. All 7 milestones (M1–M7)
-complete. 14 crates, 867 tests. Fidelity baseline established,
-adversary implementation sweep complete (30 findings, 3 Critical
-resolved). Documentation via mdbook (gh-pages).
+complete. 13 crates + taba-e2e + taba-integration. 944 unit tests,
+30 e2e tests, 265 BDD scenarios. Fidelity: 67 invariants all
+VERIFIED (MOCK+), 0 PARTIAL, 0 UNVERIFIED. Adversary sweep: 3
+Critical + 6 High all resolved, 21 GitHub issues filed for
+Medium/Low/Info. Release v2026.6.56 (binaries + Docker image +
+gh-pages docs).
 
 | Stage | Status |
 |-------|--------|
@@ -81,21 +107,53 @@ resolved). Documentation via mdbook (gh-pages).
 | Adversary spec review (57 findings) | All critical/high resolved |
 | Architecture (module map, interfaces, data models) | Complete |
 | Adversary architecture review (45 findings) | All critical/high resolved |
-| BDD feature files (265 scenarios, 20 files) | Complete (1 @smoke has step defs) |
-| Fidelity baseline | Established (post-M7 sweep) |
-| Adversary implementation sweep (30 findings) | 3 Critical resolved, 6 High tracked |
-| M1: Types compile (common, core, test-harness) | Complete — 147 tests |
-| M2: Single-node compose (+ graph, solver, security) | Complete — 313 tests |
-| M3: Persistent (+ node WAL, observe) | Complete — 130 tests |
-| M4: Multi-node (+ gossip, erasure) | Complete — 115 tests |
+| BDD feature files (265 scenarios, 20 files) | Complete (@smoke has real assertions, 264 no-ops) |
+| Fidelity baseline | Established — 67 VERIFIED, 0 PARTIAL, 0 UNVERIFIED |
+| Adversary implementation sweep (30 findings) | All 3 Critical + 6 High resolved, 21 issues filed |
+| M1: Types compile (common, core, test-harness) | Complete — 165 tests |
+| M2: Single-node compose (+ graph, solver, security) | Complete — 330 tests |
+| M3: Persistent (+ node WAL, observe) | Complete — 132 tests |
+| M4: Multi-node (+ gossip, erasure) | Complete — 119 tests |
 | M5: Usable (+ cli) | Complete — 55 tests |
 | M6: Hardened (+ security advanced) | Complete — 49 tests |
 | M7: Migration (+ k8s tool) | Complete — 31 tests |
 | Integration tests | Complete — 15 tests |
+| Binary e2e (subprocess) | Complete — 22 tests |
+| Docker e2e (containers) | Complete — 4 tests |
+| WAL crash recovery e2e | Complete — 2 tests |
+| UDP gossip e2e | Complete — 2 tests |
 | Documentation (mdbook, gh-pages) | Complete |
+| STRIDE security analysis | Complete — 19 threats, 0 Critical/High remaining |
+| CI (4 workflows) | Complete — ci, nightly, docs, release |
+| Branch protection | Active — 2 rulesets (no-delete+non-FF, linear+5 checks) |
+| Release | Tagged v2026.6.56 (x86_64, aarch64, macOS, Docker) |
 
-**Next**: Resolve remaining 6 High adversary findings. Implement BDD
-step definitions for remaining 264 scenarios. Tag v0.1.0 release.
+### Post-M7 accomplishments
+
+| Item | Status |
+|------|--------|
+| Ed25519 signing wired into CLI (INV-S3) | Complete — LocalClient signs every unit, graph verifies |
+| Scope checker + verifier wired into LocalClient | Complete — role assignment created on init, populated on load |
+| 6 UNVERIFIED invariants implemented (K4, D3, D5, E2, N5, G4) | Complete — each with tests |
+| 6 PARTIAL invariants resolved (S7, C5, K3, D2, E3, N3) | Complete — each with tests |
+| Docker reconciliation (`taba reconcile` command) | Complete — starts containers for each placement |
+| UdpTransport implemented and tested | Complete — tokio::net::UdpSocket + serde_json |
+| WAL crash recovery e2e | Complete — append, drop, reopen, verify all entries + CRC |
+| Binary e2e (all CLI commands) | Complete — init, apply, status, compose, unit, audit, push, k8s |
+| K8s converter e2e | Complete — Deployment, StatefulSet, Secret, ConfigMap, NetworkPolicy, HPA |
+| @smoke BDD with real assertions | Complete — table parsing, signing, graph insert, WAL check |
+| GitHub branch protection | Complete — 2 rulesets, 5 required status checks |
+| Versioning script (YYYY.ADRcount.commitNr) | Complete — scripts/set-version.sh |
+| justfile with cascading test tiers | Complete — Tier 1/2/3 matching CI |
+| Dockerfile for container image | Complete — slim Debian, taba + taba-k8s |
+| Coverage with Codecov | Complete — separate job in ci.yml |
+| README with binary download + accurate claims | Complete |
+| All docs links verified | Complete |
+
+**Next**: Replace remaining 264 no-op BDD scenarios with real
+assertions (incremental). Implement continuous reconciliation daemon
+(taba-node). Wire WAL (DiskWalManager) into CLI persistence path.
+Wire UdpTransport into multi-node gossip between real processes.
 
 ## Build phases
 
@@ -117,7 +175,7 @@ and per-phase implementation details.
 - **pact**: opt-in via hpc-core for HPC node management
 - **lattice**: opt-in for HPC workload scheduling
 - **sovra**: opt-in for federated key management and cross-org trust
-- **K8s**: migration tool (later phase) reads manifests, generates taba units
+- **K8s**: migration tool (M7) reads manifests, generates taba units
 
 ## Pre-commit discipline
 
@@ -138,6 +196,7 @@ taba/
 ├── .opencode/
 │   └── guidelines/
 │       └── rust.md       # Taba-specific Rust coding (extends global)
+├── .github/workflows/    # ci.yml, nightly.yml, docs.yml, release.yml
 ├── specs/                # Domain specs, features, architecture
 │   ├── domain-model.md
 │   ├── ubiquitous-language.md
@@ -145,7 +204,7 @@ taba/
 │   ├── assumptions.md
 │   ├── failure-modes.md
 │   ├── toml-schema.md
-│   ├── features/*.feature
+│   ├── features/*.feature (265 scenarios, 20 files)
 │   ├── cross-context/
 │   ├── architecture/
 │   │   ├── module-map.md
@@ -157,16 +216,49 @@ taba/
 │   │   ├── interfaces/
 │   │   ├── data-models/
 │   │   └── events/
-│   ├── findings/         # Adversary review findings
-│   ├── fidelity/         # (established when auditor runs)
+│   ├── findings/         # Adversary review findings (30 total)
+│   ├── fidelity/         # INDEX.md (67 VERIFIED, 0 PARTIAL, 0 UNVERIFIED)
 │   └── escalations/
-├── docs/                 # Vision, ADRs
-│   ├── vision/SYSTEM_VISION.md
-│   └── decisions/ADR-00*.md
+├── docs/                 # mdbook documentation (deployed to gh-pages)
+│   ├── SUMMARY.md        # Table of contents
+│   ├── README.md         # Book intro (with logo)
+│   ├── guide/            # Getting started, unit authoring, composition, status, k8s
+│   ├── admin/            # Deployment, config, modes, WAL, health, keys, ceremony, enrollment, SLSA, attestation
+│   ├── architecture/     # Overview, module map, dependency graph, build phases, testing, enforcement, errors, events
+│   ├── security/         # Model, STRIDE analysis, capabilities, taint, delegation, zero-access
+│   ├── operations/       # Troubleshooting, performance, findings
+│   ├── api/              # CLI reference, TOML schema, k8s converter
+│   └── decisions/        # ADR-001 through ADR-006 + index + template
 ├── memory/               # Session context, decisions log, open questions
-├── crates/               # Rust workspace (generated during implementation)
-├── proto/                # Protobuf definitions (generated during implementation)
-└── tests/                # Integration and e2e tests
+├── crates/               # Rust workspace (13 crates)
+│   ├── taba-common/      # Types, config, protobuf
+│   ├── taba-core/        # Unit model, validation, data
+│   ├── taba-security/    # Signing, verification, scope, taint, ceremony, delegation, attestation, provenance
+│   ├── taba-graph/       # CRDT composition graph, WAL, compaction, query
+│   ├── taba-solver/      # Deterministic placement, conflict detection, cycle detection, scoring, scaling
+│   ├── taba-erasure/     # Reed-Solomon over GF(2^8), shard distribution, reconstruction
+│   ├── taba-gossip/      # SWIM membership, transport (in-memory + UDP), capability, cross-domain
+│   ├── taba-node/        # WAL (disk), runtime (simulated + Docker), reconciliation, mode, health, spawner, eviction, discovery
+│   ├── taba-observe/     # Decision trails, events, health aggregator, Prometheus, alerts
+│   ├── taba-cli/         # CLI binary (taba), parser, auth, client, commands, format
+│   ├── taba-k8s/         # K8s converter binary (taba-k8s)
+│   ├── taba-test-harness/ # Builders, InMemoryUnitStore, proptest strategies
+│   └── taba-acceptance/  # Cucumber BDD (265 scenarios, smoke.rs + common.rs)
+├── tests/
+│   ├── integration/      # 15 integration tests (library API)
+│   └── e2e/             # 30 e2e tests (binary, Docker, WAL, UDP)
+├── scripts/
+│   └── set-version.sh    # YYYY.ADRcount.commitNr versioning
+├── proto/                # Protobuf definitions
+├── Dockerfile            # Slim Debian with taba + taba-k8s
+├── justfile              # Tier 1/2/3 test targets
+├── deny.toml             # cargo-deny config
+├── rust-toolchain.toml   # Stable + rustfmt + clippy
+├── book.toml             # mdbook config
+├── logo.png              # Original (770x648)
+├── logo-readme.png       # README size (128x127)
+├── logo-docs.png         # Docs size (64x63)
+└── LICENSE               # Apache-2.0
 ```
 
 ## Project-specific role context
@@ -233,10 +325,13 @@ domain context.
 - Domain language from `specs/ubiquitous-language.md` — no abbreviations
   in public APIs (write `WorkloadUnit`, not `WlUnit`)
 - BDD: `cucumber` crate, feature files in `specs/features/`, step
-  definitions in `tests/acceptance/`
+  definitions in `crates/taba-acceptance/tests/steps/` (`smoke.rs`
+  for real assertions, `common.rs` for no-ops)
 - Property testing: `proptest` for invariant-critical code (CRDT
   merges, solver, capability validation), minimum 10k+ cases
 - Benchmarks: `criterion` for solver and CRDT hot paths
+- E2E: binary subprocess tests in `tests/e2e/binary.rs`, Docker
+  tests in `tests/e2e/docker.rs` (marked `#[ignore = "slow:requires-docker"]`)
 
 ### Analyst — source material
 
