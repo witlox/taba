@@ -21,6 +21,7 @@ pub mod placement;
 pub mod recovery;
 pub mod runtime_matching;
 pub mod security_enforcement;
+pub mod smoke;
 pub mod spawned_tasks;
 pub mod trust_domain;
 pub mod unit_authoring;
