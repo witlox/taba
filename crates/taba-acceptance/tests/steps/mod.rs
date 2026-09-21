@@ -10,6 +10,7 @@ pub mod compaction;
 pub mod compliance_audit;
 pub mod composition;
 pub mod conflict_resolution;
+pub mod critical;
 pub mod data_lineage;
 pub mod data_retention;
 pub mod environment_progression;

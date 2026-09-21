@@ -73,6 +73,7 @@ impl TabaWorld {
 
         let mut verifier = taba_security::DefaultVerifier::new();
         verifier.add_key(author_id, public_key, None);
+        let graph = std::sync::Arc::new(taba_graph::DefaultGraph::new(1_073_741_824));
 
         let membership = taba_solver::MembershipSnapshot::single_node(
             node_id,
@@ -80,7 +81,7 @@ impl TabaWorld {
         );
 
         Self {
-            graph: Arc::new(taba_graph::DefaultGraph::new(1_073_741_824)),
+            graph,
             solver: taba_solver::DefaultSolver::new(),
             trail_recorder: taba_observe::DefaultDecisionTrailRecorder::new(),
             runtime: taba_node::SimulatedRuntime::new(),

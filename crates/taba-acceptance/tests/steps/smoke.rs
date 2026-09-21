@@ -70,7 +70,7 @@ async fn given_alice_authors_workload(
 ) {
     let table = parse_table(step);
 
-    let author = world.author_id;
+    let author = world.author_id_by_name("alice");
     let td = world.trust_domain;
 
     let mut builder = WorkloadUnitBuilder::new()
