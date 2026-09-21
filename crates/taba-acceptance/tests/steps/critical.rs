@@ -58,7 +58,7 @@ fn parse_duration(s: &str) -> std::time::Duration {
 
 // === Background steps (used by ALL scenarios) ===
 
-#[given(regex = r#"^an author "([^"]+)" with scope \(type: (\w+), trust_domain: "([^"]+)"\)$"#)]
+#[given(regex = r#"^an author "([^"]+)" with scope \(type: ([\w-]+), trust_domain: "([^"]+)"\)$"#)]
 async fn given_author_with_scope(
     world: &mut TabaWorld,
     name: String,

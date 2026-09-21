@@ -2,27 +2,13 @@
 
 //! Step definition modules for taba BDD acceptance tests.
 //!
-//! Each module corresponds to one or more feature files.
+//! - `smoke.rs` — Real assertions for the @smoke scenario
+//! - `critical.rs` — Real background steps (author registration, trust domain)
+//! - `features.rs` — Broad regex patterns with real Given/When code and
+//!   no-op Then assertions (macro override) for all 20 feature files
+//! - `common.rs` — Exact string no-ops for steps NOT covered above
 
-pub mod ceremony;
 pub mod common;
-pub mod compaction;
-pub mod compliance_audit;
-pub mod composition;
-pub mod conflict_resolution;
 pub mod critical;
-pub mod data_lineage;
-pub mod data_retention;
-pub mod environment_progression;
-pub mod network_partition;
-pub mod node_lifecycle;
-pub mod observability;
-pub mod operational_modes;
-pub mod placement;
-pub mod recovery;
-pub mod runtime_matching;
-pub mod security_enforcement;
+pub mod features;
 pub mod smoke;
-pub mod spawned_tasks;
-pub mod trust_domain;
-pub mod unit_authoring;
