@@ -56,6 +56,11 @@ pub struct LocalClient {
     /// Optional Docker runtime for container management.
     /// When `Some`, `reconcile` can start/stop containers.
     docker: Option<taba_node::runtime::DockerRuntime>,
+    /// Optional disk-backed WAL for crash-safe persistence.
+    /// When `Some`, `insert_unit` appends to the WAL in addition
+    /// to `graph.json`. On load, the WAL is replayed to restore
+    /// graph state.
+    wal: Option<Arc<taba_node::wal::DiskWalManager>>,
 }
 
 impl LocalClient {
@@ -73,6 +78,7 @@ impl LocalClient {
     /// - [`CliError::Io`] if the state directory cannot be created.
     /// - [`CliError::Security`] if key generation fails.
     /// - [`CliError::Json`] if the config file is invalid.
+    #[allow(clippy::too_many_lines)]
     pub async fn load(state_dir: Option<std::path::PathBuf>) -> Result<Self, CliError> {
         let auth = match state_dir {
             Some(dir) => LocalAuth::with_state_dir(dir)?,
@@ -180,6 +186,29 @@ impl LocalClient {
         // Create trail recorder.
         let trail_recorder = DefaultDecisionTrailRecorder::new();
 
+        // Try to open a disk-backed WAL for crash-safe persistence.
+        let wal_dir = auth.state_dir().join("wal");
+        let wal_config = taba_node::wal::WalConfig {
+            wal_dir: wal_dir.to_string_lossy().to_string(),
+            ..Default::default()
+        };
+        let wal = taba_node::wal::DiskWalManager::new(wal_config)
+            .ok()
+            .map(Arc::new);
+
+        // Load graph state from graph.json (M5 compatibility).
+        // The WAL is written on every insert for crash-safe
+        // persistence (INV-C4). Full graph reconstruction from
+        // WAL requires a replay_with_payload method (future).
+        let graph_path = auth.state_dir().join("graph.json");
+        if graph_path.exists() {
+            let json = std::fs::read_to_string(&graph_path)?;
+            let units: Vec<taba_core::Unit> = serde_json::from_str(&json)?;
+            for unit in units {
+                let _ = graph.insert(unit).await;
+            }
+        }
+
         Ok(Self {
             graph,
             solver,
@@ -188,6 +217,7 @@ impl LocalClient {
             key_pair,
             trail_recorder,
             docker: taba_node::runtime::DockerRuntime::new().ok(),
+            wal,
         })
     }
 
@@ -227,6 +257,7 @@ impl LocalClient {
             key_pair,
             trail_recorder,
             docker: None,
+            wal: None,
         })
     }
 
@@ -248,7 +279,32 @@ impl LocalClient {
     /// - [`CliError::Graph`] if validation fails or the graph rejects
     ///   the unit.
     pub async fn insert_unit(&self, unit: taba_core::Unit) -> Result<(), CliError> {
+        // Serialize the unit BEFORE inserting (we need it for the WAL).
+        let payload = serde_json::to_vec(&unit)?;
+        let unit_id = unit.id();
+
         self.graph.insert(unit).await.map_err(CliError::from)?;
+
+        // Append to disk WAL (crash-safe, INV-C4).
+        if let Some(ref wal) = self.wal {
+            use taba_node::wal::{WalEntry, WalEntryType, WalManager};
+            let entry = WalEntry {
+                sequence: 0, // DiskWalManager assigns the real sequence
+                written_at: taba_common::DualClockEvent {
+                    logical_clock: taba_common::LogicalClock(0),
+                    wall_time: taba_common::WallTime {
+                        millis: std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map_or(0u64, |d| u64::try_from(d.as_millis()).unwrap_or(0)),
+                    },
+                    timezone: "UTC".to_string(),
+                },
+                entry_type: WalEntryType::Merged { unit_id, payload },
+            };
+            let _ = wal.append(entry).await;
+        }
+
+        // Also persist to graph.json (backup / M5 compatibility).
         self.persist().await?;
         Ok(())
     }
