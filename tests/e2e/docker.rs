@@ -307,3 +307,55 @@ fn test_docker_reconcile() {
 
     cleanup_taba_containers();
 }
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_daemon_reconciliation() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init + apply
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    let workload = write_workload(tmp.path(), "daemon-web");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&workload)
+        .output()
+        .expect("apply");
+
+    // Run daemon for 3 seconds (one reconciliation cycle)
+    let mut daemon = Command::new(bin_path("taba"))
+        .args(["daemon", "--interval", "1s", "--state-dir"])
+        .arg(&state)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("spawn daemon");
+
+    std::thread::sleep(std::time::Duration::from_secs(3));
+
+    // Check if a container is running
+    let containers = taba_containers();
+    assert!(
+        !containers.is_empty(),
+        "daemon should have started at least one container, got: {containers:?}"
+    );
+
+    // Kill daemon
+    let _ = daemon.kill();
+    let _ = daemon.wait();
+
+    cleanup_taba_containers();
+}

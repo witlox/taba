@@ -32,6 +32,9 @@ async fn main() -> Result<(), CliError> {
         Command::Status => taba_cli::commands::run_status(cli.state_dir, cli.format).await,
         Command::Compose => taba_cli::commands::run_compose(cli.state_dir, cli.format).await,
         Command::Reconcile => taba_cli::commands::run_reconcile(cli.state_dir).await,
+        Command::Daemon { interval } => {
+            taba_cli::commands::run_daemon(cli.state_dir, &interval).await
+        }
         Command::Audit { sub } => match sub {
             AuditCommand::Provenance { unit_id } => {
                 taba_cli::commands::run_audit_provenance(cli.state_dir, &unit_id, cli.format).await

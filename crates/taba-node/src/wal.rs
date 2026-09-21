@@ -170,6 +170,20 @@ pub trait WalManager: Send + Sync {
         callback: &mut dyn FnMut(WalEntry) -> Result<(), NodeError>,
     ) -> Result<WalPosition, NodeError>;
 
+    /// Replay the WAL from a given position, returning entries
+    /// with their full serialized payloads.
+    ///
+    /// Unlike [`replay`](Self::replay) (which returns `WalEntry`
+    /// without payload), this method returns [`WalEntryType`] which
+    /// includes the serialized unit data for `Merged` entries.
+    /// This allows full graph reconstruction from the WAL.
+    ///
+    /// # Errors
+    ///
+    /// - [`NodeError::WalCorrupted`] if a CRC mismatch is detected.
+    /// - [`NodeError::WalWriteFailed`] on I/O failure during replay.
+    async fn replay_with_payload(&self, from: WalPosition) -> Result<Vec<WalEntryType>, NodeError>;
+
     /// Compact the WAL by removing entries older than the given position.
     ///
     /// Safe to call only after all entries up to `before` have been
@@ -641,6 +655,53 @@ impl WalManager for DiskWalManager {
         }
 
         Ok(last_position)
+    }
+
+    async fn replay_with_payload(&self, from: WalPosition) -> Result<Vec<WalEntryType>, NodeError> {
+        let segments = self
+            .segments
+            .lock()
+            .expect("segments mutex should not be poisoned");
+
+        let from_u64 = from.as_u64();
+        let mut entries = Vec::new();
+
+        for seg in segments.iter() {
+            let mut file = File::open(&seg.path).map_err(|e| NodeError::WalWriteFailed {
+                reason: format!(
+                    "failed to open segment {path} for replay: {e}",
+                    path = seg.path.display()
+                ),
+            })?;
+
+            loop {
+                let pos_before = file.stream_position().unwrap_or(0);
+
+                match decode_frame(&mut file) {
+                    Ok((entry, _)) => {
+                        if pos_before < from_u64 {
+                            continue;
+                        }
+                        entries.push(entry.entry_type);
+                    }
+                    Err(NodeError::WalCorrupted { reason, .. })
+                        if reason.contains("failed to read frame length")
+                            || reason.contains("failed to read frame CRC")
+                            || reason.contains("failed to read frame payload") =>
+                    {
+                        break;
+                    }
+                    Err(NodeError::WalCorrupted { position, reason })
+                        if reason.contains("CRC32C mismatch") =>
+                    {
+                        return Err(NodeError::WalCorrupted { position, reason });
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+
+        Ok(entries)
     }
 
     async fn compact(&self, before: WalPosition) -> Result<u64, NodeError> {

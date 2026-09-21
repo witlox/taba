@@ -78,6 +78,13 @@ pub enum Command {
     /// Reconcile placements: start/stop Docker containers.
     Reconcile,
 
+    /// Run as a continuous reconciliation daemon.
+    Daemon {
+        /// Reconciliation interval (default: 5s).
+        #[arg(long, default_value = "5s")]
+        interval: String,
+    },
+
     /// Audit lineage, provenance, and decision trails.
     Audit {
         /// Subcommand for audit operations.
@@ -344,6 +351,63 @@ pub async fn run_reconcile(state_dir: Option<PathBuf>) -> Result<(), CliError> {
 /// # Errors
 ///
 /// - [`CliError::Graph`] if the list cannot be retrieved.
+pub async fn run_daemon(state_dir: Option<PathBuf>, interval_str: &str) -> Result<(), CliError> {
+    let interval = parse_interval(interval_str);
+    let client = LocalClient::load(state_dir).await?;
+
+    println!("taba daemon started (interval={interval:?})");
+    println!("Press Ctrl+C to stop.");
+
+    loop {
+        let snapshot = client.snapshot().await?;
+        let result = client.solve(&snapshot);
+
+        let placements = result.placements.len();
+        let unplaceable = result.unplaceable.len();
+        let conflicts = result.conflicts.len();
+
+        if placements > 0 || unplaceable > 0 || conflicts > 0 {
+            let ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_millis());
+            println!(
+                "[{ts}ms] solver: {placements} placement(s), {unplaceable} unplaceable, {conflicts} conflict(s)"
+            );
+
+            match client.reconcile(&result.placements).await {
+                Ok(errors) if errors.is_empty() => {
+                    println!("[{ts}ms] reconcile: all {placements} placement(s) OK");
+                }
+                Ok(errors) => {
+                    for (unit_id, error) in &errors {
+                        println!("[{ts}ms] reconcile: FAILED {unit_id} — {error}");
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[{ts}ms] reconcile error: {e}");
+                }
+            }
+        }
+
+        tokio::time::sleep(interval).await;
+    }
+}
+
+fn parse_interval(s: &str) -> std::time::Duration {
+    let s = s.trim().to_lowercase();
+    if let Some((n, unit)) = s.split_once(|c: char| !c.is_ascii_digit()) {
+        let n: u64 = n.parse().unwrap_or(5);
+        let unit = unit.trim();
+        match unit {
+            "m" | "min" | "mins" | "minute" | "minutes" => std::time::Duration::from_secs(n * 60),
+            "h" | "hr" | "hrs" | "hour" | "hours" => std::time::Duration::from_secs(n * 3600),
+            _ => std::time::Duration::from_secs(n),
+        }
+    } else {
+        std::time::Duration::from_secs(s.parse().unwrap_or(5))
+    }
+}
+
 pub async fn run_unit_list(
     state_dir: Option<PathBuf>,
     output: OutputFormat,

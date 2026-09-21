@@ -196,16 +196,33 @@ impl LocalClient {
             .ok()
             .map(Arc::new);
 
-        // Load graph state from graph.json (M5 compatibility).
-        // The WAL is written on every insert for crash-safe
-        // persistence (INV-C4). Full graph reconstruction from
-        // WAL requires a replay_with_payload method (future).
+        // Primary: replay WAL to restore graph state (INV-C4).
+        if let Some(ref wal) = wal {
+            use taba_node::WalPosition;
+            use taba_node::wal::{WalEntryType, WalManager};
+            let entries = wal
+                .replay_with_payload(WalPosition(0))
+                .await
+                .unwrap_or_default();
+            for entry in entries {
+                if let WalEntryType::Merged { payload, .. } = entry {
+                    if let Ok(unit) = serde_json::from_slice::<taba_core::Unit>(&payload) {
+                        let _ = graph.insert(unit).await;
+                    }
+                }
+            }
+        }
+
+        // Fallback: load from graph.json if WAL is empty or unavailable.
         let graph_path = auth.state_dir().join("graph.json");
         if graph_path.exists() {
-            let json = std::fs::read_to_string(&graph_path)?;
-            let units: Vec<taba_core::Unit> = serde_json::from_str(&json)?;
-            for unit in units {
-                let _ = graph.insert(unit).await;
+            let snapshot = graph.snapshot().await.map_err(CliError::from)?;
+            if snapshot.entries.is_empty() {
+                let json = std::fs::read_to_string(&graph_path)?;
+                let units: Vec<taba_core::Unit> = serde_json::from_str(&json)?;
+                for unit in units {
+                    let _ = graph.insert(unit).await;
+                }
             }
         }
 
