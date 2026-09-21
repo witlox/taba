@@ -53,3 +53,20 @@ docs-serve:
 # === All ===
 
 all: fmt-check lint deny test
+
+# === E2E tests ===
+
+e2e-binary: test
+    cargo test --locked -p taba-e2e --test binary
+
+e2e-wal: test-slow
+    cargo test --locked -p taba-e2e --test wal -- --ignored
+
+e2e-udp: test-slow
+    cargo test --locked -p taba-gossip --test udp -- --ignored
+
+e2e-docker: test-full
+    cargo test --locked -p taba-e2e --test docker -- --ignored
+    cargo nextest run -p taba-node --run-ignored=only --locked
+
+e2e-all: e2e-binary e2e-wal e2e-udp e2e-docker
