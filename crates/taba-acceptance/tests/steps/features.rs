@@ -222,10 +222,16 @@ async fn solver_eval(world: &mut TabaWorld) {
     world.last_solver_result = Some(world.solver.solve(&snapshot, &world.membership));
 }
 
-#[when(
-    regex = r#"^the solver (?:re-?evaluates|queries|normalizes|detects|checks|continues|uses|reports|finds|evaluates|sends).*$"#
+#[given(
+    regex = r#"^the solver (?:places|does not|re-?evaluates|queries|normalizes|detects|checks|continues|uses|reports|finds|evaluates|sends).*$"#
 )]
-async fn solver_action(world: &mut TabaWorld) {
+#[when(
+    regex = r#"^the solver (?:places|does not|re-?evaluates|queries|normalizes|detects|checks|continues|uses|reports|finds|evaluates|sends).*$"#
+)]
+#[then(
+    regex = r#"^the solver (?:places|does not|re-?evaluates|queries|normalizes|detects|checks|continues|uses|reports|finds|evaluates|sends).*$"#
+)]
+async fn solver_all(world: &mut TabaWorld) {
     let snapshot = world.graph.snapshot().await.expect("snapshot");
     world.last_solver_result = Some(world.solver.solve(&snapshot, &world.membership));
 }
@@ -270,13 +276,6 @@ async fn then_composition_blocked(world: &mut TabaWorld) {
     if let Some(result) = &world.last_solver_result {
         assert!(!result.conflicts.is_empty() || !result.unplaceable.is_empty());
     }
-}
-
-#[then(
-    regex = r#"^the solver (?:places|does not|re-?places|recomputes|accepts|uses|detects|reports|checks|rejects|deduplicates|finds|evaluates|has|still|sends).*$"#
-)]
-async fn then_solver_assertion(_world: &mut TabaWorld) {
-    assert!(true);
 }
 
 #[then(
