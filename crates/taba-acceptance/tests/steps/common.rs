@@ -322,20 +322,6 @@ async fn then_composition_blocked(world: &mut TabaWorld) {
     }
 }
 
-#[then(regex = r#"^(?:an |the )?(?:operator )?alert is (?:surfaced|raised): "([^"]+)"$"#)]
-async fn then_alert_quoted(world: &mut TabaWorld, alert: String) {
-    assert!(
-        world.alerts.iter().any(|a| a.contains(&alert)),
-        "expected alert containing '{alert}', got: {:?}",
-        world.alerts
-    );
-}
-
-#[then(regex = r#"^(?:an |the )?(?:operator )?alert is (?:surfaced|raised)$"#)]
-async fn then_alert_plain(world: &mut TabaWorld) {
-    assert!(!world.alerts.is_empty(), "expected at least one alert");
-}
-
 #[then(regex = r#"^no errors?(?: (?:are|is) (?:raised|surfaced|occur))?$"#)]
 async fn then_no_errors(world: &mut TabaWorld) {
     assert!(
@@ -344,9 +330,6 @@ async fn then_no_errors(world: &mut TabaWorld) {
         world.last_graph_error
     );
 }
-
-#[given(regex = r#"^a (\d+)-node cluster.*$"#)]
-async fn given_n_node_cluster(_world: &mut TabaWorld) {}
 
 #[given(regex = r#"^an existing cluster of \d+ nodes?.*$"#)]
 async fn given_existing_cluster(_world: &mut TabaWorld) {}
