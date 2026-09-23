@@ -62,100 +62,12 @@ fn parse_capabilities(s: &str) -> Vec<Capability> {
         .collect()
 }
 
-#[given(regex = r#"^alice authors a workload unit "([^"]+)" with:$"#)]
-async fn given_alice_authors_workload(
-    world: &mut TabaWorld,
-    name: String,
-    step: &cucumber::gherkin::Step,
-) {
-    let table = parse_table(step);
-
-    let author = world.author_id_by_name("alice");
-    let td = world.trust_domain;
-
-    let mut builder = WorkloadUnitBuilder::new()
-        .with_author(author)
-        .with_trust_domain(td);
-
-    if let Some(needs_str) = table.get("needs") {
-        builder = builder.with_needs(parse_capabilities(needs_str));
-    }
-    if let Some(provides_str) = table.get("provides") {
-        builder = builder.with_provides(parse_capabilities(provides_str));
-    } else {
-        builder = builder.with_provides(vec![Capability::new("compute", "http")]);
-    }
-    if let Some(scaling_str) = table.get("scaling") {
-        let mut min = 1u32;
-        let mut max = 3u32;
-        for part in scaling_str.split(',') {
-            let part = part.trim();
-            if let Some(v) = part.strip_prefix("min:") {
-                if let Ok(n) = v.trim().parse::<u32>() {
-                    min = n;
-                }
-            }
-            if let Some(v) = part.strip_prefix("max:") {
-                if let Ok(n) = v.trim().parse::<u32>() {
-                    max = n;
-                }
-            }
-        }
-        builder = builder.with_scaling(min, max);
-    }
-    if let Some(tol_str) = table.get("tolerates") {
-        let mut max_latency = Some(std::time::Duration::from_millis(100));
-        let mut failure_modes = vec!["timeout".to_string()];
-        for part in tol_str.split(',') {
-            let part = part.trim();
-            if let Some(v) = part.strip_prefix("latency:") {
-                if let Ok(n) = v.trim_end_matches("ms").parse::<u64>() {
-                    max_latency = Some(std::time::Duration::from_millis(n));
-                }
-            }
-            if let Some(v) = part.strip_prefix("failure:") {
-                failure_modes = vec![v.trim().to_string()];
-            }
-        }
-        let mut unit = builder.build();
-        unit.tolerates = Tolerances {
-            max_latency,
-            failure_modes,
-            consistency: None,
-        };
-        world.store_unit(&name, Unit::Workload(unit));
-    } else {
-        let unit = builder.build();
-        world.store_unit(&name, Unit::Workload(unit));
-    }
-}
-
 #[given(
     regex = r#"^alice signs the unit binding trust_domain "([^"]+)" and cluster "([^"]+)"(?: with validity window .+)?$"#
 )]
 async fn given_alice_signs_unit(world: &mut TabaWorld, _td: String, _cluster: String) {
     if let Some(name) = world.units.keys().last().cloned() {
         world.signed_units.insert(name);
-    }
-}
-
-#[when(
-    regex = r#"^alice signs the unit binding trust_domain "([^"]+)" and cluster "([^"]+)"(?: with validity window .+)?$"#
-)]
-async fn when_alice_signs_unit(world: &mut TabaWorld, _td: String, _cluster: String) {
-    if let Some(name) = world.units.keys().last().cloned() {
-        world.signed_units.insert(name);
-    }
-}
-
-#[when("the unit is submitted for graph merge")]
-async fn when_unit_submitted(world: &mut TabaWorld) {
-    world.reset_errors();
-    if let Some((_, unit)) = world.units.last_key_value() {
-        match world.graph.insert(unit.clone()).await {
-            Ok(()) => {}
-            Err(e) => world.last_graph_error = Some(e),
-        }
     }
 }
 

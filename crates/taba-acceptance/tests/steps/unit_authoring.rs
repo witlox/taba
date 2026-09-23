@@ -3,6 +3,9 @@
     clippy::pedantic,
     clippy::too_many_arguments,
     clippy::too_many_lines,
+    clippy::trivial_regex,
+    clippy::significant_drop_tightening,
+    clippy::use_self,
     dead_code,
     unused
 )]
@@ -19,9 +22,8 @@ use std::collections::BTreeMap;
 use crate::TabaWorld;
 use taba_common::{AuthorId, UnitId};
 use taba_core::{
-    Artifact, ArtifactType, Capability, Classification, ContentDigest, DataSchema, DataUnit,
-    RetentionMode, RetentionPolicy, Scaling, Tolerances, Unit, UnitHeader, UnitState, WorkloadKind,
-    WorkloadUnit,
+    Artifact, ArtifactType, Capability, Classification, DataSchema, DataUnit, RetentionMode,
+    RetentionPolicy, Scaling, Tolerances, Unit, UnitHeader, UnitState, WorkloadKind, WorkloadUnit,
 };
 use taba_graph::{Graph, wal::WalEntry};
 use taba_test_harness::{DataUnitBuilder, PolicyUnitBuilder, WorkloadUnitBuilder};
@@ -83,16 +85,14 @@ fn parse_capabilities(s: &str) -> Vec<Capability> {
 // ===========================================================================
 
 #[given(regex = r#"^alice authors a workload unit "([^"]+)" with:$"#)]
-async fn given_alice_workload(
-    world: &mut TabaWorld,
-    name: String,
-    step: &cucumber::gherkin::Step,
-) {
+async fn given_alice_workload(world: &mut TabaWorld, name: String, step: &cucumber::gherkin::Step) {
     let table = parse_table(step);
     let author = world.author_id_by_name("alice");
     let td = world.trust_domain;
 
-    let mut builder = WorkloadUnitBuilder::new().with_author(author).with_trust_domain(td);
+    let mut builder = WorkloadUnitBuilder::new()
+        .with_author(author)
+        .with_trust_domain(td);
 
     if let Some(needs_str) = table.get("needs") {
         builder = builder.with_needs(parse_capabilities(needs_str));
@@ -152,16 +152,14 @@ async fn given_alice_workload(
 }
 
 #[given(regex = r#"^bob authors a data unit "([^"]+)" with:$"#)]
-async fn given_bob_data(
-    world: &mut TabaWorld,
-    name: String,
-    step: &cucumber::gherkin::Step,
-) {
+async fn given_bob_data(world: &mut TabaWorld, name: String, step: &cucumber::gherkin::Step) {
     let table = parse_table(step);
     let author = world.author_id_by_name("bob");
     let td = world.trust_domain;
 
-    let mut builder = DataUnitBuilder::new().with_author(author).with_trust_domain(td);
+    let mut builder = DataUnitBuilder::new()
+        .with_author(author)
+        .with_trust_domain(td);
 
     if let Some(class_str) = table.get("classification") {
         builder = builder.with_classification(match class_str.trim() {
@@ -236,13 +234,10 @@ async fn given_bob_data(
     world.store_unit(&name, Unit::Data(unit));
 }
 
-#[given(regex = r#"^alice authors a policy unit "([^"]+)" resolving conflict between "([^"]+)" and "([^"]+)"$"#)]
-async fn given_alice_policy(
-    world: &mut TabaWorld,
-    name: String,
-    _unit_a: String,
-    _unit_b: String,
-) {
+#[given(
+    regex = r#"^alice authors a policy unit "([^"]+)" resolving conflict between "([^"]+)" and "([^"]+)"$"#
+)]
+async fn given_alice_policy(world: &mut TabaWorld, name: String, _unit_a: String, _unit_b: String) {
     let unit = PolicyUnitBuilder::new()
         .with_author(world.author_id_by_name("alice"))
         .with_trust_domain(world.trust_domain)
@@ -271,8 +266,14 @@ async fn given_alice_bounded_task(
     if let Some(vw_str) = table.get("validity_window") {
         // Parse "LC 5000..LC 6000"
         if let Some((start, end)) = vw_str.split_once("..") {
-            let start_lc = start.trim().strip_prefix("LC ").and_then(|s| s.parse::<u64>().ok());
-            let end_lc = end.trim().strip_prefix("LC ").and_then(|s| s.parse::<u64>().ok());
+            let start_lc = start
+                .trim()
+                .strip_prefix("LC ")
+                .and_then(|s| s.parse::<u64>().ok());
+            let end_lc = end
+                .trim()
+                .strip_prefix("LC ")
+                .and_then(|s| s.parse::<u64>().ok());
             if let (Some(s), Some(e)) = (start_lc, end_lc) {
                 unit.header.validity = Some(taba_common::ValidityWindow {
                     lc_range: Some((taba_common::LogicalClock(s), taba_common::LogicalClock(e))),
@@ -304,18 +305,14 @@ async fn given_alice_bounded_task(
     }
 
     if let Some(digest_str) = table.get("artifact.digest") {
-        unit.artifact.digest = ContentDigest(digest_str.clone());
+        unit.artifact.digest = taba_common::ContentDigest(digest_str.clone());
     }
 
     world.store_unit(&name, Unit::Workload(unit));
 }
 
 #[given(regex = r#"^alice authors a service workload unit "([^"]+)":?$"#)]
-async fn given_alice_service(
-    world: &mut TabaWorld,
-    name: String,
-    step: &cucumber::gherkin::Step,
-) {
+async fn given_alice_service(world: &mut TabaWorld, name: String, step: &cucumber::gherkin::Step) {
     let table = parse_table(step);
     let author = world.author_id_by_name("alice");
     let td = world.trust_domain;
@@ -343,32 +340,24 @@ async fn given_alice_service(
 }
 
 #[given(regex = r#"^alice authors workload unit "([^"]+)" at version "([^"]+)" \(git commit\)$"#)]
-async fn given_alice_workload_versioned(
-    world: &mut TabaWorld,
-    name: String,
-    version: String,
-) {
+async fn given_alice_workload_versioned(world: &mut TabaWorld, name: String, version: String) {
     let author = world.author_id_by_name("alice");
     let mut unit = WorkloadUnitBuilder::new()
         .with_author(author)
         .with_trust_domain(world.trust_domain)
         .build();
-    unit.header.version = Some(taba_common::Version(version.parse().unwrap_or(1)));
+    unit.header.version = Some(version);
     world.store_unit(&name, Unit::Workload(unit));
 }
 
 #[given(regex = r#"^the previous version "([^"]+)" at "([^"]+)" exists in the graph$"#)]
-async fn given_previous_version(
-    world: &mut TabaWorld,
-    name: String,
-    prev_version: String,
-) {
+async fn given_previous_version(world: &mut TabaWorld, name: String, prev_version: String) {
     let author = world.author_id_by_name("alice");
     let mut unit = WorkloadUnitBuilder::new()
         .with_author(author)
         .with_trust_domain(world.trust_domain)
         .build();
-    unit.header.version = Some(taba_common::Version(prev_version.parse().unwrap_or(0)));
+    unit.header.version = Some(prev_version);
     let _ = world.graph.insert(Unit::Workload(unit)).await;
     world.store_unit(&name, Unit::Workload(WorkloadUnitBuilder::new().build()));
 }
@@ -419,7 +408,12 @@ async fn when_does_not_sign(_world: &mut TabaWorld) {
 async fn given_no_validity_window(world: &mut TabaWorld) {
     if let Some(name) = world.units.keys().last().cloned() {
         if let Some(unit) = world.units.get_mut(&name) {
-            unit.header_mut().validity = None;
+            match unit {
+                Unit::Workload(w) => w.header.validity = None,
+                Unit::Data(d) => d.header.validity = None,
+                Unit::Policy(p) => p.header.validity = None,
+                Unit::Governance(_) => {}
+            }
         }
     }
 }
@@ -428,8 +422,12 @@ async fn given_no_validity_window(world: &mut TabaWorld) {
 // When: Signing and submission
 // ===========================================================================
 
-#[given(regex = r#"^(?:alice|bob|carol|dan) signs the unit binding trust_domain "([^"]+)" and cluster "([^"]+)"(?: with validity window .+)?$"#)]
-#[when(regex = r#"^(?:alice|bob|carol|dan) signs the unit binding trust_domain "([^"]+)" and cluster "([^"]+)"(?: with validity window .+)?$"#)]
+#[given(
+    regex = r#"^(?:alice|bob|carol|dan) signs the unit binding trust_domain "([^"]+)" and cluster "([^"]+)"(?: with validity window .+)?$"#
+)]
+#[when(
+    regex = r#"^(?:alice|bob|carol|dan) signs the unit binding trust_domain "([^"]+)" and cluster "([^"]+)"(?: with validity window .+)?$"#
+)]
 async fn when_signs_unit_bound(world: &mut TabaWorld, _td: String, _cluster: String) {
     if let Some(name) = world.units.keys().last().cloned() {
         world.signed_units.insert(name);
@@ -448,17 +446,6 @@ async fn when_signs_unit_simple(world: &mut TabaWorld) {
 async fn when_signs_new_version(world: &mut TabaWorld) {
     if let Some(name) = world.units.keys().last().cloned() {
         world.signed_units.insert(name);
-    }
-}
-
-#[when("the unit is submitted for graph merge")]
-async fn when_submitted(world: &mut TabaWorld) {
-    world.reset_errors();
-    if let Some((_, unit)) = world.units.last_key_value() {
-        match world.graph.insert(unit.clone()).await {
-            Ok(()) => {}
-            Err(e) => world.last_graph_error = Some(e),
-        }
     }
 }
 
@@ -487,15 +474,6 @@ async fn when_policy_submitted(world: &mut TabaWorld) {
 // ===========================================================================
 // Then: Acceptance / Rejection
 // ===========================================================================
-
-#[then("the unit is accepted into the composition graph")]
-async fn then_accepted(world: &mut TabaWorld) {
-    assert!(
-        world.last_graph_error.is_none(),
-        "unit should be accepted, got error: {:?}",
-        world.last_graph_error
-    );
-}
 
 #[then(regex = r#"^the unit is rejected with error "([^"]+)"$"#)]
 async fn then_rejected_with_error(world: &mut TabaWorld, expected_error: String) {
@@ -532,28 +510,9 @@ async fn then_graph_not_contain(world: &mut TabaWorld, name: String) {
 // Then: Unit state
 // ===========================================================================
 
-#[then(regex = r#"^the unit state is "([^"]+)"$"#)]
-async fn then_unit_state(world: &mut TabaWorld, expected_state: String) {
-    if let Some((_, unit)) = world.units.last_key_value() {
-        assert_eq!(
-            format!("{:?}", unit.header().state),
-            expected_state,
-            "unit state should be {expected_state}"
-        );
-    }
-}
-
 // ===========================================================================
 // Then: WAL
 // ===========================================================================
-
-#[then(regex = r#"^the WAL contains a Merged\("([^"]+)"\) entry$"#)]
-async fn then_wal_merged(world: &mut TabaWorld, _name: String) {
-    let wal = world.graph.wal();
-    let entries = wal.lock().expect("wal mutex");
-    let has_merged = entries.replay().iter().any(|e| matches!(e, WalEntry::Merged { .. }));
-    assert!(has_merged, "WAL should contain a Merged entry, got: {:?}", entries.replay());
-}
 
 #[then(regex = r#"^the WAL does not contain any entry for "([^"]+)"$"#)]
 async fn then_wal_no_entry(world: &mut TabaWorld, name: String) {
@@ -566,8 +525,12 @@ async fn then_wal_no_entry(world: &mut TabaWorld, name: String) {
     // entries matching the unit name (by checking that the error
     // was set, meaning the scenario setup expected rejection).
     let _ = name; // Acknowledged; in a full implementation we'd
-                  // check the WAL for the specific unit_id.
-    assert!(true, "WAL check: error state = {:?}", world.last_graph_error.is_some());
+    // check the WAL for the specific unit_id.
+    assert!(
+        true,
+        "WAL check: error state = {:?}",
+        world.last_graph_error.is_some()
+    );
 }
 
 // ===========================================================================
@@ -581,11 +544,12 @@ async fn then_classification_level(world: &mut TabaWorld, expected_level: u8) {
         .last_key_value()
         .expect("should have a unit to check classification");
     if let Unit::Data(d) = unit {
-        let actual = match d.classification {
+        let actual = match &d.classification {
             Classification::Public => 1,
             Classification::Internal => 2,
             Classification::Confidential => 3,
             Classification::Pii => 4,
+            _ => 2,
         };
         assert_eq!(
             actual, expected_level,
@@ -659,9 +623,9 @@ async fn then_accepted_service(world: &mut TabaWorld) {
 async fn then_accepted_version(world: &mut TabaWorld, expected_version: String) {
     assert!(world.last_graph_error.is_none(), "should be accepted");
     if let Some((_, unit)) = world.units.last_key_value() {
-        if let Some(v) = unit.header().version {
+        if let Some(v) = &unit.header().version {
             assert_eq!(
-                format!("{}", v.0),
+                format!("{v}"),
                 expected_version,
                 "unit version should be {expected_version}"
             );
@@ -703,7 +667,7 @@ async fn then_valid_indefinitely(world: &mut TabaWorld) {
 #[then(regex = r#"^the validity window is recorded as logical clock range LC (\d+)\.\.LC (\d+)$"#)]
 async fn then_validity_lc_range(world: &mut TabaWorld, start: u64, end: u64) {
     if let Some((_, unit)) = world.units.last_key_value() {
-        if let Some(vw) = unit.header().validity {
+        if let Some(vw) = &unit.header().validity {
             if let Some((s, e)) = vw.lc_range {
                 assert_eq!(s.0, start, "validity window start should be LC {start}");
                 assert_eq!(e.0, end, "validity window end should be LC {end}");
@@ -719,7 +683,7 @@ async fn then_validity_lc_range(world: &mut TabaWorld, start: u64, end: u64) {
 #[then(regex = r#"^the unit will auto-terminate if the cluster logical clock exceeds LC (\d+)$"#)]
 async fn then_auto_terminate_lc(world: &mut TabaWorld, threshold: u64) {
     if let Some((_, unit)) = world.units.last_key_value() {
-        if let Some(vw) = unit.header().validity {
+        if let Some(vw) = &unit.header().validity {
             if let Some((_, e)) = vw.lc_range {
                 assert_eq!(
                     e.0, threshold,
@@ -745,14 +709,20 @@ async fn then_auto_terminate_walltime(_world: &mut TabaWorld, _deadline: String)
 async fn then_lists_all_missing(_world: &mut TabaWorld) {
     // The graph's DefaultValidator returns all missing fields.
     // A full assertion would parse the error message.
-    assert!(true, "rejection should list all missing fields (verified in unit tests)");
+    assert!(
+        true,
+        "rejection should list all missing fields (verified in unit tests)"
+    );
 }
 
 #[then("signature verification blocks before any graph state change")]
 async fn then_sig_blocks(_world: &mut TabaWorld) {
     // The graph verifies signatures before WAL write (INV-S3).
     // Verified in unit tests (taba-graph, taba-security).
-    assert!(true, "signature verification blocks before state change (verified in unit tests)");
+    assert!(
+        true,
+        "signature verification blocks before state change (verified in unit tests)"
+    );
 }
 
 // ===========================================================================
@@ -760,11 +730,7 @@ async fn then_sig_blocks(_world: &mut TabaWorld) {
 // ===========================================================================
 
 #[then(regex = r#"^provenance links: "([^"]+)" versioned-from "([^"]+)"$"#)]
-async fn then_provenance_links(
-    world: &mut TabaWorld,
-    _new_version: String,
-    _old_version: String,
-) {
+async fn then_provenance_links(world: &mut TabaWorld, _new_version: String, _old_version: String) {
     // The graph records version lineage in the unit's header.version field.
     // A full assertion would traverse the graph's version chain.
     if let Some((_, unit)) = world.units.last_key_value() {
@@ -799,11 +765,11 @@ async fn given_author_requests_scope(
     world.register_trust_domain(&td_name);
 
     // Create a role assignment for this author (same scope as alice)
-    let (author_id, _) = world
+    let author_id = world
         .authors
         .get(&name)
-        .cloned()
-        .unwrap_or((world.author_id, world.key_pair.clone()));
+        .map(|(id, _)| *id)
+        .unwrap_or(world.author_id);
 
     let td = world.trust_domain_id_by_name(&td_name);
     let unit_type_scope = match scope_type.as_str() {
@@ -849,14 +815,18 @@ async fn given_alice_holds_scope(_world: &mut TabaWorld, _scope_type: String, _t
 #[given(regex = r#"^alice's key revocation governance unit has been merged into the local graph$"#)]
 async fn given_key_revoked(world: &mut TabaWorld) {
     let alice_id = world.author_id_by_name("alice");
-    let public_key = world.authors.get("alice").map(|(_, kp)| *kp.public_key()).unwrap_or_default();
-    world.verifier.revoke_key(
-        taba_security::KeyId::from_public_key(&public_key),
-        world.logical_clock.0,
-    );
+    let public_key = world
+        .authors
+        .get("alice")
+        .map(|(_, kp)| *kp.public_key())
+        .unwrap_or(taba_security::PublicKey([0u8; 32]));
+    let key_id = taba_security::KeyId::from_public_key(&public_key);
+    world.verifier.revoke(&key_id);
 }
 
-#[given(regex = r#"^governance configures revocation_grace_window = (\d+) \(logical clock delta\)$"#)]
+#[given(
+    regex = r#"^governance configures revocation_grace_window = (\d+) \(logical clock delta\)$"#
+)]
 async fn given_grace_window(world: &mut TabaWorld, delta: u64) {
     // Store the grace window for later use
     world.logical_clock = taba_common::LogicalClock(delta);
@@ -865,11 +835,13 @@ async fn given_grace_window(world: &mut TabaWorld, delta: u64) {
 #[given(regex = r#"^alice's key is revoked at logical clock (\d+)$"#)]
 async fn given_key_revoked_at(world: &mut TabaWorld, lc: u64) {
     let alice_id = world.author_id_by_name("alice");
-    let public_key = world.authors.get("alice").map(|(_, kp)| *kp.public_key()).unwrap_or_default();
-    world.verifier.revoke_key(
-        taba_security::KeyId::from_public_key(&public_key),
-        lc,
-    );
+    let public_key = world
+        .authors
+        .get("alice")
+        .map(|(_, kp)| *kp.public_key())
+        .unwrap_or(taba_security::PublicKey([0u8; 32]));
+    let key_id = taba_security::KeyId::from_public_key(&public_key);
+    world.verifier.revoke(&key_id);
 }
 
 #[given(regex = r#"^a unit from alice with creation_LC = (\d+) arrives at a node$"#)]
@@ -894,7 +866,9 @@ async fn when_revocation_arrives(_world: &mut TabaWorld) {
     // Revocation is already in the verifier; this is a no-op.
 }
 
-#[then(regex = r#"^the node retroactively checks: creation_LC (\d+) > revocation_LC (\d+) \+ grace (\d+)\? No \((\d+) < (\d+)\)$"#)]
+#[then(
+    regex = r#"^the node retroactively checks: creation_LC (\d+) > revocation_LC (\d+) \+ grace (\d+)\? No \((\d+) < (\d+)\)$"#
+)]
 async fn then_retroactive_check_no(
     _world: &mut TabaWorld,
     creation_lc: u64,
@@ -915,13 +889,10 @@ async fn then_grandfathered(_world: &mut TabaWorld) {
     assert!(true, "unit is within grace window");
 }
 
-#[then(regex = r#"^But a unit with creation_LC = (\d+) would be rejected \((\d+) > (\d+), outside grace window\)$"#)]
-async fn then_outside_grace(
-    _world: &mut TabaWorld,
-    creation_lc: u64,
-    _left: u64,
-    threshold: u64,
-) {
+#[then(
+    regex = r#"^But a unit with creation_LC = (\d+) would be rejected \((\d+) > (\d+), outside grace window\)$"#
+)]
+async fn then_outside_grace(_world: &mut TabaWorld, creation_lc: u64, _left: u64, threshold: u64) {
     assert!(
         creation_lc > threshold,
         "creation_LC {creation_lc} should be > threshold {threshold} (outside grace window)"
@@ -943,12 +914,18 @@ async fn then_remains_valid(world: &mut TabaWorld, name: String) {
 
 #[then("no retroactive rejection occurs (INV-S3 causal model)")]
 async fn then_no_retroactive(_world: &mut TabaWorld) {
-    assert!(true, "no retroactive rejection (causal model verified in unit tests)");
+    assert!(
+        true,
+        "no retroactive rejection (causal model verified in unit tests)"
+    );
 }
 
-#[then(regex = r"^future units from alice will be rejected \(revocation now in local graph\)$"#)]
+#[then(regex = r#"^future units from alice will be rejected \(revocation now in local graph\)$"#)]
 async fn then_future_rejected(_world: &mut TabaWorld) {
-    assert!(true, "future units from alice will be rejected (verified in unit tests)");
+    assert!(
+        true,
+        "future units from alice will be rejected (verified in unit tests)"
+    );
 }
 
 // ===========================================================================
@@ -959,10 +936,14 @@ async fn then_future_rejected(_world: &mut TabaWorld) {
 async fn then_node_checks_yes(world: &mut TabaWorld) {
     // The verifier has alice's revocation; verify it reports revoked.
     let alice_id = world.author_id_by_name("alice");
-    let public_key = world.authors.get("alice").map(|(_, kp)| *kp.public_key()).unwrap_or_default();
+    let public_key = world
+        .authors
+        .get("alice")
+        .map(|(_, kp)| *kp.public_key())
+        .unwrap_or(taba_security::PublicKey([0u8; 32]));
     let key_id = taba_security::KeyId::from_public_key(&public_key);
     assert!(
-        world.verifier.is_revoked(&key_id).is_some(),
+        world.verifier.is_revoked(&alice_id),
         "alice's key should be revoked in the local graph"
     );
 }
@@ -981,7 +962,10 @@ async fn then_named_rejected_with_error(
 
 #[then("dave is not granted any authoring scope")]
 async fn then_dave_no_scope(_world: &mut TabaWorld) {
-    assert!(true, "dave should not be granted scope (verified in unit tests)");
+    assert!(
+        true,
+        "dave should not be granted scope (verified in unit tests)"
+    );
 }
 
 /// Parses a duration string like "7 years", "365 days".
@@ -1015,7 +999,15 @@ impl HeaderMut for Unit {
             Unit::Workload(w) => &mut w.header,
             Unit::Data(d) => &mut d.header,
             Unit::Policy(p) => &mut p.header,
-            Unit::Governance(g) => g.header_mut(),
+            Unit::Governance(g) => match g {
+                taba_core::GovernanceUnit::TrustDomainDef(t) => &mut t.header,
+                taba_core::GovernanceUnit::RoleAssignment(r) => &mut r.header,
+                taba_core::GovernanceUnit::Certification(c) => &mut c.header,
+                taba_core::GovernanceUnit::OperationalCommand(o) => &mut o.header,
+                taba_core::GovernanceUnit::PromotionGate(p) => &mut p.header,
+                taba_core::GovernanceUnit::CrossDomainCapability(c) => &mut c.header,
+                taba_core::GovernanceUnit::KeyRevocation(k) => &mut k.header,
+            },
         }
     }
 }

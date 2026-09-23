@@ -27,7 +27,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 async-trait = "0.1"
-gherkin = "0.14"
 
 [[test]]
 name = "acceptance"
