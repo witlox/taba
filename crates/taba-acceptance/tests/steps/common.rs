@@ -65,11 +65,6 @@ async fn given_tier_td2(world: &mut TabaWorld, name: String) {
     world.trust_domain = world.trust_domain_id_by_name(&name);
 }
 
-#[given(regex = r#"^trust domain "([^"]+)"(?: .*)?$"#)]
-async fn given_td_exists(world: &mut TabaWorld, name: String) {
-    world.register_trust_domain(&name);
-}
-
 #[given(regex = r#"^an author "([^"]+)" with scope \(type: ([\w-]+), trust_domain: "([^"]+)"\)$"#)]
 async fn given_author_scope(
     world: &mut TabaWorld,
@@ -198,30 +193,6 @@ async fn given_any_policy2(world: &mut TabaWorld, name: String) {
         .with_scope(world.trust_domain)
         .build();
     world.store_unit(&name, Unit::Policy(unit));
-}
-
-#[given(
-    regex = r#"^workload "([^"]+)" (?:declares|consumed|needs|produces|was placed|spawned).*$"#
-)]
-async fn given_workload_prop(world: &mut TabaWorld, name: String) {
-    if !world.units.contains_key(&name) {
-        let unit = WorkloadUnitBuilder::new()
-            .with_author(world.author_id)
-            .with_trust_domain(world.trust_domain)
-            .build();
-        world.store_unit(&name, Unit::Workload(unit));
-    }
-}
-
-#[given(regex = r#"^unit "([^"]+)" references.*$"#)]
-async fn given_unit_refs(world: &mut TabaWorld, name: String) {
-    if !world.units.contains_key(&name) {
-        let unit = WorkloadUnitBuilder::new()
-            .with_author(world.author_id)
-            .with_trust_domain(world.trust_domain)
-            .build();
-        world.store_unit(&name, Unit::Workload(unit));
-    }
 }
 
 #[given(regex = r#"^(?:alice|bob|carol|dan) signs the policy(?: .*)?$"#)]
