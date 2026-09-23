@@ -213,17 +213,6 @@ async fn given_workload_prop(world: &mut TabaWorld, name: String) {
     }
 }
 
-#[given(regex = r#"^data unit "([^"]+)" (?:declares|has|is|provides).*$"#)]
-async fn given_data_prop(world: &mut TabaWorld, name: String) {
-    if !world.units.contains_key(&name) {
-        let unit = DataUnitBuilder::new()
-            .with_author(world.author_id)
-            .with_trust_domain(world.trust_domain)
-            .build();
-        world.store_unit(&name, Unit::Data(unit));
-    }
-}
-
 #[given(regex = r#"^unit "([^"]+)" references.*$"#)]
 async fn given_unit_refs(world: &mut TabaWorld, name: String) {
     if !world.units.contains_key(&name) {
@@ -333,20 +322,6 @@ async fn then_composition_blocked(world: &mut TabaWorld) {
     }
 }
 
-#[then(
-    regex = r#"^the solver (?:places|does not|re-?places|recomputes|accepts|uses|detects|reports|checks|rejects|deduplicates|finds|evaluates|has|still|sends).*$"#
-)]
-async fn then_solver_assertion(_world: &mut TabaWorld) {
-    assert!(true);
-}
-
-#[then(
-    regex = r#"^"([^"]+)" (?:has |was |will |can |continues |does |learns |receives |returns |references |executes |verifies |cross-domain |retains |includes |appears |still |completes |transitions |enters |exits |gossips |responds |checks |automatically |is not|is NOT|is eligible|is placed|is promoted|is the active|is created|is still|is running|is matched).*$"#
-)]
-async fn then_named_state(_world: &mut TabaWorld, _name: String) {
-    assert!(true);
-}
-
 #[then(regex = r#"^(?:an |the )?(?:operator )?alert is (?:surfaced|raised): "([^"]+)"$"#)]
 async fn then_alert_quoted(world: &mut TabaWorld, alert: String) {
     assert!(
@@ -383,37 +358,19 @@ async fn given_single_node(_world: &mut TabaWorld, _name: String) {}
 // Common: Node events and operational modes
 // ===========================================================================
 
-#[given(regex = r#"^node "([^"]+)" is in \w+ (?:operational )?mode.*$"#)]
-async fn given_node_mode(_world: &mut TabaWorld, _node: String) {}
-
-#[given(regex = r#"^node "([^"]+)" is (Active|Suspected).*$"#)]
-async fn given_node_health(_world: &mut TabaWorld, _node: String) {}
-
-#[given(regex = r#"^node "([^"]+)" (?:becomes|detects|fails|has|goes offline|comes back).*$"#)]
-#[when(regex = r#"^node "([^"]+)" (?:becomes|detects|fails|has|goes offline|comes back).*$"#)]
-#[when(
-    regex = r#"^"([^"]+)" (?:goes offline|comes back online|fails|is evicted|is compacted|terminates|produces.*|completes.*|announces.*|drops.*|queries.*|receives.*|adds.*|advertises.*|executes.*|verifies.*|participates.*|is admitted.*|is compromised.*|attempts.*).*$"#
-)]
-async fn node_event(_world: &mut TabaWorld, _node: String) {}
-
-#[when(
-    regex = r#"^an operator (?:queries|initiates|issues|configures|attempts|cancels|admits|drain).*$"#
-)]
-async fn operator_action(_world: &mut TabaWorld) {}
-
-#[when(regex = r#"^compaction (?:runs|targets|scan runs).*$"#)]
-async fn compaction_event(_world: &mut TabaWorld) {}
-
-#[when(
-    regex = r#"^the (?:node|memory monitor|cluster|current time|system|graph|partition|retention enforcer|WAL|governance) .*$"#
-)]
-async fn system_event(_world: &mut TabaWorld) {}
+// Node-specific Given/When steps are handled by feature-specific step files
+// (operational_modes.rs, data_retention.rs, etc.) to allow real assertions
+// on observable artifacts instead of no-op catch-alls.
 
 // ===========================================================================
 // Common: Governance and policy
 // ===========================================================================
 
-#[given(regex = r#"^governance (?:unit )?"([^"]+)" (?:defines|declares|created).*$"#)]
-async fn given_gov_defines(world: &mut TabaWorld, name: String) {
+// Governance unit Given steps are handled by feature-specific step files
+// (data_retention.rs, trust_domain.rs, etc.) to allow real graph insertions
+// instead of no-op catch-alls.
+
+#[given(regex = r#"^a trust domain "([^"]+)" exists$"#)]
+async fn given_a_td_exists(world: &mut TabaWorld, name: String) {
     world.register_trust_domain(&name);
 }
