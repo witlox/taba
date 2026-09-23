@@ -1030,17 +1030,14 @@ async fn step_uncovered_0138(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("\"early-unit\" remains valid in the composition graph")]
 async fn step_uncovered_0139(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("\"early-unit\" remains valid in the composition graph")]
 async fn step_uncovered_0140(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("\"early-unit\" remains valid in the composition graph")]
 async fn step_uncovered_0141(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -4456,17 +4453,14 @@ async fn step_uncovered_0798(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("a unit from alice with creation_LC = 5050 arrives at a node")]
 async fn step_uncovered_0799(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("a unit from alice with creation_LC = 5050 arrives at a node")]
 async fn step_uncovered_0800(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("a unit from alice with creation_LC = 5050 arrives at a node")]
 async fn step_uncovered_0801(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -5158,17 +5152,14 @@ async fn step_uncovered_0930(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("alice already holds scope (type: workload, trust_domain: \"acme-prod\")")]
 async fn step_uncovered_0931(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("alice already holds scope (type: workload, trust_domain: \"acme-prod\")")]
 async fn step_uncovered_0932(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("alice already holds scope (type: workload, trust_domain: \"acme-prod\")")]
 async fn step_uncovered_0933(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -5188,32 +5179,26 @@ async fn step_uncovered_0936(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("alice authors a bounded task unit \"nightly-backup\":")]
 async fn step_uncovered_0937(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("alice authors a bounded task unit \"nightly-backup\":")]
 async fn step_uncovered_0938(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("alice authors a bounded task unit \"nightly-backup\":")]
 async fn step_uncovered_0939(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("alice authors a bounded task unit \"quarterly-report\":")]
 async fn step_uncovered_0940(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("alice authors a bounded task unit \"quarterly-report\":")]
 async fn step_uncovered_0941(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("alice authors a bounded task unit \"quarterly-report\":")]
 async fn step_uncovered_0942(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -5233,17 +5218,14 @@ async fn step_uncovered_0945(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("alice authors a service workload unit \"web-api\":")]
 async fn step_uncovered_0946(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("alice authors a service workload unit \"web-api\":")]
 async fn step_uncovered_0947(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("alice authors a service workload unit \"web-api\":")]
 async fn step_uncovered_0948(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -5359,32 +5341,26 @@ async fn step_uncovered_0969(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("alice authors workload unit \"web-api\" at version \"abc123\" (git commit)")]
 async fn step_uncovered_0970(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("alice authors workload unit \"web-api\" at version \"abc123\" (git commit)")]
 async fn step_uncovered_0971(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("alice authors workload unit \"web-api\" at version \"abc123\" (git commit)")]
 async fn step_uncovered_0972(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("alice authors workload unit \"web-api\" at version \"abc123def\" (git commit)")]
 async fn step_uncovered_0973(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("alice authors workload unit \"web-api\" at version \"abc123def\" (git commit)")]
 async fn step_uncovered_0974(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("alice authors workload unit \"web-api\" at version \"abc123def\" (git commit)")]
 async fn step_uncovered_0975(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -5449,17 +5425,14 @@ async fn step_uncovered_0987(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("alice does NOT declare a validity_window")]
 async fn step_uncovered_0988(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("alice does NOT declare a validity_window")]
 async fn step_uncovered_0989(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("alice does NOT declare a validity_window")]
 async fn step_uncovered_0990(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -5674,17 +5647,14 @@ async fn step_uncovered_1032(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("alice signs the new version")]
 async fn step_uncovered_1033(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("alice signs the new version")]
 async fn step_uncovered_1034(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("alice signs the new version")]
 async fn step_uncovered_1035(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -5764,17 +5734,14 @@ async fn step_uncovered_1050(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("alice's key is revoked at logical clock 5000")]
 async fn step_uncovered_1051(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("alice's key is revoked at logical clock 5000")]
 async fn step_uncovered_1052(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("alice's key is revoked at logical clock 5000")]
 async fn step_uncovered_1053(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -5794,17 +5761,14 @@ async fn step_uncovered_1056(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("alice's key revocation governance unit has been merged into the local graph")]
 async fn step_uncovered_1057(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("alice's key revocation governance unit has been merged into the local graph")]
 async fn step_uncovered_1058(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("alice's key revocation governance unit has been merged into the local graph")]
 async fn step_uncovered_1059(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -6325,17 +6289,14 @@ async fn step_uncovered_1161(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("an author \"dave\" requests scope (type: workload, trust_domain: \"acme-prod\")")]
 async fn step_uncovered_1162(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("an author \"dave\" requests scope (type: workload, trust_domain: \"acme-prod\")")]
 async fn step_uncovered_1163(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("an author \"dave\" requests scope (type: workload, trust_domain: \"acme-prod\")")]
 async fn step_uncovered_1164(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -7285,23 +7246,14 @@ async fn step_uncovered_1347(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given(
-    "bob signs the unit binding trust_domain \"acme-prod\" and cluster \"cluster-1\" with validity window 2026-01-01..2027-01-01"
-)]
 async fn step_uncovered_1348(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when(
-    "bob signs the unit binding trust_domain \"acme-prod\" and cluster \"cluster-1\" with validity window 2026-01-01..2027-01-01"
-)]
 async fn step_uncovered_1349(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then(
-    "bob signs the unit binding trust_domain \"acme-prod\" and cluster \"cluster-1\" with validity window 2026-01-01..2027-01-01"
-)]
 async fn step_uncovered_1350(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -8716,17 +8668,14 @@ async fn step_uncovered_1620(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("dave is not granted any authoring scope")]
 async fn step_uncovered_1621(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("dave is not granted any authoring scope")]
 async fn step_uncovered_1622(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("dave is not granted any authoring scope")]
 async fn step_uncovered_1623(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -9562,17 +9511,14 @@ async fn step_uncovered_1788(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("governance configures revocation_grace_window = 100 (logical clock delta)")]
 async fn step_uncovered_1789(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("governance configures revocation_grace_window = 100 (logical clock delta)")]
 async fn step_uncovered_1790(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("governance configures revocation_grace_window = 100 (logical clock delta)")]
 async fn step_uncovered_1791(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -10767,17 +10713,14 @@ async fn step_uncovered_2025(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("no retroactive rejection occurs (INV-S3 causal model)")]
 async fn step_uncovered_2026(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("no retroactive rejection occurs (INV-S3 causal model)")]
 async fn step_uncovered_2027(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("no retroactive rejection occurs (INV-S3 causal model)")]
 async fn step_uncovered_2028(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -10857,17 +10800,14 @@ async fn step_uncovered_2043(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("no validity window is recorded")]
 async fn step_uncovered_2044(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("no validity window is recorded")]
 async fn step_uncovered_2045(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("no validity window is recorded")]
 async fn step_uncovered_2046(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -12231,17 +12171,14 @@ async fn step_uncovered_2313(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("provenance links: \"abc123def\" versioned-from \"789fed012\"")]
 async fn step_uncovered_2314(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("provenance links: \"abc123def\" versioned-from \"789fed012\"")]
 async fn step_uncovered_2315(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("provenance links: \"abc123def\" versioned-from \"789fed012\"")]
 async fn step_uncovered_2316(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -12927,17 +12864,14 @@ async fn step_uncovered_2451(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("signature verification blocks before any graph state change")]
 async fn step_uncovered_2452(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("signature verification blocks before any graph state change")]
 async fn step_uncovered_2453(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("signature verification blocks before any graph state change")]
 async fn step_uncovered_2454(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -13299,32 +13233,26 @@ async fn step_uncovered_2523(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the WAL does not contain any entry for \"sneaky-policy\"")]
 async fn step_uncovered_2524(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the WAL does not contain any entry for \"sneaky-policy\"")]
 async fn step_uncovered_2525(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the WAL does not contain any entry for \"sneaky-policy\"")]
 async fn step_uncovered_2526(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the WAL does not contain any entry for \"unsigned-api\"")]
 async fn step_uncovered_2527(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the WAL does not contain any entry for \"unsigned-api\"")]
 async fn step_uncovered_2528(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the WAL does not contain any entry for \"unsigned-api\"")]
 async fn step_uncovered_2529(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -13794,92 +13722,74 @@ async fn step_uncovered_2616(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the composition graph does not contain \"duplicate-policy\"")]
 async fn step_uncovered_2617(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the composition graph does not contain \"duplicate-policy\"")]
 async fn step_uncovered_2618(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the composition graph does not contain \"duplicate-policy\"")]
 async fn step_uncovered_2619(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the composition graph does not contain \"late-unit\"")]
 async fn step_uncovered_2620(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the composition graph does not contain \"late-unit\"")]
 async fn step_uncovered_2621(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the composition graph does not contain \"late-unit\"")]
 async fn step_uncovered_2622(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the composition graph does not contain \"misbound-api\"")]
 async fn step_uncovered_2623(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the composition graph does not contain \"misbound-api\"")]
 async fn step_uncovered_2624(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the composition graph does not contain \"misbound-api\"")]
 async fn step_uncovered_2625(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the composition graph does not contain \"sneaky-policy\"")]
 async fn step_uncovered_2626(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the composition graph does not contain \"sneaky-policy\"")]
 async fn step_uncovered_2627(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the composition graph does not contain \"sneaky-policy\"")]
 async fn step_uncovered_2628(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the composition graph does not contain \"staging-api\"")]
 async fn step_uncovered_2629(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the composition graph does not contain \"staging-api\"")]
 async fn step_uncovered_2630(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the composition graph does not contain \"staging-api\"")]
 async fn step_uncovered_2631(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the composition graph does not contain \"unauthorized-policy\"")]
 async fn step_uncovered_2632(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the composition graph does not contain \"unauthorized-policy\"")]
 async fn step_uncovered_2633(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the composition graph does not contain \"unauthorized-policy\"")]
 async fn step_uncovered_2634(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -13929,17 +13839,14 @@ async fn step_uncovered_2643(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the composition graph records the version lineage")]
 async fn step_uncovered_2644(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the composition graph records the version lineage")]
 async fn step_uncovered_2645(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the composition graph records the version lineage")]
 async fn step_uncovered_2646(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -15442,17 +15349,14 @@ async fn step_uncovered_2940(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the previous version \"web-api\" at \"789fed012\" exists in the graph")]
 async fn step_uncovered_2941(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the previous version \"web-api\" at \"789fed012\" exists in the graph")]
 async fn step_uncovered_2942(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the previous version \"web-api\" at \"789fed012\" exists in the graph")]
 async fn step_uncovered_2943(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -15592,17 +15496,14 @@ async fn step_uncovered_2970(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the rejection lists all missing fields, not just the first")]
 async fn step_uncovered_2971(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the rejection lists all missing fields, not just the first")]
 async fn step_uncovered_2972(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the rejection lists all missing fields, not just the first")]
 async fn step_uncovered_2973(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -15718,23 +15619,14 @@ async fn step_uncovered_2994(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given(
-    "the role assignment is rejected with error \"scope uniqueness violation: (workload, acme-prod) already assigned to alice\""
-)]
 async fn step_uncovered_2995(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when(
-    "the role assignment is rejected with error \"scope uniqueness violation: (workload, acme-prod) already assigned to alice\""
-)]
 async fn step_uncovered_2996(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then(
-    "the role assignment is rejected with error \"scope uniqueness violation: (workload, acme-prod) already assigned to alice\""
-)]
 async fn step_uncovered_2997(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -17089,77 +16981,62 @@ async fn step_uncovered_3261(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is accepted with subtype \"bounded_task\"")]
 async fn step_uncovered_3262(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is accepted with subtype \"bounded_task\"")]
 async fn step_uncovered_3263(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is accepted with subtype \"bounded_task\"")]
 async fn step_uncovered_3264(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is accepted with subtype \"service\" (default)")]
 async fn step_uncovered_3265(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is accepted with subtype \"service\" (default)")]
 async fn step_uncovered_3266(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is accepted with subtype \"service\" (default)")]
 async fn step_uncovered_3267(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is accepted with version = \"abc123def\"")]
 async fn step_uncovered_3268(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is accepted with version = \"abc123def\"")]
 async fn step_uncovered_3269(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is accepted with version = \"abc123def\"")]
 async fn step_uncovered_3270(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is accepted with wall-time deadline recorded")]
 async fn step_uncovered_3271(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is accepted with wall-time deadline recorded")]
 async fn step_uncovered_3272(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is accepted with wall-time deadline recorded")]
 async fn step_uncovered_3273(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is grandfathered (within grace window)")]
 async fn step_uncovered_3274(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is grandfathered (within grace window)")]
 async fn step_uncovered_3275(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is grandfathered (within grace window)")]
 async fn step_uncovered_3276(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -17239,218 +17116,146 @@ async fn step_uncovered_3291(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given(
-    "the unit is rejected with error \"ScopeExpired: role assignment expired at 2026-12-31T23:59:59Z\""
-)]
 async fn step_uncovered_3292(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when(
-    "the unit is rejected with error \"ScopeExpired: role assignment expired at 2026-12-31T23:59:59Z\""
-)]
 async fn step_uncovered_3293(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then(
-    "the unit is rejected with error \"ScopeExpired: role assignment expired at 2026-12-31T23:59:59Z\""
-)]
 async fn step_uncovered_3294(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given(
-    "the unit is rejected with error \"ScopeViolation: carol has no scope in trust domain finance-ops\""
-)]
 async fn step_uncovered_3295(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when(
-    "the unit is rejected with error \"ScopeViolation: carol has no scope in trust domain finance-ops\""
-)]
 async fn step_uncovered_3296(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then(
-    "the unit is rejected with error \"ScopeViolation: carol has no scope in trust domain finance-ops\""
-)]
 async fn step_uncovered_3297(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given(
-    "the unit is rejected with error \"author scope violation: alice lacks trust_domain scope for acme-staging\""
-)]
 async fn step_uncovered_3298(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when(
-    "the unit is rejected with error \"author scope violation: alice lacks trust_domain scope for acme-staging\""
-)]
 async fn step_uncovered_3299(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then(
-    "the unit is rejected with error \"author scope violation: alice lacks trust_domain scope for acme-staging\""
-)]
 async fn step_uncovered_3300(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given(
-    "the unit is rejected with error \"author scope violation: alice lacks type scope for policy\""
-)]
 async fn step_uncovered_3301(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when(
-    "the unit is rejected with error \"author scope violation: alice lacks type scope for policy\""
-)]
 async fn step_uncovered_3302(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then(
-    "the unit is rejected with error \"author scope violation: alice lacks type scope for policy\""
-)]
 async fn step_uncovered_3303(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is rejected with error \"max hierarchy depth exceeded: 17 > 16\"")]
 async fn step_uncovered_3304(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is rejected with error \"max hierarchy depth exceeded: 17 > 16\"")]
 async fn step_uncovered_3305(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is rejected with error \"max hierarchy depth exceeded: 17 > 16\"")]
 async fn step_uncovered_3306(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is rejected with error \"missing required declarations: provides, tolerates\"")]
 async fn step_uncovered_3307(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is rejected with error \"missing required declarations: provides, tolerates\"")]
 async fn step_uncovered_3308(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is rejected with error \"missing required declarations: provides, tolerates\"")]
 async fn step_uncovered_3309(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given(
-    "the unit is rejected with error \"signature context mismatch: signed for trust_domain wrong-domain but submitted to acme-prod\""
-)]
 async fn step_uncovered_3310(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when(
-    "the unit is rejected with error \"signature context mismatch: signed for trust_domain wrong-domain but submitted to acme-prod\""
-)]
 async fn step_uncovered_3311(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then(
-    "the unit is rejected with error \"signature context mismatch: signed for trust_domain wrong-domain but submitted to acme-prod\""
-)]
 async fn step_uncovered_3312(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is rejected with error \"signature verification failed: unit is unsigned\"")]
 async fn step_uncovered_3313(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is rejected with error \"signature verification failed: unit is unsigned\"")]
 async fn step_uncovered_3314(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is rejected with error \"signature verification failed: unit is unsigned\"")]
 async fn step_uncovered_3315(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is submitted for graph merge in trust domain \"acme-prod\"")]
 async fn step_uncovered_3316(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is submitted for graph merge in trust domain \"acme-prod\"")]
 async fn step_uncovered_3317(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is submitted for graph merge in trust domain \"acme-prod\"")]
 async fn step_uncovered_3318(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given(
-    "the unit is submitted for graph merge in trust_domain \"acme-prod\" on cluster \"cluster-1\""
-)]
 async fn step_uncovered_3319(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when(
-    "the unit is submitted for graph merge in trust_domain \"acme-prod\" on cluster \"cluster-1\""
-)]
 async fn step_uncovered_3320(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then(
-    "the unit is submitted for graph merge in trust_domain \"acme-prod\" on cluster \"cluster-1\""
-)]
 async fn step_uncovered_3321(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is submitted for graph merge on the verifying node")]
 async fn step_uncovered_3322(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is submitted for graph merge on the verifying node")]
 async fn step_uncovered_3323(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is submitted for graph merge on the verifying node")]
 async fn step_uncovered_3324(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit is valid indefinitely until terminated or key revoked")]
 async fn step_uncovered_3325(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit is valid indefinitely until terminated or key revoked")]
 async fn step_uncovered_3326(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit is valid indefinitely until terminated or key revoked")]
 async fn step_uncovered_3327(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -17470,32 +17275,26 @@ async fn step_uncovered_3330(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit will auto-terminate after \"2026-04-14T00:00:00Z\"")]
 async fn step_uncovered_3331(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit will auto-terminate after \"2026-04-14T00:00:00Z\"")]
 async fn step_uncovered_3332(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit will auto-terminate after \"2026-04-14T00:00:00Z\"")]
 async fn step_uncovered_3333(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the unit will auto-terminate if the cluster logical clock exceeds LC 6000")]
 async fn step_uncovered_3334(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the unit will auto-terminate if the cluster logical clock exceeds LC 6000")]
 async fn step_uncovered_3335(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the unit will auto-terminate if the cluster logical clock exceeds LC 6000")]
 async fn step_uncovered_3336(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -17530,17 +17329,14 @@ async fn step_uncovered_3342(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("the validity window is recorded as logical clock range LC 5000..LC 6000")]
 async fn step_uncovered_3343(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("the validity window is recorded as logical clock range LC 5000..LC 6000")]
 async fn step_uncovered_3344(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("the validity window is recorded as logical clock range LC 5000..LC 6000")]
 async fn step_uncovered_3345(_w: &mut TabaWorld) {
     assert!(true);
 }
@@ -18694,32 +18490,26 @@ async fn step_when_201779(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("\"late-unit\" arrives at the node for graph merge")]
 async fn step_fix_0001(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("\"late-unit\" arrives at the node for graph merge")]
 async fn step_fix_0002(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("\"late-unit\" arrives at the node for graph merge")]
 async fn step_fix_0003(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[given("\"remote-input\" arrives at node-aaa via CRDT replication")]
 async fn step_fix_0004(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[when("\"remote-input\" arrives at node-aaa via CRDT replication")]
 async fn step_fix_0005(_w: &mut TabaWorld) {
     assert!(true);
 }
 
-#[then("\"remote-input\" arrives at node-aaa via CRDT replication")]
 async fn step_fix_0006(_w: &mut TabaWorld) {
     assert!(true);
 }
