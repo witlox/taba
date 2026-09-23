@@ -62,15 +62,6 @@ fn parse_capabilities(s: &str) -> Vec<Capability> {
         .collect()
 }
 
-#[given(
-    regex = r#"^alice signs the unit binding trust_domain "([^"]+)" and cluster "([^"]+)"(?: with validity window .+)?$"#
-)]
-async fn given_alice_signs_unit(world: &mut TabaWorld, _td: String, _cluster: String) {
-    if let Some(name) = world.units.keys().last().cloned() {
-        world.signed_units.insert(name);
-    }
-}
-
 #[then("the unit is accepted into the composition graph")]
 async fn then_unit_accepted(world: &mut TabaWorld) {
     assert!(
