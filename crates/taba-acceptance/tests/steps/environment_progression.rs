@@ -1227,33 +1227,6 @@ async fn when_alice_human_approved_promotion(world: &mut TabaWorld) {
     }
 }
 
-#[when("each runs \"taba apply\" on their dev node")]
-async fn when_each_runs_apply(world: &mut TabaWorld) {
-    world.reset_errors();
-
-    // Insert all units into the graph.
-    let all_names: Vec<String> = world.units.keys().cloned().collect();
-    for name in &all_names {
-        if let Some(unit) = world.units.get(name).cloned() {
-            let _ = world.graph.insert(unit).await;
-            world.add_event(&format!("applied:{name}"));
-        }
-    }
-
-    // Run the solver.
-    let snapshot = world.graph.snapshot().await.expect("snapshot");
-    world.last_snapshot = Some(snapshot.clone());
-    world.last_solver_result = Some(world.solver.solve(&snapshot, &world.membership));
-
-    // Store eligible nodes for all units.
-    let all_names: Vec<String> = world.units.keys().cloned().collect();
-    for name in &all_names {
-        let eligible = filter_eligible_nodes(world, name);
-        let eligible_json = serde_json::to_string(&eligible).expect("serialize eligible nodes");
-        world.add_event(&format!("eligible:{name}:{eligible_json}"));
-    }
-}
-
 #[when(regex = r#"^bob's branch is merged to main \(git merge produces "([^"]+)"\)$"#)]
 async fn when_bob_branch_merged(world: &mut TabaWorld, commit: String) {
     world.add_event(&format!("git_merge:{commit}"));
