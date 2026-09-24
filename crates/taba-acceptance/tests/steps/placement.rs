@@ -28,11 +28,6 @@ fn parse_table(step: &cucumber::gherkin::Step) -> BTreeMap<String, String> {
     map
 }
 
-#[given(regex = r#"^a\ cluster\ "([^"]+)"\ with\ active\ nodes:$"#)]
-async fn step_0(world: &mut TabaWorld, arg0: String) {
-    world.add_event(&format!("given:placement:{arg0}"));
-}
-
 #[given(
     regex = r#"^a\ composed\ workload\ unit\ "([^"]+)"\ requiring\ cpu:200000ppm\ and\ memory:1024mb$"#
 )]
@@ -584,4 +579,42 @@ async fn uncovered_5(
     arg8: String,
 ) {
     assert!(true, "verified in unit tests (taba-placement)");
+}
+
+#[given(regex = r#"^a cluster "([^"]+)" with active nodes:$"#)]
+async fn given_cluster_with_nodes(
+    world: &mut TabaWorld,
+    _cluster: String,
+    step: &cucumber::gherkin::Step,
+) {
+    if let Some(table) = &step.table {
+        for row in &table.rows[1..] {
+            if row.len() >= 5 {
+                let node_name = &row[0];
+                let cpu_ppm: u64 = row[1].trim().parse().unwrap_or(800_000);
+                let memory_mb: u64 = row[2].trim().parse().unwrap_or(8192);
+                let _zone = &row[3];
+                let health_str = &row[4];
+
+                let node_id = taba_common::NodeId(uuid::Uuid::new_v4());
+                let caps = taba_test_harness::NodeCapabilitySetBuilder::new().build();
+                world
+                    .node_caps
+                    .insert(node_name.trim().to_string(), (node_id, caps));
+
+                use taba_solver::membership::{MembershipSnapshot, NodeHealth};
+                let health = match health_str.trim() {
+                    "active" => NodeHealth::Active,
+                    "suspected" => NodeHealth::Suspected,
+                    "failed" => NodeHealth::Suspected,
+                    _ => NodeHealth::Active,
+                };
+                world.membership.add_node(
+                    node_id,
+                    taba_test_harness::NodeCapabilitySetBuilder::new().build(),
+                    health,
+                );
+            }
+        }
+    }
 }
