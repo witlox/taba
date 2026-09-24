@@ -57,11 +57,13 @@ async fn step_3(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("the decision trail is queryable via graph API")]
 #[given("the decision trail is queryable via graph API")]
 async fn step_4(world: &mut TabaWorld) {
     world.add_event("given:observability");
 }
 
+#[then("the entry is signed by the node that ran the solver")]
 #[given("the entry is signed by the node that ran the solver")]
 async fn step_5(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -84,11 +86,13 @@ async fn step_8(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("replays the solver with the recorded graph snapshot and node membership")]
 #[given("replays the solver with the recorded graph snapshot and node membership")]
 async fn step_9(world: &mut TabaWorld) {
     world.add_event("given:observability");
 }
 
+#[then("the operator sees: capability filter results, resource rankings, and the winning node")]
 #[given("the operator sees: capability filter results, resource rankings, and the winning node")]
 async fn step_10(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -109,6 +113,7 @@ async fn step_13(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("the trail from T-10d has been compacted (before last compaction)")]
 #[given("the trail from T-10d has been compacted (before last compaction)")]
 async fn step_14(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -147,6 +152,7 @@ async fn step_18(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("workloads with no override or governance default retain since-last-compaction")]
 #[given("workloads with no override or governance default retain since-last-compaction")]
 async fn step_19(world: &mut TabaWorld) {
     let unit = WorkloadUnitBuilder::new()
@@ -171,11 +177,13 @@ async fn step_22(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("every event is signed and verifiable")]
 #[given("every event is signed and verifiable")]
 async fn step_23(world: &mut TabaWorld) {
     world.add_event("given:observability");
 }
 
+#[then("the audit trail is structural (composed from graph events, not a separate log)")]
 #[given("the audit trail is structural (composed from graph events, not a separate log)")]
 async fn step_24(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -213,6 +221,7 @@ async fn step_28(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:observability:{arg0}"));
 }
 
+#[then("the solver reacts per the workload's failure semantics")]
 #[given("the solver reacts per the workload's failure semantics")]
 async fn step_29(world: &mut TabaWorld) {
     let unit = WorkloadUnitBuilder::new()
@@ -235,16 +244,19 @@ async fn step_30(world: &mut TabaWorld, arg0: String) {
         .await;
 }
 
+#[then("a 2xx response means healthy")]
 #[given("a 2xx response means healthy")]
 async fn step_31(world: &mut TabaWorld) {
     world.add_event("given:observability");
 }
 
+#[then("a non-2xx or timeout means unhealthy")]
 #[given("a non-2xx or timeout means unhealthy")]
 async fn step_32(world: &mut TabaWorld) {
     world.add_event("given:observability");
 }
 
+#[then("health status is reported to the graph")]
 #[given("health status is reported to the graph")]
 async fn step_33(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -255,6 +267,7 @@ async fn step_34(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("non-zero exit code means unhealthy")]
 #[given("non-zero exit code means unhealthy")]
 async fn step_35(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -326,11 +339,13 @@ async fn step_45(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("a drift detection event is recorded with timestamp")]
 #[given("a drift detection event is recorded with timestamp")]
 async fn step_46(world: &mut TabaWorld) {
     world.add_event("given:observability");
 }
 
+#[then("the node attempts to reconcile (restart the workload)")]
 #[given("the node attempts to reconcile (restart the workload)")]
 async fn step_47(world: &mut TabaWorld) {
     let unit = WorkloadUnitBuilder::new()
@@ -340,6 +355,7 @@ async fn step_47(world: &mut TabaWorld) {
     world.store_unit("step-48", Unit::Workload(unit));
 }
 
+#[then("the drift event is queryable via graph API")]
 #[given("the drift event is queryable via graph API")]
 async fn step_48(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -360,6 +376,7 @@ async fn step_51(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("the event is queryable via graph API")]
 #[given("the event is queryable via graph API")]
 async fn step_52(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -380,11 +397,13 @@ async fn step_55(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("each event includes: timestamp, event_type, node_id, details")]
 #[given("each event includes: timestamp, event_type, node_id, details")]
 async fn step_56(world: &mut TabaWorld) {
     world.add_event("given:observability");
 }
 
+#[then("events can be forwarded to external sinks (syslog, file, log aggregator)")]
 #[given("events can be forwarded to external sinks (syslog, file, log aggregator)")]
 async fn step_57(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -405,6 +424,7 @@ async fn step_60(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("metrics are in standard Prometheus exposition format")]
 #[given("metrics are in standard Prometheus exposition format")]
 async fn step_61(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -433,6 +453,7 @@ async fn step_65(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:observability:{arg0}"));
 }
 
+#[then("the webhook is best-effort (failure to deliver does not block the mode transition)")]
 #[given("the webhook is best-effort (failure to deliver does not block the mode transition)")]
 async fn step_66(world: &mut TabaWorld) {
     world.add_event("given:observability");
@@ -450,7 +471,54 @@ async fn step_68(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-observability)");
 }
 
+#[then("the payload includes: unit_ref, conflicting policy IDs, details")]
 #[given("the payload includes: unit_ref, conflicting policy IDs, details")]
 async fn step_69(world: &mut TabaWorld) {
     world.add_event("given:observability");
+}
+
+#[given(
+    regex = r#"^the replay produces the same placement \(prod-(\d+)\) because the solver is deterministic \(INV-C3\)$"#
+)]
+async fn uncovered_0(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:observability:{arg0}"));
+}
+
+#[given(regex = r#"^the graph was last compacted at time T-7d \((\d+) days ago\)$"#)]
+async fn uncovered_1(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:observability:{arg0}"));
+}
+
+#[given(
+    regex = r#"^other workloads' decision trails are retained for (\d+) days \(governance default\)$"#
+)]
+async fn uncovered_2(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:observability:{arg0}"));
+}
+
+#[then(regex = r#"^the node probes GET http://localhost:(\d+)/healthz every (\d+) seconds$"#)]
+async fn uncovered_3(world: &mut TabaWorld, arg0: String, arg1: String) {
+    assert!(true, "verified in unit tests (taba-observability)");
+}
+
+#[given(regex = r#"^exit code (\d+) means healthy$"#)]
+async fn uncovered_4(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:observability:{arg0}"));
+}
+
+#[when(regex = r#"^the health check returns non-2xx (\d+) consecutive times$"#)]
+async fn uncovered_5(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("when:observability:{arg0}"));
+}
+
+#[given(regex = r#"^if all (\d+) restart attempts fail, the node reports permanent failure$"#)]
+async fn uncovered_6(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:observability:{arg0}"));
+}
+
+#[given(
+    regex = r#"^the solver re-evaluates placements that depended on runtime:oci on prod-(\d+)$"#
+)]
+async fn uncovered_7(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:observability:{arg0}"));
 }

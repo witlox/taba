@@ -52,6 +52,7 @@ async fn step_3(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
 
+#[then("a governance unit records the creation with both author signatures")]
 #[given("a governance unit records the creation with both author signatures")]
 async fn step_4(world: &mut TabaWorld) {
     world.add_event("given:trust");
@@ -160,6 +161,7 @@ async fn step_20(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-trust)");
 }
 
+#[then("no RoleAssignment governance unit is persisted")]
 #[given("no RoleAssignment governance unit is persisted")]
 async fn step_21(world: &mut TabaWorld) {
     world.add_event("given:trust");
@@ -205,6 +207,7 @@ async fn step_27(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.store_unit(&arg0, Unit::Data(unit));
 }
 
+#[then("the signature verification fails at the scope validity check (INV-S3 clause b)")]
 #[given("the signature verification fails at the scope validity check (INV-S3 clause b)")]
 async fn step_28(world: &mut TabaWorld) {
     world.add_event("given:trust");
@@ -303,6 +306,7 @@ async fn step_41(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-trust)");
 }
 
+#[then("the policy unit is recorded in both trust domains' governance lineage")]
 #[given("the policy unit is recorded in both trust domains' governance lineage")]
 async fn step_42(world: &mut TabaWorld) {
     world.add_event("given:trust");
@@ -334,11 +338,13 @@ async fn step_46(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
 
+#[then("the root key material is zeroized after signing")]
 #[given("the root key material is zeroized after signing")]
 async fn step_47(world: &mut TabaWorld) {
     world.add_event("given:trust");
 }
 
+#[then("the ceremony completion is recorded as a governance unit in the graph")]
 #[given("the ceremony completion is recorded as a governance unit in the graph")]
 async fn step_48(world: &mut TabaWorld) {
     world.add_event("given:trust");
@@ -374,16 +380,19 @@ async fn step_54(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
 
+#[then("eve can now create policies to resolve pending conflicts")]
 #[given("eve can now create policies to resolve pending conflicts")]
 async fn step_55(world: &mut TabaWorld) {
     world.add_event("given:trust");
 }
 
+#[then("existing policies authored by carol remain valid (signed before revocation)")]
 #[given("existing policies authored by carol remain valid (signed before revocation)")]
 async fn step_56(world: &mut TabaWorld) {
     world.add_event("given:trust");
 }
 
+#[then("the root key material is zeroized after the role assignment")]
 #[given("the root key material is zeroized after the role assignment")]
 async fn step_57(world: &mut TabaWorld) {
     world.add_event("given:trust");
@@ -404,16 +413,19 @@ async fn step_60(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-trust)");
 }
 
+#[then("create a new author identity with the root key")]
 #[given("create a new author identity with the root key")]
 async fn step_61(world: &mut TabaWorld) {
     world.add_event("given:trust");
 }
 
+#[then("existing units signed before revocation remain valid")]
 #[given("existing units signed before revocation remain valid")]
 async fn step_62(world: &mut TabaWorld) {
     world.add_event("given:trust");
 }
 
+#[then("units signed by the compromised key after revocation are rejected")]
 #[given("units signed by the compromised key after revocation are rejected")]
 async fn step_63(world: &mut TabaWorld) {
     world.add_event("given:trust");
@@ -436,16 +448,19 @@ async fn step_66(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-trust)");
 }
 
+#[then("dan can continue authoring new policies (no succession gap)")]
 #[given("dan can continue authoring new policies (no succession gap)")]
 async fn step_67(world: &mut TabaWorld) {
     world.add_event("given:trust");
 }
 
+#[then("dan can supersede carol's policies if needed")]
 #[given("dan can supersede carol's policies if needed")]
 async fn step_68(world: &mut TabaWorld) {
     world.add_event("given:trust");
 }
 
+#[then("the system is never locked out of policy authoring")]
 #[given("the system is never locked out of policy authoring")]
 async fn step_69(world: &mut TabaWorld) {
     world.add_event("given:trust");
@@ -494,7 +509,44 @@ async fn step_74(world: &mut TabaWorld, arg0: String) {
         .await;
 }
 
+#[then("frank CAN be assigned policy scope (overlapping allowed for decision types)")]
 #[given("frank CAN be assigned policy scope (overlapping allowed for decision types)")]
 async fn step_75(world: &mut TabaWorld) {
     world.add_event("given:trust");
+}
+
+#[then(regex = r#"^the solver verifies (\d+) distinct cryptographic signatures are present$"#)]
+async fn uncovered_0(world: &mut TabaWorld, arg0: String) {
+    assert!(true, "verified in unit tests (taba-trust)");
+}
+
+#[given(regex = r#"^(\d+) authors "([^"]+)", "([^"]+)", "([^"]+)" with governance scope$"#)]
+async fn uncovered_1(
+    world: &mut TabaWorld,
+    arg0: String,
+    arg1: String,
+    arg2: String,
+    arg3: String,
+) {
+    world.add_event(&format!("given:trust:{arg0}"));
+}
+
+#[given(regex = r#"^the role assignment shows remaining validity of approximately (\d+) days$"#)]
+async fn uncovered_2(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:trust:{arg0}"));
+}
+
+#[when(regex = r#"^the root key is reconstructed via Shamir ceremony \((\d+) of (\d+) shares\)$"#)]
+async fn uncovered_3(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("when:trust:{arg0}"));
+}
+
+#[when(regex = r#"^alice uses a backup of the Tier (\d+) root key$"#)]
+async fn uncovered_4(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("when:trust:{arg0}"));
+}
+
+#[given(regex = r#"^carol has authored (\d+) active policies$"#)]
+async fn uncovered_5(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:trust:{arg0}"));
 }

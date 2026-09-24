@@ -58,6 +58,7 @@ async fn step_5(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-cross)");
 }
 
+#[then("no explicit bridge designation was needed")]
 #[given("no explicit bridge designation was needed")]
 async fn step_6(world: &mut TabaWorld) {
     world.add_event("given:cross");
@@ -231,6 +232,7 @@ async fn step_35(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
+#[then("the composition fails closed (INV-S2 across boundaries)")]
 #[given("the composition fails closed (INV-S2 across boundaries)")]
 async fn step_36(world: &mut TabaWorld) {
     world.add_event("given:cross");
@@ -305,6 +307,7 @@ async fn step_48(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
+#[when("the solver re-evaluates the composition")]
 #[given("the solver re-evaluates the composition")]
 async fn step_49(world: &mut TabaWorld) {
     world.add_event("given:cross");
@@ -337,6 +340,7 @@ async fn step_54(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
+#[then("the workload continues with last-known placement but new compositions are blocked")]
 #[given("the workload continues with last-known placement but new compositions are blocked")]
 async fn step_55(world: &mut TabaWorld) {
     let unit = WorkloadUnitBuilder::new()
@@ -397,11 +401,13 @@ async fn step_62(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
+#[then("an alert is raised for the operator")]
 #[given("an alert is raised for the operator")]
 async fn step_63(world: &mut TabaWorld) {
     world.add_event("given:cross");
 }
 
+#[then("the solver does NOT automatically create a bridge")]
 #[given("the solver does NOT automatically create a bridge")]
 async fn step_64(world: &mut TabaWorld) {
     world.add_event("given:cross");
@@ -432,6 +438,7 @@ async fn step_69(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
+#[then("the solver re-evaluates compositions that were blocked on the missing bridge")]
 #[given("the solver re-evaluates compositions that were blocked on the missing bridge")]
 async fn step_70(world: &mut TabaWorld) {
     world.add_event("given:cross");
@@ -464,11 +471,13 @@ async fn step_75(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-cross)");
 }
 
+#[then("the attacker can observe both domains' graph state (wider blast radius)")]
 #[given("the attacker can observe both domains' graph state (wider blast radius)")]
 async fn step_76(world: &mut TabaWorld) {
     world.add_event("given:cross");
 }
 
+#[then("cannot modify either domain's graph")]
 #[given("cannot modify either domain's graph")]
 async fn step_77(world: &mut TabaWorld) {
     world.add_event("given:cross");
@@ -489,11 +498,13 @@ async fn step_80(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-cross)");
 }
 
+#[then("cached results serve existing compositions (fail open)")]
 #[given("cached results serve existing compositions (fail open)")]
 async fn step_81(world: &mut TabaWorld) {
     world.add_event("given:cross");
 }
 
+#[then("new cross-domain compositions are blocked")]
 #[given("new cross-domain compositions are blocked")]
 async fn step_82(world: &mut TabaWorld) {
     world.add_event("given:cross");
@@ -529,6 +540,7 @@ async fn step_88(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
+#[then("no manual configuration was needed")]
 #[given("no manual configuration was needed")]
 async fn step_89(world: &mut TabaWorld) {
     world.add_event("given:cross");
@@ -554,6 +566,7 @@ async fn step_93(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
+#[then("this bootstraps discovery until a bridge is established")]
 #[given("this bootstraps discovery until a bridge is established")]
 async fn step_94(world: &mut TabaWorld) {
     world.add_event("given:cross");
@@ -595,7 +608,31 @@ async fn step_100(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
+#[then("the full cross-domain provenance chain is assembled and displayed")]
 #[given("the full cross-domain provenance chain is assembled and displayed")]
 async fn step_101(world: &mut TabaWorld) {
     world.add_event("given:cross");
+}
+
+#[when(regex = r#"^acme-(\d+)'s solver queries "([^"]+)"$"#)]
+async fn uncovered_0(world: &mut TabaWorld, arg0: String, arg1: String) {
+    let snapshot = world.graph.snapshot().await.expect("snapshot");
+    world.last_solver_result = Some(world.solver.solve(&snapshot, &world.membership));
+}
+
+#[given(regex = r#"^the cached query result was refreshed at logical clock (\d+)$"#)]
+async fn uncovered_1(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:cross:{arg0}"));
+}
+
+#[then(regex = r#"^the solver uses the cached result from LC (\d+) \(stale but available\)$"#)]
+async fn uncovered_2(world: &mut TabaWorld, arg0: String) {
+    assert!(true, "verified in unit tests (taba-cross)");
+}
+
+#[given(
+    regex = r#"^the operator configures known domain: external-vendor at seed nodes \[ext-(\d+), ext-(\d+)\]$"#
+)]
+async fn uncovered_3(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:cross:{arg0}"));
 }

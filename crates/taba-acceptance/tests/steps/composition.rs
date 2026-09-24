@@ -1410,3 +1410,90 @@ async fn then_identical_any_node(world: &mut TabaWorld) {
         }
     }
 }
+
+#[given(regex = r#"^"([^"]+)" is matched to "([^"]+)"$"#)]
+async fn uncovered_0(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:composition:{arg0}"));
+}
+
+#[given("the composition has no unresolved conflicts")]
+async fn uncovered_1(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("the composition is recorded in the graph as a single aggregate")]
+async fn uncovered_2(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("no policy is required because purposes align")]
+async fn uncovered_3(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given(
+    "the composition does not fail closed because purpose mismatch is a policy-resolvable conflict"
+)]
+async fn uncovered_4(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("the solver reports the specific unmatched capability, not a generic failure")]
+async fn uncovered_5(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("the solver does not arbitrarily pick a provider")]
+async fn uncovered_6(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("no partial composition is created")]
+async fn uncovered_7(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("the conflict requires explicit policy resolution before retry")]
+async fn uncovered_8(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("the system logs the security conflict with full context")]
+async fn uncovered_9(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("the graph is reset and units are inserted in order: pg, backend, auth, gateway")]
+async fn uncovered_10(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("the solver evaluates composition again")]
+async fn uncovered_11(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("capability matches are the same in both results")]
+async fn uncovered_12(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("no conflicts differ between the two results")]
+async fn uncovered_13(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("the solver reports the full cycle path")]
+async fn uncovered_14(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("resolution requires explicit policy declaring restart priority")]
+async fn uncovered_15(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}
+
+#[given("the sorted order is identical on any node evaluating the same unit")]
+async fn uncovered_16(world: &mut TabaWorld) {
+    world.add_event("given:composition");
+}

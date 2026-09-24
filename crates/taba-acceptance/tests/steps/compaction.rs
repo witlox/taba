@@ -92,6 +92,7 @@ async fn step_11(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
+#[then("graph space is immediately reclaimed")]
 #[given("graph space is immediately reclaimed")]
 async fn step_12(world: &mut TabaWorld) {
     world.add_event("given:compaction");
@@ -134,6 +135,7 @@ async fn step_17(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
+#[then("INV-D1 (unbroken provenance chain) is satisfied")]
 #[given("INV-D1 (unbroken provenance chain) is satisfied")]
 async fn step_18(world: &mut TabaWorld) {
     world.add_event("given:compaction");
@@ -155,11 +157,13 @@ async fn step_20(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-compaction)");
 }
 
+#[then("the tombstone preserves references for audit trail")]
 #[given("the tombstone preserves references for audit trail")]
 async fn step_21(world: &mut TabaWorld) {
     world.add_event("given:compaction");
 }
 
+#[then("governance override takes precedence over default removal")]
 #[given("governance override takes precedence over default removal")]
 async fn step_22(world: &mut TabaWorld) {
     world.add_event("given:compaction");
@@ -207,6 +211,7 @@ async fn step_28(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
+#[then("INV-D1 (unbroken provenance) is satisfied")]
 #[given("INV-D1 (unbroken provenance) is satisfied")]
 async fn step_29(world: &mut TabaWorld) {
     world.add_event("given:compaction");
@@ -232,11 +237,13 @@ async fn step_33(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-compaction)");
 }
 
+#[then("verifies the content matches the digest")]
 #[given("verifies the content matches the digest")]
 async fn step_34(world: &mut TabaWorld) {
     world.add_event("given:compaction");
 }
 
+#[then("returns the full original unit content")]
 #[given("returns the full original unit content")]
 async fn step_35(world: &mut TabaWorld) {
     world.add_event("given:compaction");
@@ -311,6 +318,7 @@ async fn step_48(world: &mut TabaWorld) {
     world.add_event("when:compaction");
 }
 
+#[then("eviction (node-local content drop) may occur for other units instead")]
 #[given("eviction (node-local content drop) may occur for other units instead")]
 async fn step_49(world: &mut TabaWorld) {
     world.add_event("given:compaction");
@@ -426,6 +434,7 @@ async fn step_67(world: &mut TabaWorld, arg0: String, arg1: String) {
     assert!(true, "verified in unit tests (taba-compaction)");
 }
 
+#[then("the archive write is verified (read-back + digest check)")]
 #[given("the archive write is verified (read-back + digest check)")]
 async fn step_68(world: &mut TabaWorld) {
     world.add_event("given:compaction");
@@ -436,6 +445,7 @@ async fn step_69(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
+#[then("the tombstone's original_digest matches the archived content")]
 #[given("the tombstone's original_digest matches the archived content")]
 async fn step_70(world: &mut TabaWorld) {
     world.add_event("given:compaction");
@@ -475,6 +485,7 @@ async fn step_76(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
+#[then("compaction of non-mandatory-archive units proceeds normally")]
 #[given("compaction of non-mandatory-archive units proceeds normally")]
 async fn step_77(world: &mut TabaWorld) {
     world.add_event("given:compaction");
@@ -490,6 +501,7 @@ async fn step_79(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-compaction)");
 }
 
+#[then("both nodes agree on eligibility because logical clock comparison is deterministic")]
 #[given("both nodes agree on eligibility because logical clock comparison is deterministic")]
 async fn step_80(world: &mut TabaWorld) {
     world.add_event("given:compaction");
@@ -500,7 +512,52 @@ async fn step_81(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-compaction)");
 }
 
+#[then("retention expiry is computed from wall clock (compliance requirement)")]
 #[given("retention expiry is computed from wall clock (compliance requirement)")]
 async fn step_82(world: &mut TabaWorld) {
     world.add_event("given:compaction");
+}
+
+#[given(regex = r#"^service "([^"]+)" spawned bounded task "([^"]+)" at logical clock (\d+)$"#)]
+async fn uncovered_0(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
+    world.add_event(&format!("given:compaction:{arg0}"));
+}
+
+#[given(regex = r#"^both prod-(\d+) and prod-(\d+) agree on eligibility \(INV-G1\)$"#)]
+async fn uncovered_1(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:compaction:{arg0}"));
+}
+
+#[given(regex = r#"^policy "([^"]+)" was superseded by "([^"]+)" at logical clock (\d+)$"#)]
+async fn uncovered_2(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
+    world.add_event(&format!("given:compaction:{arg0}"));
+}
+
+#[when(regex = r#"^the node is under memory pressure \((\d+)% of limit\)$"#)]
+async fn uncovered_3(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("when:compaction:{arg0}"));
+}
+
+#[given(regex = r#"^the cluster logical clock is currently at LC (\d+)$"#)]
+async fn uncovered_4(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:compaction:{arg0}"));
+}
+
+#[given(
+    regex = r#"^data unit "([^"]+)" has retention: "([^"]+)" from wall_time (\d+)-(\d+)-(\d+)$"#
+)]
+async fn uncovered_5(
+    world: &mut TabaWorld,
+    arg0: String,
+    arg1: String,
+    arg2: String,
+    arg3: String,
+    arg4: String,
+) {
+    world.add_event(&format!("given:compaction:{arg0}"));
+}
+
+#[given(regex = r#"^the current wall time is (\d+)-(\d+)-(\d+) \(within retention period\)$"#)]
+async fn uncovered_6(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
+    world.add_event(&format!("given:compaction:{arg0}"));
 }

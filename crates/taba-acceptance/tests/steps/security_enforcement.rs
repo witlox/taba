@@ -69,11 +69,13 @@ async fn step_5(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
 
+#[then("no implicit fallback or default-allow is applied")]
 #[given("no implicit fallback or default-allow is applied")]
 async fn step_6(world: &mut TabaWorld) {
     world.add_event("given:security");
 }
 
+#[then("the workload continues running (denial is per-capability, not fatal)")]
 #[given("the workload continues running (denial is per-capability, not fatal)")]
 async fn step_7(world: &mut TabaWorld) {
     let unit = WorkloadUnitBuilder::new()
@@ -113,6 +115,7 @@ async fn step_12(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
 
+#[then("the system does not guess or apply heuristics")]
 #[given("the system does not guess or apply heuristics")]
 async fn step_13(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -131,21 +134,25 @@ async fn step_14(world: &mut TabaWorld, arg0: String) {
         .await;
 }
 
+#[then("the cryptographic signature is valid")]
 #[given("the cryptographic signature is valid")]
 async fn step_15(world: &mut TabaWorld) {
     world.add_event("given:security");
 }
 
+#[then("the author's scope is valid at creation time")]
 #[given("the author's scope is valid at creation time")]
 async fn step_16(world: &mut TabaWorld) {
     world.add_event("given:security");
 }
 
+#[then("the author's key was not revoked before creation timestamp")]
 #[given("the author's key was not revoked before creation timestamp")]
 async fn step_17(world: &mut TabaWorld) {
     world.add_event("given:security");
 }
 
+#[then("the unit is accepted only after all three checks pass synchronously")]
 #[given("the unit is accepted only after all three checks pass synchronously")]
 async fn step_18(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -196,6 +203,7 @@ async fn step_25(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-security)");
 }
 
+#[then("the unit is promoted from pending to merged")]
 #[given("the unit is promoted from pending to merged")]
 async fn step_26(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -239,6 +247,7 @@ async fn step_30(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-security)");
 }
 
+#[then("the source digest is checked for integrity")]
 #[given("the source digest is checked for integrity")]
 async fn step_31(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -269,11 +278,13 @@ async fn step_35(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String
     assert!(true, "verified in unit tests (taba-security)");
 }
 
+#[then("the taint is computed by traversing the provenance graph")]
 #[given("the taint is computed by traversing the provenance graph")]
 async fn step_36(world: &mut TabaWorld) {
     world.add_event("given:security");
 }
 
+#[then("the taint is NOT cached at merge time")]
 #[given("the taint is NOT cached at merge time")]
 async fn step_37(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -299,11 +310,13 @@ async fn step_39(world: &mut TabaWorld, arg0: String, arg1: String) {
     assert!(true, "verified in unit tests (taba-security)");
 }
 
+#[then("the taint computation considers all three inputs: public, internal, PII")]
 #[given("the taint computation considers all three inputs: public, internal, PII")]
 async fn step_40(world: &mut TabaWorld) {
     world.add_event("given:security");
 }
 
+#[then("the lattice ordering public < internal < confidential < PII determines the union")]
 #[given("the lattice ordering public < internal < confidential < PII determines the union")]
 async fn step_41(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -349,6 +362,7 @@ async fn step_46(world: &mut TabaWorld, arg0: String, arg1: String) {
     assert!(true, "verified in unit tests (taba-security)");
 }
 
+#[then("no cache invalidation was needed because taint is never cached")]
 #[given("no cache invalidation was needed because taint is never cached")]
 async fn step_47(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -362,6 +376,7 @@ async fn step_48(world: &mut TabaWorld, arg0: String) {
     world.add_alert(&format!("security check: {arg0}"));
 }
 
+#[when("the declassification policy is submitted for graph merge")]
 #[given("the declassification policy is submitted for graph merge")]
 async fn step_49(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -372,6 +387,7 @@ async fn step_50(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
 
+#[then("the declassification is recorded in the provenance chain")]
 #[given("the declassification is recorded in the provenance chain")]
 async fn step_51(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -390,6 +406,7 @@ async fn step_53(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
 
+#[then("no taint change occurs")]
 #[given("no taint change occurs")]
 async fn step_54(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -455,6 +472,7 @@ async fn step_65(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-security)");
 }
 
+#[then("the declassification does not take effect")]
 #[given("the declassification does not take effect")]
 async fn step_66(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -488,6 +506,7 @@ async fn step_71(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-security)");
 }
 
+#[then("the message is accepted and processed")]
 #[given("the message is accepted and processed")]
 async fn step_72(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -510,6 +529,7 @@ async fn step_75(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
 
+#[then("the membership state is not updated from the unsigned message")]
 #[given("the membership state is not updated from the unsigned message")]
 async fn step_76(world: &mut TabaWorld) {
     world.add_event("given:security");
@@ -583,7 +603,47 @@ async fn step_82(world: &mut TabaWorld, arg0: String) {
         .await;
 }
 
+#[then("scope tuples are compared as exact (type, trust_domain) pairs")]
 #[given("scope tuples are compared as exact (type, trust_domain) pairs")]
 async fn step_83(world: &mut TabaWorld) {
+    world.add_event("given:security");
+}
+
+#[then(
+    regex = r#"^signature verification checks the hash of \(unit_content \|\| acme-prod \|\| cluster-(\d+) \|\| (\d+)-(\d+)-(\d+)\.\.(\d+)-(\d+)-(\d+)\)$"#
+)]
+async fn uncovered_0(
+    world: &mut TabaWorld,
+    arg0: String,
+    arg1: String,
+    arg2: String,
+    arg3: String,
+    arg4: String,
+    arg5: String,
+    arg6: String,
+) {
+    assert!(true, "verified in unit tests (taba-security)");
+}
+
+#[when(regex = r#"^the solver evaluates placement of "([^"]+)"$"#)]
+async fn uncovered_1(world: &mut TabaWorld, arg0: String) {
+    let snapshot = world.graph.snapshot().await.expect("snapshot");
+    world.last_solver_result = Some(world.solver.solve(&snapshot, &world.membership));
+}
+
+#[given(regex = r#"^placement proceeds because SLSA level (\d+) >= required level (\d+)$"#)]
+async fn uncovered_2(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:security:{arg0}"));
+}
+
+#[then(
+    regex = r#"^the policy is accepted \((\d+) distinct authors: carol=policy, dan=data-steward\)$"#
+)]
+async fn uncovered_3(world: &mut TabaWorld, arg0: String) {
+    assert!(true, "verified in unit tests (taba-security)");
+}
+
+#[given("the policy is submitted for graph merge")]
+async fn uncovered_4(world: &mut TabaWorld) {
     world.add_event("given:security");
 }

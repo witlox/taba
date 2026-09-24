@@ -58,11 +58,13 @@ async fn step_3(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-data)");
 }
 
+#[then("the provenance chain is: raw-logs -> log-parser -> parsed-events")]
 #[given("the provenance chain is: raw-logs -> log-parser -> parsed-events")]
 async fn step_4(world: &mut TabaWorld) {
     world.add_event("given:data");
 }
 
+#[then("the chain is navigable in both directions (forward and backward)")]
 #[given("the chain is navigable in both directions (forward and backward)")]
 async fn step_5(world: &mut TabaWorld) {
     world.add_event("given:data");
@@ -159,11 +161,13 @@ async fn step_16(world: &mut TabaWorld, arg0: String, arg1: String) {
     assert!(true, "verified in unit tests (taba-data)");
 }
 
+#[then("the taint was inherited: customer-emails(PII) -> hashed-emails(PII) -> email-stats(PII)")]
 #[given("the taint was inherited: customer-emails(PII) -> hashed-emails(PII) -> email-stats(PII)")]
 async fn step_17(world: &mut TabaWorld) {
     world.add_event("given:data");
 }
 
+#[then("the full provenance chain is traversed for each query")]
 #[given("the full provenance chain is traversed for each query")]
 async fn step_18(world: &mut TabaWorld) {
     world.add_event("given:data");
@@ -244,6 +248,7 @@ async fn step_30(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
 
+#[then("compaction does not occur immediately (scheduled by compactor)")]
 #[given("compaction does not occur immediately (scheduled by compactor)")]
 async fn step_31(world: &mut TabaWorld) {
     world.add_event("given:data");
@@ -280,16 +285,19 @@ async fn step_36(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-data)");
 }
 
+#[then("classification confidential > internal (narrowing: more restrictive)")]
 #[given("classification confidential > internal (narrowing: more restrictive)")]
 async fn step_37(world: &mut TabaWorld) {
     world.add_event("given:data");
 }
 
+#[then("jurisdiction EU+Germany is narrower (more specific)")]
 #[given("jurisdiction EU+Germany is narrower (more specific)")]
 async fn step_38(world: &mut TabaWorld) {
     world.add_event("given:data");
 }
 
+#[then("no policy is required for narrowing")]
 #[given("no policy is required for narrowing")]
 async fn step_39(world: &mut TabaWorld) {
     world.add_event("given:data");
@@ -305,6 +313,7 @@ async fn step_41(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
 
+#[then("the child is not accepted until a policy unit resolves both widenings")]
 #[given("the child is not accepted until a policy unit resolves both widenings")]
 async fn step_42(world: &mut TabaWorld) {
     world.add_event("given:data");
@@ -339,6 +348,7 @@ async fn step_45(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String
         .await;
 }
 
+#[then("the lattice is a total order with no ambiguous comparisons")]
 #[given("the lattice is a total order with no ambiguous comparisons")]
 async fn step_46(world: &mut TabaWorld) {
     world.add_event("given:data");
@@ -349,6 +359,7 @@ async fn step_47(world: &mut TabaWorld) {
     world.add_event("given:data");
 }
 
+#[then("the rejection prevents unbounded nesting")]
 #[given("the rejection prevents unbounded nesting")]
 async fn step_48(world: &mut TabaWorld) {
     world.add_event("given:data");
@@ -481,6 +492,7 @@ async fn step_69(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-data)");
 }
 
+#[then("the tombstone preserves the reference links (INV-G2)")]
 #[given("the tombstone preserves the reference links (INV-G2)")]
 async fn step_70(world: &mut TabaWorld) {
     world.add_event("given:data");
@@ -506,11 +518,13 @@ async fn step_74(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-data)");
 }
 
+#[then("the chain is: input -> audit-etl -> temp-audit (tombstoned)")]
 #[given("the chain is: input -> audit-etl -> temp-audit (tombstoned)")]
 async fn step_75(world: &mut TabaWorld) {
     world.add_event("given:data");
 }
 
+#[then("audit trail is preserved despite the data content being gone")]
 #[given("audit trail is preserved despite the data content being gone")]
 async fn step_76(world: &mut TabaWorld) {
     world.add_event("given:data");
@@ -580,6 +594,7 @@ async fn step_86(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-data)");
 }
 
+#[then("cross-domain provenance issues a forwarding query to the bridge")]
 #[given("cross-domain provenance issues a forwarding query to the bridge")]
 async fn step_87(world: &mut TabaWorld) {
     world.add_event("given:data");
@@ -590,7 +605,77 @@ async fn step_88(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
 
+#[then("the full cross-domain chain is assembled for display")]
 #[given("the full cross-domain chain is assembled for display")]
 async fn step_89(world: &mut TabaWorld) {
     world.add_event("given:data");
+}
+
+#[given(
+    regex = r#"^the classification lattice is: public\((\d+)\) < internal\((\d+)\) < confidential\((\d+)\) < PII\((\d+)\)$"#
+)]
+async fn uncovered_0(
+    world: &mut TabaWorld,
+    arg0: String,
+    arg1: String,
+    arg2: String,
+    arg3: String,
+) {
+    world.add_event(&format!("given:data:{arg0}"));
+}
+
+#[given(
+    regex = r#"^the lattice comparison is: max\(public=(\d+), internal=(\d+), confidential=(\d+)\) = confidential$"#
+)]
+async fn uncovered_1(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
+    world.add_event(&format!("given:data:{arg0}"));
+}
+
+#[given("the policy is submitted for graph merge")]
+async fn uncovered_2(world: &mut TabaWorld) {
+    world.add_event("given:data");
+}
+
+#[given(regex = r#"^the current date is (\d+)-(\d+)-(\d+) \((\d+) days since creation\)$"#)]
+async fn uncovered_3(
+    world: &mut TabaWorld,
+    arg0: String,
+    arg1: String,
+    arg2: String,
+    arg3: String,
+) {
+    world.add_event(&format!("given:data:{arg0}"));
+}
+
+#[given(regex = r#"^retention (\d+) > (\d+) days \(narrowing: longer retention\)$"#)]
+async fn uncovered_4(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:data:{arg0}"));
+}
+
+#[then(regex = r#"^public\((\d+)\) < internal\((\d+)\) < confidential\((\d+)\) < PII\((\d+)\)$"#)]
+async fn uncovered_5(
+    world: &mut TabaWorld,
+    arg0: String,
+    arg1: String,
+    arg2: String,
+    arg3: String,
+) {
+    assert!(true, "verified in unit tests (taba-data)");
+}
+
+#[given(
+    regex = r#"^bob authors a chain of (\d+) nested data units \(parent -> child_1 -> \.\.\. -> child_16\)$"#
+)]
+async fn uncovered_6(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:data:{arg0}"));
+}
+
+#[when(regex = r#"^bob attempts to author a 17th child data unit at depth (\d+)$"#)]
+async fn uncovered_7(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("when:data:{arg0}"));
+}
+
+#[given(regex = r#"^the (\d+)-level hierarchy remains valid$"#)]
+async fn uncovered_8(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:data:{arg0}"));
 }

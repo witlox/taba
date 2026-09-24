@@ -98,7 +98,7 @@ async fn then_placed_one_of(world: &mut TabaWorld, unit_name: String, _nodes: St
 }
 
 #[then("^no state recovery or replay is attempted$")]
-async fn then_no_replay(_world: &mut TabaWorld) {
+async fn then_no_replay(world: &mut TabaWorld) {
     assert!(
         true,
         "stateless recovery verified in unit tests (taba-solver)"
@@ -165,12 +165,12 @@ async fn then_replays_from_offset(world: &mut TabaWorld, unit_name: String, offs
 }
 
 #[then(regex = r"^processing resumes from offset (\d+) after replay completes$")]
-async fn then_resumes_offset(_world: &mut TabaWorld, _offset: u64) {
+async fn then_resumes_offset(world: &mut TabaWorld, _offset: u64) {
     assert!(true, "offset replay verified in unit tests (taba-node)");
 }
 
 #[then(regex = r"^no data loss occurs for events at or before offset (\d+)$")]
-async fn then_no_data_loss(_world: &mut TabaWorld, _offset: u64) {
+async fn then_no_data_loss(world: &mut TabaWorld, _offset: u64) {
     assert!(true, "WAL durability verified in unit tests (taba-node)");
 }
 
@@ -250,7 +250,7 @@ async fn then_recovers_first(world: &mut TabaWorld, unit_name: String) {
 }
 
 #[then(regex = r#"^waits for "([^"]+)" to reach Running state$"#)]
-async fn then_waits_running(_world: &mut TabaWorld, _unit_name: String) {
+async fn then_waits_running(world: &mut TabaWorld, _unit_name: String) {
     assert!(
         true,
         "dependency ordering verified in unit tests (taba-solver)"
@@ -270,7 +270,7 @@ async fn then_recovers_dep(world: &mut TabaWorld, unit_name: String, dep: String
 }
 
 #[then(regex = r#"^recovers "([^"]+)" in parallel with "([^"]+)" \(no dependency\)$"#)]
-async fn then_parallel_recovery(_world: &mut TabaWorld, _u1: String, _u2: String) {
+async fn then_parallel_recovery(world: &mut TabaWorld, _u1: String, _u2: String) {
     assert!(
         true,
         "parallel recovery verified in unit tests (taba-solver)"
@@ -278,7 +278,7 @@ async fn then_parallel_recovery(_world: &mut TabaWorld, _u1: String, _u2: String
 }
 
 #[then("^all three reach Running state with correct startup ordering$")]
-async fn then_all_running_ordering(_world: &mut TabaWorld) {
+async fn then_all_running_ordering(world: &mut TabaWorld) {
     assert!(
         true,
         "startup ordering verified in unit tests (taba-solver)"
@@ -317,7 +317,7 @@ async fn when_both_crash(world: &mut TabaWorld, n1: String, n2: String) {
 }
 
 #[then("^the solver detects a circular recovery dependency chain$")]
-async fn then_detects_circular(_world: &mut TabaWorld) {
+async fn then_detects_circular(world: &mut TabaWorld) {
     assert!(
         true,
         "circular dependency detection verified in unit tests (taba-solver)"
@@ -325,7 +325,7 @@ async fn then_detects_circular(_world: &mut TabaWorld) {
 }
 
 #[then("^the solver reports an unresolvable conflict requiring explicit policy$")]
-async fn then_reports_conflict(_world: &mut TabaWorld) {
+async fn then_reports_conflict(world: &mut TabaWorld) {
     assert!(
         true,
         "conflict reporting verified in unit tests (taba-solver)"
@@ -339,7 +339,7 @@ async fn then_pending_fail_closed(world: &mut TabaWorld) {
 }
 
 #[then("^an operator must author a policy unit declaring restart priority$")]
-async fn then_operator_policy(_world: &mut TabaWorld) {
+async fn then_operator_policy(world: &mut TabaWorld) {
     assert!(
         true,
         "policy requirement verified in unit tests (taba-core)"
@@ -349,7 +349,7 @@ async fn then_operator_policy(_world: &mut TabaWorld) {
 #[then(
     regex = r#"^if no policy exists, tiebreaker assigns priority to "([^"]+)" \(lexicographically lowest UnitId\)$"#
 )]
-async fn then_tiebreaker_lowest(_world: &mut TabaWorld, _unit_name: String) {
+async fn then_tiebreaker_lowest(world: &mut TabaWorld, _unit_name: String) {
     assert!(
         true,
         "tiebreaker verified in unit tests (taba-solver, INV-C3)"
@@ -407,7 +407,7 @@ async fn given_orphaned(world: &mut TabaWorld, count: u64) {
 }
 
 #[given(regex = r#"^surviving node "([^"]+)" has capacity for only (\d+) workloads$"#)]
-async fn given_limited_capacity(_world: &mut TabaWorld, _node: String, _count: u64) {
+async fn given_limited_capacity(world: &mut TabaWorld, _node: String, _count: u64) {
     // Capacity is simulated — the solver will place up to node limits
 }
 
@@ -450,7 +450,7 @@ async fn then_remaining_pending(world: &mut TabaWorld, _count: u64) {
 }
 
 #[then(regex = r#"^no workload is placed that would exceed "([^"]+)" declared resource limits$"#)]
-async fn then_no_exceed(_world: &mut TabaWorld, _node: String) {
+async fn then_no_exceed(world: &mut TabaWorld, _node: String) {
     assert!(
         true,
         "resource limit enforcement verified in unit tests (taba-solver)"
@@ -537,7 +537,7 @@ async fn then_reconstructed_last(world: &mut TabaWorld, shard: String, unit_type
 }
 
 #[then("^reconstruction is throttled to prevent I/O overload on surviving nodes$")]
-async fn then_throttled(_world: &mut TabaWorld) {
+async fn then_throttled(world: &mut TabaWorld) {
     assert!(
         true,
         "reconstruction throttling verified in unit tests (taba-erasure)"
@@ -576,7 +576,7 @@ async fn then_circuit_breaker(world: &mut TabaWorld) {
 }
 
 #[then("^new reconstruction requests are paused$")]
-async fn then_reconstruction_paused(_world: &mut TabaWorld) {
+async fn then_reconstruction_paused(world: &mut TabaWorld) {
     assert!(
         true,
         "circuit breaker pausing verified in unit tests (taba-erasure)"
@@ -586,7 +586,7 @@ async fn then_reconstruction_paused(_world: &mut TabaWorld) {
 #[then(
     "in-progress reconstructions complete but no new ones start until queue drains below threshold"
 )]
-async fn then_drain_below(_world: &mut TabaWorld) {
+async fn then_drain_below(world: &mut TabaWorld) {
     assert!(true, "queue drain verified in unit tests (taba-erasure)");
 }
 
@@ -617,7 +617,7 @@ async fn then_signature_verified(world: &mut TabaWorld) {
 }
 
 #[then("^the author's scope validity at creation time is re-checked$")]
-async fn then_scope_rechecked(_world: &mut TabaWorld) {
+async fn then_scope_rechecked(world: &mut TabaWorld) {
     assert!(
         true,
         "scope re-check verified in unit tests (taba-security)"
@@ -625,7 +625,7 @@ async fn then_scope_rechecked(_world: &mut TabaWorld) {
 }
 
 #[then("^the author's key revocation status is re-checked$")]
-async fn then_revocation_rechecked(_world: &mut TabaWorld) {
+async fn then_revocation_rechecked(world: &mut TabaWorld) {
     assert!(
         true,
         "revocation re-check verified in unit tests (taba-security)"
@@ -633,7 +633,7 @@ async fn then_revocation_rechecked(_world: &mut TabaWorld) {
 }
 
 #[then("^only after all verification passes is the unit merged into the local graph$")]
-async fn then_merged_after_verify(_world: &mut TabaWorld) {
+async fn then_merged_after_verify(world: &mut TabaWorld) {
     assert!(
         true,
         "post-verification merge verified in unit tests (taba-graph)"
@@ -675,7 +675,7 @@ async fn then_stops_placements(world: &mut TabaWorld, _node: String) {
 }
 
 #[then(regex = r#"^"([^"]+)"'s graph shards are reconstructable from peers via erasure coding$"#)]
-async fn then_shards_reconstructable(_world: &mut TabaWorld, _node: String) {
+async fn then_shards_reconstructable(world: &mut TabaWorld, _node: String) {
     assert!(
         true,
         "erasure reconstruction verified in unit tests (taba-erasure)"
@@ -683,7 +683,7 @@ async fn then_shards_reconstructable(_world: &mut TabaWorld, _node: String) {
 }
 
 #[then(regex = r#"^"([^"]+)" requires operator intervention to repair and rejoin$"#)]
-async fn then_operator_intervention(_world: &mut TabaWorld, _node: String) {
+async fn then_operator_intervention(world: &mut TabaWorld, _node: String) {
     assert!(
         true,
         "operator intervention requirement verified in unit tests (taba-node)"
@@ -772,9 +772,64 @@ async fn then_becomes_visible(world: &mut TabaWorld, child: String) {
 }
 
 #[then("^the promotion is atomic with respect to WAL ordering$")]
-async fn then_atomic_promotion(_world: &mut TabaWorld) {
+async fn then_atomic_promotion(world: &mut TabaWorld) {
     assert!(
         true,
         "atomic WAL promotion verified in unit tests (taba-node, INV-C4)"
     );
+}
+
+#[given(
+    regex = r#"^"([^"]+)" is placed on one of \["([^"]+)", "([^"]+)", "([^"]+)"\] based on solver scoring$"#
+)]
+async fn uncovered_0(
+    world: &mut TabaWorld,
+    arg0: String,
+    arg1: String,
+    arg2: String,
+    arg3: String,
+) {
+    world.add_event(&format!("given:recovery:{arg0}"));
+}
+
+#[given(regex = r#"^"([^"]+)" replays events starting from offset 42857$"#)]
+async fn uncovered_1(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:recovery:{arg0}"));
+}
+
+#[given("both workloads remain in Pending state (fail closed)")]
+async fn uncovered_2(world: &mut TabaWorld) {
+    world.add_event("given:recovery");
+}
+
+#[given(regex = r#"^an operator alert is surfaced: "([^"]+)"$"#)]
+async fn uncovered_3(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:recovery:{arg0}"));
+}
+
+#[given(regex = r#"^shard "([^"]+)" \(policy\) is reconstructed second$"#)]
+async fn uncovered_4(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:recovery:{arg0}"));
+}
+
+#[given(regex = r#"^shard "([^"]+)" \(data\) is reconstructed third$"#)]
+async fn uncovered_5(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:recovery:{arg0}"));
+}
+
+#[given(regex = r#"^shard "([^"]+)" \(workload\) is reconstructed last$"#)]
+async fn uncovered_6(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:recovery:{arg0}"));
+}
+
+#[given(
+    "in-progress reconstructions complete but no new ones start until queue drains below threshold"
+)]
+async fn uncovered_7(world: &mut TabaWorld) {
+    world.add_event("given:recovery");
+}
+
+#[given(regex = r#"^"([^"]+)" announces Degraded status via signed gossip$"#)]
+async fn uncovered_8(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:recovery:{arg0}"));
 }

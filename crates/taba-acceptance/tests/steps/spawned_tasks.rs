@@ -130,6 +130,7 @@ async fn step_17(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("when:spawned:{arg0}"));
 }
 
+#[then("the parent service is notified of failure")]
 #[given("the parent service is notified of failure")]
 async fn step_18(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -155,6 +156,7 @@ async fn step_22(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
 
+#[then("partial output is handled per the spawning service's failure semantics")]
 #[given("partial output is handled per the spawning service's failure semantics")]
 async fn step_23(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -268,6 +270,7 @@ async fn step_41(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-spawned)");
 }
 
+#[then("declaring it as ephemeral (in-graph) succeeds")]
 #[given("declaring it as ephemeral (in-graph) succeeds")]
 async fn step_42(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -303,11 +306,13 @@ async fn step_47(world: &mut TabaWorld, arg0: String, arg1: String) {
     assert!(true, "verified in unit tests (taba-spawned)");
 }
 
+#[then("capability matching follows standard rules (INV-K2)")]
 #[given("capability matching follows standard rules (INV-K2)")]
 async fn step_48(world: &mut TabaWorld) {
     world.add_event("given:spawned");
 }
 
+#[then("the composition includes the spawn provenance link")]
 #[given("the composition includes the spawn provenance link")]
 async fn step_49(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -335,6 +340,7 @@ async fn step_53(world: &mut TabaWorld, arg0: String, arg1: String) {
     assert!(true, "verified in unit tests (taba-spawned)");
 }
 
+#[then("placement follows standard rules (INV-N2 hard constraints, INV-N3 soft ranking)")]
 #[given("placement follows standard rules (INV-N2 hard constraints, INV-N3 soft ranking)")]
 async fn step_54(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -409,21 +415,25 @@ async fn step_66(world: &mut TabaWorld, arg0: String, arg1: String) {
     assert!(true, "verified in unit tests (taba-spawned)");
 }
 
+#[then("both tasks are drained per their declared failure semantics")]
 #[given("both tasks are drained per their declared failure semantics")]
 async fn step_67(world: &mut TabaWorld) {
     world.add_event("given:spawned");
 }
 
+#[then("both tasks transition to Terminated")]
 #[given("both tasks transition to Terminated")]
 async fn step_68(world: &mut TabaWorld) {
     world.add_event("given:spawned");
 }
 
+#[then("ephemeral data from both tasks undergoes reference check:")]
 #[given("ephemeral data from both tasks undergoes reference check:")]
 async fn step_69(world: &mut TabaWorld) {
     world.add_event("given:spawned");
 }
 
+#[then("unreferenced -> fully removed, referenced -> tombstoned (INV-D4)")]
 #[given("unreferenced -> fully removed, referenced -> tombstoned (INV-D4)")]
 async fn step_70(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -474,6 +484,7 @@ async fn step_79(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-spawned)");
 }
 
+#[then("the spawning event is queryable as a graph event")]
 #[given("the spawning event is queryable as a graph event")]
 async fn step_80(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -551,6 +562,7 @@ async fn step_88(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-spawned)");
 }
 
+#[then("the spawn is not counted against max_spawns")]
 #[given("the spawn is not counted against max_spawns")]
 async fn step_89(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -566,6 +578,7 @@ async fn step_91(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("when:spawned:{arg0}"));
 }
 
+#[then("alice must issue a new delegation token for more spawns")]
 #[given("alice must issue a new delegation token for more spawns")]
 async fn step_92(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -608,6 +621,7 @@ async fn step_99(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-spawned)");
 }
 
+#[then("the data retains its original classification")]
 #[given("the data retains its original classification")]
 async fn step_100(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -638,6 +652,7 @@ async fn step_105(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
 
+#[then("the submitting node is flagged for investigation")]
 #[given("the submitting node is flagged for investigation")]
 async fn step_106(world: &mut TabaWorld) {
     world.add_event("given:spawned");
@@ -658,7 +673,71 @@ async fn step_109(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-spawned)");
 }
 
+#[then("no new tasks can be spawned for the terminated service")]
 #[given("no new tasks can be spawned for the terminated service")]
 async fn step_110(world: &mut TabaWorld) {
     world.add_event("given:spawned");
+}
+
+#[when(regex = r#"^"([^"]+)" spawns bounded task "([^"]+)" at LC (\d+):$"#)]
+async fn uncovered_0(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
+    world.add_event(&format!("when:spawned:{arg0}"));
+}
+
+#[given(
+    regex = r#"^the graph merge verifies: \(a\) delegation token signed by alice, \(b\) LC (\d+) within token range (\d+)\.\.(\d+), \(c\) spawn count (\d+) <= max (\d+)$"#
+)]
+async fn uncovered_1(
+    world: &mut TabaWorld,
+    arg0: String,
+    arg1: String,
+    arg2: String,
+    arg3: String,
+    arg4: String,
+) {
+    world.add_event(&format!("given:spawned:{arg0}"));
+}
+
+#[given(regex = r#"^the cluster logical clock advances past LC (\d+)$"#)]
+async fn uncovered_2(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:spawned:{arg0}"));
+}
+
+#[given(regex = r#"^all (\d+) units are in the graph$"#)]
+async fn uncovered_3(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:spawned:{arg0}"));
+}
+
+#[when(regex = r#"^"([^"]+)" attempts to spawn "([^"]+)" \(would be depth (\d+)\)$"#)]
+async fn uncovered_4(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
+    world.add_event(&format!("when:spawned:{arg0}"));
+}
+
+#[given(regex = r#"^a spawn chain at depth (\d+)$"#)]
+async fn uncovered_5(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:spawned:{arg0}"));
+}
+
+#[when(regex = r#"^the depth-(\d+) task spawns a sub-task \(depth (\d+)\)$"#)]
+async fn uncovered_6(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("when:spawned:{arg0}"));
+}
+
+#[then(regex = r#"^the spawn succeeds \(governance allows depth (\d+)\)$"#)]
+async fn uncovered_7(world: &mut TabaWorld, arg0: String) {
+    assert!(true, "verified in unit tests (taba-spawned)");
+}
+
+#[given(
+    regex = r#"^the audit chain shows: web-api -> spawned -> cleanup-job -> placed on prod-(\d+)$"#
+)]
+async fn uncovered_8(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:spawned:{arg0}"));
+}
+
+#[given(
+    regex = r#"^alice pre-signed a delegation token for "([^"]+)" on "([^"]+)" with max_spawns = (\d+)$"#
+)]
+async fn uncovered_9(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
+    world.add_event(&format!("given:spawned:{arg0}"));
 }

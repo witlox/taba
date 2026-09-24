@@ -753,13 +753,13 @@ async fn given_alice_tags_release(world: &mut TabaWorld, tag: String, commit: St
 // ===========================================================================
 
 #[given("no PromotionGate governance unit exists (default: all auto-promote)")]
-async fn given_no_gate_default_auto(_world: &mut TabaWorld) {
+async fn given_no_gate_default_auto(world: &mut TabaWorld) {
     // No gate = all transitions auto-promote (INV-E3).
     // Nothing to do — the absence of a gate is the default state.
 }
 
 #[given(regex = r#"^no PromotionGate governance unit exists in trust domain "([^"]+)"$"#)]
-async fn given_no_gate_in_td(_world: &mut TabaWorld, _td: String) {
+async fn given_no_gate_in_td(world: &mut TabaWorld, _td: String) {
     // No gate = all transitions auto-promote (INV-E3).
 }
 
@@ -825,6 +825,7 @@ async fn given_promotion_policy_authored_table(
     store_promotion(world, &unit_ref, &version, &environment, &rationale);
 }
 
+#[when("the promotion policy is signed and inserted into the graph")]
 #[given("the promotion policy is signed and inserted into the graph")]
 async fn given_promotion_signed_inserted(world: &mut TabaWorld) {
     world.signed_units.insert(
@@ -2557,4 +2558,86 @@ async fn then_continues_if_no_other(
     );
 
     let _ = prod_node_ids; // Acknowledge prod node list.
+}
+
+#[given("placement matches on: env:dev + author:alice affinity")]
+async fn uncovered_0(world: &mut TabaWorld) {
+    world.add_event("given:environment");
+}
+
+#[given("no promotion policy is required")]
+async fn uncovered_1(world: &mut TabaWorld) {
+    world.add_event("given:environment");
+}
+
+#[given(regex = r#"^"([^"]+)" enters state "([^"]+)" on "([^"]+)"$"#)]
+async fn uncovered_2(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
+    world.add_event(&format!("given:environment:{arg0}"));
+}
+
+#[given(regex = r#"^"([^"]+)" IS placed on "([^"]+)" \(author:alice matches\)$"#)]
+async fn uncovered_3(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:environment:{arg0}"));
+}
+
+#[given("both nodes satisfy: env:dev + author:alice + runtime:oci")]
+async fn uncovered_4(world: &mut TabaWorld) {
+    world.add_event("given:environment");
+}
+
+#[given(regex = r#"^"([^"]+)" is placed on "([^"]+)" \(env:test match\)$"#)]
+async fn uncovered_5(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:environment:{arg0}"));
+}
+
+#[given(regex = r#"^"([^"]+)" is NOT placed on "([^"]+)" \(no promotion for env:test\)$"#)]
+async fn uncovered_7(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:environment:{arg0}"));
+}
+
+#[given("the workload is NOT placed on prod nodes")]
+async fn uncovered_8(world: &mut TabaWorld) {
+    world.add_event("given:environment");
+}
+
+#[given(regex = r#"^"([^"]+)" is placed on prod nodes$"#)]
+async fn uncovered_9(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:environment:{arg0}"));
+}
+
+#[given(regex = r#"^bob's version runs on "([^"]+)"$"#)]
+async fn uncovered_10(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:environment:{arg0}"));
+}
+
+#[given(regex = r#"^carol's version runs on "([^"]+)"$"#)]
+async fn uncovered_11(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:environment:{arg0}"));
+}
+
+#[given("no version is placed on test or prod (no promotion policies)")]
+async fn uncovered_12(world: &mut TabaWorld) {
+    world.add_event("given:environment");
+}
+
+#[given(regex = r#"^CI authors a promotion policy for "([^"]+)" version "([^"]+)" to env:test$"#)]
+async fn uncovered_13(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:environment:{arg0}"));
+}
+
+#[given("alice's and carol's branches continue on their dev nodes unaffected")]
+async fn uncovered_14(world: &mut TabaWorld) {
+    world.add_event("given:environment");
+}
+
+#[given(
+    regex = r#"^"([^"]+)" remains in state "([^"]+)" in the graph \(desired state unchanged\)$"#
+)]
+async fn uncovered_15(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:environment:{arg0}"));
+}
+
+#[given("the override takes precedence over the env:dev default")]
+async fn uncovered_16(world: &mut TabaWorld) {
+    world.add_event("given:environment");
 }

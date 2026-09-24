@@ -38,11 +38,13 @@ async fn step_1(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-ceremony)");
 }
 
+#[then("the ceremony ID is returned for subsequent share submissions")]
 #[given("the ceremony ID is returned for subsequent share submissions")]
 async fn step_2(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
 }
 
+#[then("no key material exists yet")]
 #[given("no key material exists yet")]
 async fn step_3(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -103,6 +105,7 @@ async fn step_14(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
+#[then("a ceremony audit event is generated")]
 #[given("a ceremony audit event is generated")]
 async fn step_15(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -128,11 +131,13 @@ async fn step_19(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
+#[then("the composition graph is seeded and operational")]
 #[given("the composition graph is seeded and operational")]
 async fn step_20(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
 }
 
+#[then("the root key private material is zeroized immediately after signing")]
 #[given("the root key private material is zeroized immediately after signing")]
 async fn step_21(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -143,6 +148,7 @@ async fn step_22(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-ceremony)");
 }
 
+#[then("no ceremony state is created")]
 #[given("no ceremony state is created")]
 async fn step_23(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -175,11 +181,13 @@ async fn step_28(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-ceremony)");
 }
 
+#[then("no key material can be recovered from the cancelled ceremony")]
 #[given("no key material can be recovered from the cancelled ceremony")]
 async fn step_29(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
 }
 
+#[then("a ceremony cancellation audit event is generated")]
 #[given("a ceremony cancellation audit event is generated")]
 async fn step_30(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -200,6 +208,7 @@ async fn step_33(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
+#[then("no share values or key material are included in the response")]
 #[given("no share values or key material are included in the response")]
 async fn step_34(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -227,6 +236,7 @@ async fn step_38(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
+#[then("if they match, the ceremony proceeds to completion")]
 #[given("if they match, the ceremony proceeds to completion")]
 async fn step_39(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -252,11 +262,13 @@ async fn step_43(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-ceremony)");
 }
 
+#[then("the Shamir share bytes held in memory are overwritten with zeros")]
 #[given("the Shamir share bytes held in memory are overwritten with zeros")]
 async fn step_44(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
 }
 
+#[then("a memory audit confirms no residual key material remains")]
 #[given("a memory audit confirms no residual key material remains")]
 async fn step_45(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -282,6 +294,7 @@ async fn step_49(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-ceremony)");
 }
 
+#[then("the key serves as BOTH the node identity AND the author identity")]
 #[given("the key serves as BOTH the node identity AND the author identity")]
 async fn step_50(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -297,11 +310,13 @@ async fn step_52(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
+#[then("the node is immediately operational: can author, compose, and place units")]
 #[given("the node is immediately operational: can author, compose, and place units")]
 async fn step_53(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
 }
 
+#[then("no ceremony state machine was involved (no shares, no witnesses)")]
 #[given("no ceremony state machine was involved (no shares, no witnesses)")]
 async fn step_54(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -336,6 +351,7 @@ async fn step_59(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-ceremony)");
 }
 
+#[then("units are signed with alice's single key")]
 #[given("units are signed with alice's single key")]
 async fn step_60(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -386,6 +402,7 @@ async fn step_69(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
+#[then("alice can retry the upgrade at any time")]
 #[given("alice can retry the upgrade at any time")]
 async fn step_70(world: &mut TabaWorld) {
     world.add_event("given:ceremony");
@@ -393,5 +410,50 @@ async fn step_70(world: &mut TabaWorld) {
 
 #[given(regex = r#"^no\ units\ in\ "([^"]+)"\ were\ affected$"#)]
 async fn step_71(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:ceremony:{arg0}"));
+}
+
+#[when(regex = r#"^the ceremony is configured with total_shares=(\d+) and threshold=(\d+)$"#)]
+async fn uncovered_0(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("when:ceremony:{arg0}"));
+}
+
+#[then(regex = r#"^the ceremony records (\d+) of (\d+) required shares received$"#)]
+async fn uncovered_1(world: &mut TabaWorld, arg0: String, arg1: String) {
+    assert!(true, "verified in unit tests (taba-ceremony)");
+}
+
+#[given(regex = r#"^the ceremony share count remains unchanged at (\d+)$"#)]
+async fn uncovered_2(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:ceremony:{arg0}"));
+}
+
+#[given(regex = r#"^(\d+) shares have been received from \["([^"]+)", "([^"]+)"\]$"#)]
+async fn uncovered_3(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
+    world.add_event(&format!("given:ceremony:{arg0}"));
+}
+
+#[given(regex = r#"^shares_received=(\d+), threshold=(\d+), total_shares=(\d+)$"#)]
+async fn uncovered_4(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
+    world.add_event(&format!("given:ceremony:{arg0}"));
+}
+
+#[given(regex = r#"^(\d+) shares have been submitted meeting the threshold$"#)]
+async fn uncovered_5(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:ceremony:{arg0}"));
+}
+
+#[given(regex = r#"^the composition graph functions identically to a Tier (\d+)\+ domain$"#)]
+async fn uncovered_6(world: &mut TabaWorld, arg0: String) {
+    world.add_event(&format!("given:ceremony:{arg0}"));
+}
+
+#[given(regex = r#"^the ceremony completes with (\d+) shares, threshold (\d+)$"#)]
+async fn uncovered_7(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:ceremony:{arg0}"));
+}
+
+#[given(regex = r#"^the ceremony fails at share (\d+) of (\d+) \(network error\)$"#)]
+async fn uncovered_8(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }

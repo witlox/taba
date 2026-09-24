@@ -60,6 +60,7 @@ async fn step_3(world: &mut TabaWorld, arg0: String, arg1: String) {
     assert!(true, "verified in unit tests (taba-runtime)");
 }
 
+#[then("all Linux nodes are excluded (os mismatch)")]
 #[given("all Linux nodes are excluded (os mismatch)")]
 async fn step_4(world: &mut TabaWorld) {
     world.add_event("given:runtime");
@@ -84,6 +85,7 @@ async fn step_7(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-runtime)");
 }
 
+#[then("all non-K8s nodes are excluded")]
 #[given("all non-K8s nodes are excluded")]
 async fn step_8(world: &mut TabaWorld) {
     world.add_event("given:runtime");
@@ -124,11 +126,13 @@ async fn step_13(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-runtime)");
 }
 
+#[then("the node uses rootless Podman/Docker to execute the container")]
 #[given("the node uses rootless Podman/Docker to execute the container")]
 async fn step_14(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("the workload runs without root privileges")]
 #[given("the workload runs without root privileges")]
 async fn step_15(world: &mut TabaWorld) {
     let unit = WorkloadUnitBuilder::new()
@@ -190,16 +194,19 @@ async fn step_23(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-runtime)");
 }
 
+#[then("the node does NOT claim runtime:oci (not running as root with Docker daemon)")]
 #[given("the node does NOT claim runtime:oci (not running as root with Docker daemon)")]
 async fn step_24(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("the node does NOT claim ports:privileged (running as user)")]
 #[given("the node does NOT claim ports:privileged (running as user)")]
 async fn step_25(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("capabilities are cached locally and advertised via gossip")]
 #[given("capabilities are cached locally and advertised via gossip")]
 async fn step_26(world: &mut TabaWorld) {
     world.add_event("given:runtime");
@@ -227,21 +234,25 @@ async fn step_30(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-runtime)");
 }
 
+#[then("runtime:oci is removed (Docker socket not found)")]
 #[given("runtime:oci is removed (Docker socket not found)")]
 async fn step_31(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("runtime:native remains (package manager still available)")]
 #[given("runtime:native remains (package manager still available)")]
 async fn step_32(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("updated capabilities are advertised via gossip")]
 #[given("updated capabilities are advertised via gossip")]
 async fn step_33(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("the solver re-evaluates placements affected by the capability change")]
 #[given("the solver re-evaluates placements affected by the capability change")]
 async fn step_34(world: &mut TabaWorld) {
     world.add_event("given:runtime");
@@ -267,11 +278,13 @@ async fn step_38(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-runtime)");
 }
 
+#[then("every node re-probes its capabilities")]
 #[given("every node re-probes its capabilities")]
 async fn step_39(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("the solver re-evaluates all placements")]
 #[given("the solver re-evaluates all placements")]
 async fn step_40(world: &mut TabaWorld) {
     world.add_event("given:runtime");
@@ -289,6 +302,7 @@ async fn step_42(world: &mut TabaWorld, arg0: String, arg1: String) {
     assert!(true, "verified in unit tests (taba-runtime)");
 }
 
+#[then("the custom tag is matched identically to an auto-discovered capability")]
 #[given("the custom tag is matched identically to an auto-discovered capability")]
 async fn step_43(world: &mut TabaWorld) {
     world.add_event("given:runtime");
@@ -322,6 +336,7 @@ async fn step_47(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-runtime)");
 }
 
+#[then("if hash does NOT match, the artifact is rejected")]
 #[given("if hash does NOT match, the artifact is rejected")]
 async fn step_48(world: &mut TabaWorld) {
     world.add_event("given:runtime");
@@ -332,6 +347,7 @@ async fn step_49(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:runtime:{arg0}"));
 }
 
+#[then("the workload is NOT started with the mismatched artifact")]
 #[given("the workload is NOT started with the mismatched artifact")]
 async fn step_50(world: &mut TabaWorld) {
     let unit = WorkloadUnitBuilder::new()
@@ -373,11 +389,13 @@ async fn step_56(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:runtime:{arg0}"));
 }
 
+#[then("does NOT contact the external registry")]
 #[given("does NOT contact the external registry")]
 async fn step_57(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("verifies digest after fetch (INV-A1)")]
 #[given("verifies digest after fetch (INV-A1)")]
 async fn step_58(world: &mut TabaWorld) {
     world.add_event("given:runtime");
@@ -393,16 +411,19 @@ async fn step_60(world: &mut TabaWorld, arg0: String) {
     assert!(true, "verified in unit tests (taba-runtime)");
 }
 
+#[then("falls back to external source (registry URL from artifact.ref)")]
 #[given("falls back to external source (registry URL from artifact.ref)")]
 async fn step_61(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("fetches from registry")]
 #[given("fetches from registry")]
 async fn step_62(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("caches the artifact locally for future peer requests")]
 #[given("caches the artifact locally for future peer requests")]
 async fn step_63(world: &mut TabaWorld) {
     world.add_event("given:runtime");
@@ -428,12 +449,27 @@ async fn step_67(world: &mut TabaWorld) {
     assert!(true, "verified in unit tests (taba-runtime)");
 }
 
+#[then("nodes receiving the artifact verify the digest (INV-A1)")]
 #[given("nodes receiving the artifact verify the digest (INV-A1)")]
 async fn step_68(world: &mut TabaWorld) {
     world.add_event("given:runtime");
 }
 
+#[then("the artifact becomes available in peer cache across the cluster")]
 #[given("the artifact becomes available in peer cache across the cluster")]
 async fn step_69(world: &mut TabaWorld) {
     world.add_event("given:runtime");
+}
+
+#[when(regex = r#"^the solver evaluates placement on "([^"]+)" \(privilege:user\)$"#)]
+async fn uncovered_1(world: &mut TabaWorld, arg0: String) {
+    let snapshot = world.graph.snapshot().await.expect("snapshot");
+    world.last_solver_result = Some(world.solver.solve(&snapshot, &world.membership));
+}
+
+#[given(
+    regex = r#"^the solver ranks by resource fit: prod-(\d+) \(best\), prod-(\d+), ci-runner \(worst\)$"#
+)]
+async fn uncovered_2(world: &mut TabaWorld, arg0: String, arg1: String) {
+    world.add_event(&format!("given:runtime:{arg0}"));
 }

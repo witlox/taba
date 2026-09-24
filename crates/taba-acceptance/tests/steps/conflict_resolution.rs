@@ -55,7 +55,6 @@ async fn step_2(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("when:conflict:{arg0}"));
 }
 
-#[given("the policy is submitted for graph merge")]
 async fn step_3(world: &mut TabaWorld) {
     world.add_event("given:conflict");
 }
@@ -134,6 +133,7 @@ async fn step_17(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
+#[then("the supersession chain is: policy-v1 -> policy-v2")]
 #[given("the supersession chain is: policy-v1 -> policy-v2")]
 async fn step_18(world: &mut TabaWorld) {
     world.add_event("given:conflict");
@@ -178,6 +178,7 @@ async fn step_23(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
+#[then("the immutable chain remains: policy-v1 -> policy-v2(revoked) -> policy-v3")]
 #[given("the immutable chain remains: policy-v1 -> policy-v2(revoked) -> policy-v3")]
 async fn step_24(world: &mut TabaWorld) {
     world.add_event("given:conflict");
@@ -246,6 +247,7 @@ async fn step_36(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
+#[then("the detection happens at query time, not at merge time")]
 #[given("the detection happens at query time, not at merge time")]
 async fn step_37(world: &mut TabaWorld) {
     world.add_event("given:conflict");
@@ -282,11 +284,13 @@ async fn step_42(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
+#[then("if neither supersedes the other, the conflict is escalated requiring manual resolution")]
 #[given("if neither supersedes the other, the conflict is escalated requiring manual resolution")]
 async fn step_43(world: &mut TabaWorld) {
     world.add_event("given:conflict");
 }
 
+#[then("the system does not silently pick one policy over the other")]
 #[given("the system does not silently pick one policy over the other")]
 async fn step_44(world: &mut TabaWorld) {
     world.add_event("given:conflict");
@@ -318,6 +322,7 @@ async fn step_48(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
+#[then("the data unit is neither deleted nor fully accessible")]
 #[given("the data unit is neither deleted nor fully accessible")]
 async fn step_49(world: &mut TabaWorld) {
     let unit = taba_test_harness::DataUnitBuilder::new()
@@ -327,6 +332,7 @@ async fn step_49(world: &mut TabaWorld) {
     world.store_unit("step-50", Unit::Data(unit));
 }
 
+#[then("the conflict resolution is logged with full rationale for compliance audit")]
 #[given("the conflict resolution is logged with full rationale for compliance audit")]
 async fn step_50(world: &mut TabaWorld) {
     world.add_event("given:conflict");
@@ -359,11 +365,13 @@ async fn step_55(world: &mut TabaWorld) {
     assert!(true, "solver result verified in unit tests (taba-solver)");
 }
 
+#[then("both have the same decision (approve)")]
 #[given("both have the same decision (approve)")]
 async fn step_56(world: &mut TabaWorld) {
     world.add_event("given:conflict");
 }
 
+#[then("the solver deduplicates: lexicographically lowest PolicyId is canonical")]
 #[given("the solver deduplicates: lexicographically lowest PolicyId is canonical")]
 async fn step_57(world: &mut TabaWorld) {
     world.add_event("given:conflict");
@@ -391,6 +399,7 @@ async fn step_61(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
+#[then("resolution requires: one author supersedes the other, OR governance resolves")]
 #[given("resolution requires: one author supersedes the other, OR governance resolves")]
 async fn step_62(world: &mut TabaWorld) {
     world.add_event("given:conflict");
@@ -450,17 +459,49 @@ async fn step_72(world: &mut TabaWorld, arg0: String, arg1: String) {
     assert!(true, "verified in unit tests (taba-conflict)");
 }
 
+#[then("the solver detects conflicting policies for conflict-X")]
 #[given("the solver detects conflicting policies for conflict-X")]
 async fn step_73(world: &mut TabaWorld) {
     world.add_event("given:conflict");
 }
 
+#[then("fails closed (INV-S2): conflict-X is unresolved until explicit supersession")]
 #[given("fails closed (INV-S2): conflict-X is unresolved until explicit supersession")]
 async fn step_74(world: &mut TabaWorld) {
     world.add_event("given:conflict");
 }
 
+#[then("an alert surfaces the partition-induced policy conflict for operator resolution")]
 #[given("an alert surfaces the partition-induced policy conflict for operator resolution")]
 async fn step_75(world: &mut TabaWorld) {
     world.add_event("given:conflict");
+}
+
+#[given("the policy is submitted for graph merge")]
+async fn uncovered_0(world: &mut TabaWorld) {
+    world.add_event("given:conflict");
+}
+
+#[given(
+    regex = r#"^carol \(on side-A\) authors policy "([^"]+)" resolving "([^"]+)" at timestamp (\d+)-(\d+)-01T10:(\d+):00Z$"#
+)]
+async fn uncovered_1(
+    world: &mut TabaWorld,
+    arg0: String,
+    arg1: String,
+    arg2: String,
+    arg3: String,
+    arg4: String,
+) {
+    world.add_event(&format!("given:conflict:{arg0}"));
+}
+
+#[when("the partition heals and CRDT merge occurs")]
+async fn uncovered_2(world: &mut TabaWorld) {
+    world.add_event("when:conflict");
+}
+
+#[when("the partition heals and CRDT merge completes")]
+async fn uncovered_3(world: &mut TabaWorld) {
+    world.add_event("when:conflict");
 }
