@@ -364,14 +364,6 @@ async fn step_56(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
 
-#[then(regex = r#"^the\ solver\ re\-places\ "([^"]+)"\ to\ another\ eligible\ node$"#)]
-async fn step_57(world: &mut TabaWorld, arg0: String) {
-    assert!(
-        world.last_solver_result.is_some() || world.units.contains_key(&arg0),
-        "solver result or unit exists"
-    );
-}
-
 #[given(
     regex = r#"^"([^"]+)"\ restarts\ from\ scratch\ \(or\ replay\-from\-offset\ per\ state\ recovery\ declaration\)$"#
 )]
