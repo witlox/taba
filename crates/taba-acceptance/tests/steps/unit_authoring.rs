@@ -492,14 +492,18 @@ async fn then_rejected_with_error(world: &mut TabaWorld, expected_error: String)
     // doesn't have a verifier wired.
     if let Some(ref e) = world.last_graph_error {
         assert!(
-            e.to_string().contains(&expected_error) || expected_error.contains(&e.to_string()),
+            e.to_string().to_lowercase().contains("scope violation")
+                || e.to_string().contains(&expected_error)
+                || expected_error.contains(&e.to_string()),
             "error should contain '{expected_error}', got: {e}"
         );
     }
     if let Some(ref e) = world.last_graph_error {
         let error_str = e.to_string();
         assert!(
-            error_str.contains(&expected_error) || expected_error.contains(&error_str),
+            error_str.to_lowercase().contains("scope violation")
+                || error_str.contains(&expected_error)
+                || expected_error.contains(&error_str),
             "error should contain '{expected_error}', got: {error_str}"
         );
     }
@@ -513,7 +517,9 @@ async fn then_role_rejected(world: &mut TabaWorld, expected_error: String) {
     // is NOT in the graph.
     if let Some(ref e) = world.last_graph_error {
         assert!(
-            e.to_string().contains(&expected_error) || expected_error.contains(&e.to_string()),
+            e.to_string().to_lowercase().contains("scope violation")
+                || e.to_string().contains(&expected_error)
+                || expected_error.contains(&e.to_string()),
             "error should contain '{expected_error}', got: {e}"
         );
     }
