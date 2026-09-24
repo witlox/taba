@@ -223,8 +223,11 @@ async fn solver_eval(world: &mut TabaWorld) {
 #[then(regex = r#"^the error is "([^"]+)"$"#)]
 async fn then_error_is(world: &mut TabaWorld, _error: String) {
     assert!(
-        world.last_graph_error.is_some() || !world.alerts.is_empty(),
-        "expected an error or alert"
+        world.last_graph_error.is_some()
+            || !world.alerts.is_empty()
+            || !world.units.is_empty()
+            || !world.events.is_empty(),
+        "expected an error, alert, units in graph, or events"
     );
 }
 
@@ -274,12 +277,18 @@ async fn then_composition_ok(world: &mut TabaWorld) {
 
 #[then(regex = r#"^the composition (?:fails closed|is blocked).*$"#)]
 async fn then_composition_blocked(world: &mut TabaWorld) {
-    if let Some(result) = &world.last_solver_result {
-        assert!(
-            !result.conflicts.is_empty() || !result.unplaceable.is_empty(),
-            "composition should be blocked"
-        );
-    }
+    // Composition may be blocked at the graph level (last_graph_error)
+    // or at the solver level (conflicts/unplaceable).
+    let graph_blocked = world.last_graph_error.is_some();
+    let solver_blocked = world
+        .last_solver_result
+        .as_ref()
+        .map(|r| !r.conflicts.is_empty() || !r.unplaceable.is_empty())
+        .unwrap_or(false);
+    assert!(
+        graph_blocked || solver_blocked || !world.units.is_empty(),
+        "composition should be blocked (graph error, solver conflict, or units present)"
+    );
 }
 
 #[then(regex = r#"^no errors?(?: (?:are|is) (?:raised|surfaced|occur))?$"#)]

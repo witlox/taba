@@ -11,8 +11,10 @@ use cucumber::{given, then, when};
 use std::collections::BTreeMap;
 
 use crate::TabaWorld;
+use taba_core::GovernanceUnit;
 use taba_core::Unit;
 use taba_graph::Graph;
+use taba_security::ScopeChecker;
 use taba_solver::Solver;
 use taba_test_harness::WorkloadUnitBuilder;
 

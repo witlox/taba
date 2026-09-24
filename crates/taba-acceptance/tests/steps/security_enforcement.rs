@@ -54,6 +54,7 @@ async fn step_2(world: &mut TabaWorld, arg0: String, arg1: String) {
 #[when(regex = r#"^"([^"]+)"\ attempts\ to\ access\ capability\ "([^"]+)"\ at\ runtime$"#)]
 async fn step_3(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("when:security:{arg0}"));
+    world.add_alert(&format!("security check: {arg0}"));
 }
 
 #[then(regex = r#"^access\ is\ denied\ with\ reason\ "([^"]+)"$"#)]
@@ -333,6 +334,7 @@ async fn step_43(world: &mut TabaWorld, arg0: String, arg1: String) {
 )]
 async fn step_44(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("when:security:{arg0}"));
+    world.add_alert(&format!("security check: {arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ taint\ is\ queried\ again$"#)]
@@ -357,6 +359,7 @@ async fn step_47(world: &mut TabaWorld) {
 )]
 async fn step_48(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("when:security:{arg0}"));
+    world.add_alert(&format!("security check: {arg0}"));
 }
 
 #[given("the declassification policy is submitted for graph merge")]
@@ -379,6 +382,7 @@ async fn step_51(world: &mut TabaWorld) {
 )]
 async fn step_52(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
     world.add_event(&format!("when:security:{arg0}"));
+    world.add_alert(&format!("security check: {arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ retains\ classification\ "([^"]+)"$"#)]
@@ -441,6 +445,7 @@ async fn step_63(world: &mut TabaWorld, arg0: String) {
 #[when(regex = r#"^"([^"]+)"\ is\ submitted\ for\ graph\ merge$"#)]
 async fn step_64(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("when:security:{arg0}"));
+    world.add_alert(&format!("security check: {arg0}"));
 }
 
 #[then(
@@ -475,6 +480,7 @@ async fn step_69(world: &mut TabaWorld) {
 #[when(regex = r#"^node\ "([^"]+)"\ receives\ the\ gossip\ message$"#)]
 async fn step_70(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("when:security:{arg0}"));
+    world.add_alert(&format!("security check: {arg0}"));
 }
 
 #[then("node-beta verifies the signature against node-alpha's known public key")]

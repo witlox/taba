@@ -11,8 +11,10 @@ use cucumber::{given, then, when};
 use std::collections::BTreeMap;
 
 use crate::TabaWorld;
+use taba_common::LogicalClock;
 use taba_core::Unit;
 use taba_graph::Graph;
+use taba_security::{DefaultDelegationValidator, DelegationValidator};
 use taba_solver::Solver;
 use taba_test_harness::WorkloadUnitBuilder;
 
@@ -515,6 +517,32 @@ async fn step_86(world: &mut TabaWorld, arg0: String, arg1: String) {
     regex = r#"^"([^"]+)"\ attempts\ to\ spawn\ a\ task\ at\ LC\ 2500\ \(outside\ token\ range\)$"#
 )]
 async fn step_87(world: &mut TabaWorld, arg0: String) {
+    // Call production DelegationValidator to check LC range.
+    // A delegation token with range LC 1000..LC 2000 should reject
+    // a spawned task at LC 2500.
+    let mut validator = DefaultDelegationValidator::new();
+    // Create a minimal token with LC range 1000..2000
+    let token = taba_core::DelegationToken {
+        id: taba_common::DelegationTokenId(uuid::Uuid::nil()),
+        service_id: taba_common::UnitId(uuid::Uuid::nil()),
+        node_id: world.node_id,
+        trust_domain: world.trust_domain,
+        valid_lc_range: (LogicalClock(1000), LogicalClock(2000)),
+        max_spawns: 10,
+        current_spawns: 0,
+        revoked: false,
+        author_signature: vec![],
+    };
+    let pk = taba_security::PublicKey::from_bytes([0u8; 32]);
+    validator.add_token(token.clone(), pk);
+    let result = validator.validate(&token, &LogicalClock(2500));
+    if let Err(e) = result {
+        world.last_graph_error = Some(taba_graph::GraphError::SignatureRejected {
+            unit: taba_common::UnitId(uuid::Uuid::nil()),
+            reason: e.to_string(),
+        });
+        world.add_alert(&e.to_string());
+    }
     world.add_event(&format!("when:spawned:{arg0}"));
 }
 
