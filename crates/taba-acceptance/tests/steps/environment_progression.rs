@@ -283,6 +283,39 @@ fn register_node(
     world.membership.add_node(node_id, caps, NodeHealth::Active);
 }
 
+/// Register a node with full capability set (os, arch, privilege, runtimes).
+fn register_node_full(
+    world: &mut TabaWorld,
+    name: &str,
+    env: Option<String>,
+    author_affinity: Option<AuthorId>,
+    runtimes: Vec<RuntimeCapability>,
+    os: &str,
+    arch: &str,
+    privilege: taba_core::PrivilegeLevel,
+) {
+    let node_id = make_node_id(name);
+    let mut builder = NodeCapabilitySetBuilder::new().with_runtimes(runtimes);
+    if let Some(env_str) = env {
+        builder = builder.with_environment(Some(env_str));
+    }
+    if let Some(author) = author_affinity {
+        builder = builder.with_author_affinity(author);
+    }
+    if !os.is_empty() {
+        builder = builder.with_os(os);
+    }
+    if !arch.is_empty() {
+        builder = builder.with_arch(arch);
+    }
+    builder = builder.with_privilege(privilege);
+    let caps = builder.build();
+    world
+        .node_caps
+        .insert(name.to_string(), (node_id, caps.clone()));
+    world.membership.add_node(node_id, caps, NodeHealth::Active);
+}
+
 // ===========================================================================
 // Background: Author registration and node setup
 // ===========================================================================
@@ -361,6 +394,9 @@ async fn given_nodes_in_cluster(world: &mut TabaWorld, step: &cucumber::gherkin:
         let env_str = row.get("env").cloned().unwrap_or_default();
         let author_affinity_str = row.get("author_affinity").cloned().unwrap_or_default();
         let runtimes_str = row.get("runtimes").cloned().unwrap_or_default();
+        let os = row.get("os").cloned().unwrap_or_default();
+        let arch = row.get("arch").cloned().unwrap_or_default();
+        let privilege_str = row.get("privilege").cloned().unwrap_or_default();
 
         let env = if env_str.is_empty() {
             None
@@ -375,8 +411,22 @@ async fn given_nodes_in_cluster(world: &mut TabaWorld, step: &cucumber::gherkin:
         };
 
         let runtimes = parse_runtime_list(&runtimes_str);
+        let privilege = if privilege_str == "root" {
+            taba_core::PrivilegeLevel::Root
+        } else {
+            taba_core::PrivilegeLevel::User
+        };
 
-        register_node(world, &name, env, author_affinity, runtimes);
+        register_node_full(
+            world,
+            &name,
+            env,
+            author_affinity,
+            runtimes,
+            &os,
+            &arch,
+            privilege,
+        );
     }
 
     // Verify at least one node was registered.
