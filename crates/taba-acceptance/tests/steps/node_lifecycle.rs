@@ -794,17 +794,6 @@ async fn then_transitions_degraded(world: &mut TabaWorld) {
     );
 }
 
-#[then("\"n-002\" announces Degraded status via signed gossip message")]
-async fn then_announces_degraded(world: &mut TabaWorld) {
-    assert!(
-        world
-            .alerts
-            .iter()
-            .any(|a| a.contains("MemoryLimitExceeded")),
-        "n-002 should announce Degraded status (MemoryLimitExceeded alert)"
-    );
-}
-
 #[then("the solver stops placing new workloads on \"n-002\"")]
 async fn then_stops_placing(world: &mut TabaWorld) {
     assert!(

@@ -203,17 +203,6 @@ async fn signs_policy(world: &mut TabaWorld) {
     }
 }
 
-#[when(regex = r#"^the (?:policy|submission) is submitted for graph merge.*$"#)]
-async fn submit_to_graph_var(world: &mut TabaWorld) {
-    world.reset_errors();
-    if let Some((_, unit)) = world.units.last_key_value() {
-        match world.graph.insert(unit.clone()).await {
-            Ok(()) => {}
-            Err(e) => world.last_graph_error = Some(e),
-        }
-    }
-}
-
 #[when(regex = r#"^all units are signed and accepted.*$"#)]
 async fn all_units_accepted(world: &mut TabaWorld) {
     world.reset_errors();
