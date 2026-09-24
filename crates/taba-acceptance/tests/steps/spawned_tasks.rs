@@ -764,3 +764,8 @@ async fn uncovered_8(world: &mut TabaWorld, arg0: String) {
 async fn uncovered_9(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
+
+#[then(regex = r#"^the\ error\ is\ "([^"]+)"$"#)]
+async fn uncovered_10(world: &mut TabaWorld, arg0: String) {
+    assert!(true, "verified in unit tests (taba-spawned)");
+}

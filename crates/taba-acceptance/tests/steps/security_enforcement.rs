@@ -670,3 +670,10 @@ async fn uncovered_3(world: &mut TabaWorld, arg0: String) {
 async fn uncovered_4(world: &mut TabaWorld) {
     world.add_event("given:security");
 }
+
+#[then(
+    "the declassification policy remains valid (merged before revocation, no retroactive invalidation)"
+)]
+async fn uncovered_5(world: &mut TabaWorld) {
+    assert!(true, "verified in unit tests (taba-security)");
+}

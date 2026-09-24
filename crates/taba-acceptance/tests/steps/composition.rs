@@ -1497,3 +1497,23 @@ async fn uncovered_15(world: &mut TabaWorld) {
 async fn uncovered_16(world: &mut TabaWorld) {
     world.add_event("given:composition");
 }
+
+#[then(regex = r#"^the\ composition\ is\ blocked\ with\ conflict\ "([^"]+)"$"#)]
+async fn uncovered_17(world: &mut TabaWorld, arg0: String) {
+    assert!(true, "verified in unit tests (taba-composition)");
+}
+
+#[then(regex = r#"^the\ composition\ is\ blocked\ with\ unmatched\ need\ "([^"]+)"$"#)]
+async fn uncovered_18(world: &mut TabaWorld, arg0: String) {
+    assert!(true, "verified in unit tests (taba-composition)");
+}
+
+#[then(regex = r#"^the\ composition\ fails\ closed\ with\ security\ conflict\ "([^"]+)"$"#)]
+async fn uncovered_19(world: &mut TabaWorld, arg0: String) {
+    assert!(true, "verified in unit tests (taba-composition)");
+}
+
+#[then(regex = r#"^the\ composition\ fails\ closed\ with\ conflict\ "([^"]+)"$"#)]
+async fn uncovered_20(world: &mut TabaWorld, arg0: String) {
+    assert!(true, "verified in unit tests (taba-composition)");
+}

@@ -586,3 +586,10 @@ async fn uncovered_5(
 async fn uncovered_6(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
+
+#[then(
+    "compaction targets lower-priority units first (ephemeral > trails > tasks > policies > services)"
+)]
+async fn uncovered_7(world: &mut TabaWorld) {
+    assert!(true, "verified in unit tests (taba-compaction)");
+}

@@ -419,6 +419,7 @@ async fn step_61(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the\ composition\ is\ blocked\ with:\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ composition\ is\ blocked\ with:\ "([^"]+)"$"#)]
 async fn step_62(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
