@@ -8,11 +8,15 @@
 //! Real BDD step definitions for `security-enforcement`.
 
 use cucumber::{given, then, when};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use crate::TabaWorld;
-use taba_core::Unit;
+use taba_core::{Capability, Classification, Unit};
 use taba_graph::Graph;
+use taba_security::{
+    DefaultScopeChecker, DefaultSigner, DefaultTaintComputer, DefaultVerifier, KeyPair, PublicKey,
+    ScopeChecker, Signer, TaintComputer, Verifier,
+};
 use taba_solver::Solver;
 use taba_test_harness::WorkloadUnitBuilder;
 

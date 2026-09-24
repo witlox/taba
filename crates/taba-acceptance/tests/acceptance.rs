@@ -58,6 +58,12 @@ pub struct TabaWorld {
     pub ceremony_expected_fp: Option<String>,
     pub ceremony_pk: Option<String>,
     pub ceremony_error: Option<String>,
+    pub ceremony_manager: taba_security::DefaultCeremonyManager,
+    pub ceremony_real_id: Option<taba_common::CeremonyId>,
+    pub ceremony_shares: Vec<taba_security::ShamirShare>,
+    pub ceremony_witness_key: Option<taba_security::KeyId>,
+    pub ceremony_sign_valid: bool,
+    pub solo_bootstrap: Option<taba_security::SoloBootstrapResult>,
     pub placement_on_node: std::collections::BTreeMap<String, taba_common::NodeId>,
 }
 
@@ -115,6 +121,12 @@ impl TabaWorld {
             ceremony_expected_fp: None,
             ceremony_pk: None,
             ceremony_error: None,
+            ceremony_manager: taba_security::DefaultCeremonyManager::new(),
+            ceremony_real_id: None,
+            ceremony_shares: Vec::new(),
+            ceremony_witness_key: None,
+            ceremony_sign_valid: false,
+            solo_bootstrap: None,
             placement_on_node: std::collections::BTreeMap::new(),
         }
     }
