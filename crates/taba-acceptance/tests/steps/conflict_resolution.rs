@@ -65,6 +65,7 @@ async fn step_4(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ solver\ re\-evaluates\ the\ composition\ of\ "([^"]+)"\ and\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ solver\ re\-evaluates\ the\ composition\ of\ "([^"]+)"\ and\ "([^"]+)"$"#)]
 async fn step_5(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
@@ -92,6 +93,7 @@ async fn step_9(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the\ conflict\ "([^"]+)"\ remains\ unresolved$"#)]
+#[then(regex = r#"^the\ conflict\ "([^"]+)"\ remains\ unresolved$"#)]
 async fn step_10(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
@@ -124,11 +126,13 @@ async fn step_15(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ marked\ as\ superseded\ \(not\ deleted\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ marked\ as\ superseded\ \(not\ deleted\)$"#)]
 async fn step_16(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
 #[given(regex = r#"^the\ solver\ uses\ "([^"]+)"\ for\ conflict\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ solver\ uses\ "([^"]+)"\ for\ conflict\ "([^"]+)"$"#)]
 async fn step_17(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
@@ -174,6 +178,9 @@ async fn step_22(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^the\ solver\ still\ uses\ "([^"]+)"\ \(latest\ non\-revoked\ in\ the\ chain\)$"#
 )]
+#[then(
+    regex = r#"^the\ solver\ still\ uses\ "([^"]+)"\ \(latest\ non\-revoked\ in\ the\ chain\)$"#
+)]
 async fn step_23(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
@@ -200,11 +207,13 @@ async fn step_27(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ does\ not\ declare\ supersedes\ "([^"]+)"$"#)]
+#[when(regex = r#"^"([^"]+)"\ does\ not\ declare\ supersedes\ "([^"]+)"$"#)]
 async fn step_28(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
 #[given(regex = r#"^the\ solver\ continues\ using\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ solver\ continues\ using\ "([^"]+)"$"#)]
 async fn step_29(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
@@ -238,11 +247,13 @@ async fn step_34(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ flagged\ as\ "([^"]+)"$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ flagged\ as\ "([^"]+)"$"#)]
 async fn step_35(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ not\ automatically\ deleted$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ not\ automatically\ deleted$"#)]
 async fn step_36(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
@@ -278,6 +289,9 @@ async fn step_41(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(
+    regex = r#"^the\ solver\ uses\ the\ supersession\ chain:\ later\-timestamped\ policy\ "([^"]+)"\ must\ explicitly\ supersede\ "([^"]+)"$"#
+)]
+#[then(
     regex = r#"^the\ solver\ uses\ the\ supersession\ chain:\ later\-timestamped\ policy\ "([^"]+)"\ must\ explicitly\ supersede\ "([^"]+)"$"#
 )]
 async fn step_42(world: &mut TabaWorld, arg0: String, arg1: String) {
@@ -318,6 +332,7 @@ async fn step_47(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ access\ is\ restricted\ to\ audit\-only$"#)]
+#[then(regex = r#"^"([^"]+)"\ access\ is\ restricted\ to\ audit\-only$"#)]
 async fn step_48(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
@@ -380,6 +395,9 @@ async fn step_57(world: &mut TabaWorld) {
 #[given(
     regex = r#"^"([^"]+)"\ is\ promoted\ to\ env:prod\ \(the\ redundant\ policy\ is\ flagged,\ not\ blocking\)$"#
 )]
+#[then(
+    regex = r#"^"([^"]+)"\ is\ promoted\ to\ env:prod\ \(the\ redundant\ policy\ is\ flagged,\ not\ blocking\)$"#
+)]
 async fn step_58(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
@@ -390,11 +408,13 @@ async fn step_59(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ solver\ fails\ closed:\ "([^"]+)"\ is\ NOT\ promoted\ to\ env:prod$"#)]
+#[then(regex = r#"^the\ solver\ fails\ closed:\ "([^"]+)"\ is\ NOT\ promoted\ to\ env:prod$"#)]
 async fn step_60(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
 #[given(regex = r#"^the\ conflict\ is\ surfaced:\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ conflict\ is\ surfaced:\ "([^"]+)"$"#)]
 async fn step_61(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
@@ -416,6 +436,7 @@ async fn step_64(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ signed\ and\ merged$"#)]
+#[when(regex = r#"^"([^"]+)"\ is\ signed\ and\ merged$"#)]
 async fn step_65(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
@@ -426,11 +447,13 @@ async fn step_66(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ the\ active\ policy$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ the\ active\ policy$"#)]
 async fn step_67(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ promoted\ to\ env:prod$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ promoted\ to\ env:prod$"#)]
 async fn step_68(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:conflict:{arg0}"));
 }

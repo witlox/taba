@@ -44,11 +44,13 @@ async fn step_2(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ replaced\ with\ a\ tombstone:$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ replaced\ with\ a\ tombstone:$"#)]
 async fn step_3(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
 #[given(regex = r#"^the\ tombstone\ preserves\ the\ provenance\ link\ to\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ tombstone\ preserves\ the\ provenance\ link\ to\ "([^"]+)"$"#)]
 async fn step_4(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
@@ -83,11 +85,13 @@ async fn step_9(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ fully\ removed\ from\ the\ graph\ \(no\ tombstone\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ fully\ removed\ from\ the\ graph\ \(no\ tombstone\)$"#)]
 async fn step_10(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
 #[given(regex = r#"^no\ archive\ is\ created\ for\ "([^"]+)"$"#)]
+#[then(regex = r#"^no\ archive\ is\ created\ for\ "([^"]+)"$"#)]
 async fn step_11(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
@@ -124,11 +128,15 @@ async fn step_15(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the\ tombstone\ preserves\ the\ reference\ to\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ tombstone\ preserves\ the\ reference\ to\ "([^"]+)"$"#)]
 async fn step_16(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
 #[given(
+    regex = r#"^provenance\ query\ on\ "([^"]+)"\ returns:\ \.\.\.\ \->\ temp\-staging\ \(tombstoned\)\ \->\ \.\.\.$"#
+)]
+#[then(
     regex = r#"^provenance\ query\ on\ "([^"]+)"\ returns:\ \.\.\.\ \->\ temp\-staging\ \(tombstoned\)\ \->\ \.\.\.$"#
 )]
 async fn step_17(world: &mut TabaWorld, arg0: String) {
@@ -200,11 +208,15 @@ async fn step_26(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^the\ tombstone's\ references\ field\ includes\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ tombstone's\ references\ field\ includes\ "([^"]+)"$"#)]
 async fn step_27(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
 #[given(
+    regex = r#"^the\ provenance\ chain\ from\ "([^"]+)"\ back\ through\ "([^"]+)"\ is\ intact$"#
+)]
+#[then(
     regex = r#"^the\ provenance\ chain\ from\ "([^"]+)"\ back\ through\ "([^"]+)"\ is\ intact$"#
 )]
 async fn step_28(world: &mut TabaWorld, arg0: String, arg1: String) {
@@ -260,11 +272,13 @@ async fn step_37(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ tombstoned\ with\ termination_reason\ =\ "([^"]+)"$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ tombstoned\ with\ termination_reason\ =\ "([^"]+)"$"#)]
 async fn step_38(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
 #[given(regex = r#"^the\ tombstone\ references\ "([^"]+)"\ as\ successor$"#)]
+#[then(regex = r#"^the\ tombstone\ references\ "([^"]+)"\ as\ successor$"#)]
 async fn step_39(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
@@ -358,11 +372,13 @@ async fn step_54(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ drops\ the\ full\ unit\ content\ from\ local\ memory$"#)]
+#[then(regex = r#"^"([^"]+)"\ drops\ the\ full\ unit\ content\ from\ local\ memory$"#)]
 async fn step_55(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ retains\ a\ minimal\ reference\ \(UnitId\ \+\ shard\ location\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ retains\ a\ minimal\ reference\ \(UnitId\ \+\ shard\ location\)$"#)]
 async fn step_56(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
@@ -370,11 +386,15 @@ async fn step_56(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^if\ "([^"]+)"\ needs\ the\ full\ content\ later,\ it\ reconstructs\ from\ peers\ \(erasure\ coding\)$"#
 )]
+#[then(
+    regex = r#"^if\ "([^"]+)"\ needs\ the\ full\ content\ later,\ it\ reconstructs\ from\ peers\ \(erasure\ coding\)$"#
+)]
 async fn step_57(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ still\ has\ the\ full\ content\ \(eviction\ is\ node\-local\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ still\ has\ the\ full\ content\ \(eviction\ is\ node\-local\)$"#)]
 async fn step_58(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
@@ -395,6 +415,7 @@ async fn step_61(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ never\ compacted\ \(INV\-G3\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ never\ compacted\ \(INV\-G3\)$"#)]
 async fn step_62(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
@@ -441,6 +462,7 @@ async fn step_68(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^only\ THEN\ is\ "([^"]+)"\ tombstoned\ in\ the\ graph$"#)]
+#[then(regex = r#"^only\ THEN\ is\ "([^"]+)"\ tombstoned\ in\ the\ graph$"#)]
 async fn step_69(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
@@ -476,11 +498,13 @@ async fn step_74(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ remains\ as\ a\ full\ unit\ in\ the\ active\ graph$"#)]
+#[then(regex = r#"^"([^"]+)"\ remains\ as\ a\ full\ unit\ in\ the\ active\ graph$"#)]
 async fn step_75(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
 
 #[given(regex = r#"^an\ alert\ is\ raised:\ "([^"]+)"$"#)]
+#[then(regex = r#"^an\ alert\ is\ raised:\ "([^"]+)"$"#)]
 async fn step_76(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }
@@ -524,6 +548,7 @@ async fn uncovered_0(world: &mut TabaWorld, arg0: String, arg1: String, arg2: St
 }
 
 #[given(regex = r#"^both prod-(\d+) and prod-(\d+) agree on eligibility \(INV-G1\)$"#)]
+#[then(regex = r#"^both prod-(\d+) and prod-(\d+) agree on eligibility \(INV-G1\)$"#)]
 async fn uncovered_1(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:compaction:{arg0}"));
 }

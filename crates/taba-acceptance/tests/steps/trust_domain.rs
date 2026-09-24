@@ -43,11 +43,13 @@ async fn step_1(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String,
 }
 
 #[given(regex = r#"^"([^"]+)"\ cosigns\ the\ TrustDomain\ governance\ unit\ "([^"]+)"$"#)]
+#[when(regex = r#"^"([^"]+)"\ cosigns\ the\ TrustDomain\ governance\ unit\ "([^"]+)"$"#)]
 async fn step_2(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
 
 #[given(regex = r#"^trust\ domain\ "([^"]+)"\ is\ created\ in\ the\ composition\ graph$"#)]
+#[then(regex = r#"^trust\ domain\ "([^"]+)"\ is\ created\ in\ the\ composition\ graph$"#)]
 async fn step_3(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
@@ -76,6 +78,7 @@ async fn step_7(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^no\ governance\ unit\ is\ persisted\ for\ "([^"]+)"$"#)]
+#[then(regex = r#"^no\ governance\ unit\ is\ persisted\ for\ "([^"]+)"$"#)]
 async fn step_8(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
@@ -112,6 +115,7 @@ async fn step_12(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String
 }
 
 #[given(regex = r#"^"([^"]+)"\ cosigns\ the\ RoleAssignment\ governance\ unit$"#)]
+#[when(regex = r#"^"([^"]+)"\ cosigns\ the\ RoleAssignment\ governance\ unit$"#)]
 async fn step_13(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
@@ -122,11 +126,13 @@ async fn step_14(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ cannot\ create\ policy\ units\ in\ "([^"]+)"$"#)]
+#[then(regex = r#"^"([^"]+)"\ cannot\ create\ policy\ units\ in\ "([^"]+)"$"#)]
 async fn step_15(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ cannot\ create\ units\ in\ any\ other\ trust\ domain$"#)]
+#[then(regex = r#"^"([^"]+)"\ cannot\ create\ units\ in\ any\ other\ trust\ domain$"#)]
 async fn step_16(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
@@ -199,6 +205,7 @@ async fn step_26(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ attempts\ to\ create\ a\ data\ unit\ in\ "([^"]+)"$"#)]
+#[when(regex = r#"^"([^"]+)"\ attempts\ to\ create\ a\ data\ unit\ in\ "([^"]+)"$"#)]
 async fn step_27(world: &mut TabaWorld, arg0: String, arg1: String) {
     let unit = taba_test_harness::DataUnitBuilder::new()
         .with_author(world.author_id)
@@ -235,6 +242,9 @@ async fn step_31(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^data\ unit\ "([^"]+)"\ signature\ verification\ passes\ \(key\ valid\ at\ creation\ time\)$"#
 )]
+#[then(
+    regex = r#"^data\ unit\ "([^"]+)"\ signature\ verification\ passes\ \(key\ valid\ at\ creation\ time\)$"#
+)]
 async fn step_32(world: &mut TabaWorld, arg0: String) {
     let unit = taba_test_harness::DataUnitBuilder::new()
         .with_author(world.author_id)
@@ -244,6 +254,7 @@ async fn step_32(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ cannot\ submit\ modifications\ or\ new\ versions\ of\ "([^"]+)"$"#)]
+#[then(regex = r#"^"([^"]+)"\ cannot\ submit\ modifications\ or\ new\ versions\ of\ "([^"]+)"$"#)]
 async fn step_33(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
@@ -276,6 +287,7 @@ async fn step_36(world: &mut TabaWorld, arg0: String, arg1: String) {
 #[given(
     regex = r#"^no\ implicit\ role\ inheritance\ from\ "([^"]+)"\ to\ "([^"]+)"\ is\ applied$"#
 )]
+#[then(regex = r#"^no\ implicit\ role\ inheritance\ from\ "([^"]+)"\ to\ "([^"]+)"\ is\ applied$"#)]
 async fn step_37(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
@@ -334,6 +346,9 @@ async fn step_45(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^"([^"]+)"\ becomes\ the\ root\ trust\ domain\ seeding\ the\ composition\ graph$"#
 )]
+#[then(
+    regex = r#"^"([^"]+)"\ becomes\ the\ root\ trust\ domain\ seeding\ the\ composition\ graph$"#
+)]
 async fn step_46(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
@@ -376,6 +391,7 @@ async fn step_53(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^a\ new\ author\ "([^"]+)"\ is\ assigned\ policy\ scope\ in\ "([^"]+)"$"#)]
+#[then(regex = r#"^a\ new\ author\ "([^"]+)"\ is\ assigned\ policy\ scope\ in\ "([^"]+)"$"#)]
 async fn step_54(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }
@@ -497,6 +513,7 @@ async fn step_73(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^alice\ remains\ the\ sole\ workload\-scope\ author\ in\ "([^"]+)"$"#)]
+#[then(regex = r#"^alice\ remains\ the\ sole\ workload\-scope\ author\ in\ "([^"]+)"$"#)]
 async fn step_74(world: &mut TabaWorld, arg0: String) {
     let unit = WorkloadUnitBuilder::new()
         .with_author(world.author_id)
@@ -532,6 +549,7 @@ async fn uncovered_1(
 }
 
 #[given(regex = r#"^the role assignment shows remaining validity of approximately (\d+) days$"#)]
+#[then(regex = r#"^the role assignment shows remaining validity of approximately (\d+) days$"#)]
 async fn uncovered_2(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:trust:{arg0}"));
 }

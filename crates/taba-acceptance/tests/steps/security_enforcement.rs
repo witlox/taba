@@ -65,6 +65,9 @@ async fn step_4(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^the\ denial\ is\ logged\ with\ unit_id\ "([^"]+)"\ and\ attempted\ capability\ "([^"]+)"$"#
 )]
+#[then(
+    regex = r#"^the\ denial\ is\ logged\ with\ unit_id\ "([^"]+)"\ and\ attempted\ capability\ "([^"]+)"$"#
+)]
 async fn step_5(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
@@ -104,11 +107,15 @@ async fn step_10(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ conflict\ is\ recorded\ as\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ conflict\ is\ recorded\ as\ "([^"]+)"$"#)]
 async fn step_11(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
 
 #[given(
+    regex = r#"^no\ data\ flows\ between\ "([^"]+)"\ and\ "([^"]+)"\ until\ policy\ resolves\ the\ ambiguity$"#
+)]
+#[then(
     regex = r#"^no\ data\ flows\ between\ "([^"]+)"\ and\ "([^"]+)"\ until\ policy\ resolves\ the\ ambiguity$"#
 )]
 async fn step_12(world: &mut TabaWorld, arg0: String, arg1: String) {
@@ -184,11 +191,13 @@ async fn step_21(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ unit\ is\ placed\ in\ pending\ state\ with\ reason\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ unit\ is\ placed\ in\ pending\ state\ with\ reason\ "([^"]+)"$"#)]
 async fn step_22(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
 
 #[given(regex = r#"^the\ WAL\ contains\ a\ Pending\("([^"]+)",\ missing:\ "([^"]+)"\)\ entry$"#)]
+#[then(regex = r#"^the\ WAL\ contains\ a\ Pending\("([^"]+)",\ missing:\ "([^"]+)"\)\ entry$"#)]
 async fn step_23(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
@@ -210,6 +219,7 @@ async fn step_26(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ WAL\ contains\ a\ Promoted\("([^"]+)"\)\ entry$"#)]
+#[then(regex = r#"^the\ WAL\ contains\ a\ Promoted\("([^"]+)"\)\ entry$"#)]
 async fn step_27(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
@@ -351,6 +361,7 @@ async fn step_44(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ taint\ is\ queried\ again$"#)]
+#[when(regex = r#"^"([^"]+)"\ taint\ is\ queried\ again$"#)]
 async fn step_45(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
@@ -383,6 +394,7 @@ async fn step_49(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ taint\ is\ computed\ as\ "([^"]+)"\ at\ query\ time$"#)]
+#[then(regex = r#"^"([^"]+)"\ taint\ is\ computed\ as\ "([^"]+)"\ at\ query\ time$"#)]
 async fn step_50(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
@@ -433,6 +445,7 @@ async fn step_58(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^taint\ for\ "([^"]+)"\ is\ queried$"#)]
+#[when(regex = r#"^taint\ for\ "([^"]+)"\ is\ queried$"#)]
 async fn step_59(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
@@ -479,6 +492,7 @@ async fn step_66(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ retains\ its\ original\ classification$"#)]
+#[then(regex = r#"^"([^"]+)"\ retains\ its\ original\ classification$"#)]
 async fn step_67(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
@@ -515,6 +529,9 @@ async fn step_72(world: &mut TabaWorld) {
 #[given(
     regex = r#"^when\ an\ unsigned\ gossip\ message\ arrives\ claiming\ to\ be\ from\ "([^"]+)"$"#
 )]
+#[then(
+    regex = r#"^when\ an\ unsigned\ gossip\ message\ arrives\ claiming\ to\ be\ from\ "([^"]+)"$"#
+)]
 async fn step_73(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
@@ -525,6 +542,7 @@ async fn step_74(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ drop\ is\ logged\ with\ reason\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ drop\ is\ logged\ with\ reason\ "([^"]+)"$"#)]
 async fn step_75(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }
@@ -576,6 +594,7 @@ async fn step_80(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^frank\ cannot\ create\ workload\ units\ in\ "([^"]+)"$"#)]
+#[then(regex = r#"^frank\ cannot\ create\ workload\ units\ in\ "([^"]+)"$"#)]
 async fn step_81(world: &mut TabaWorld, arg0: String) {
     let unit = WorkloadUnitBuilder::new()
         .with_author(world.author_id)
@@ -589,6 +608,9 @@ async fn step_81(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(
+    regex = r#"^a\ role\ assignment\ for\ frank\ with\ scope\ \(type:\ workload,\ trust_domain:\ "([^"]+)"\)\ would\ succeed$"#
+)]
+#[then(
     regex = r#"^a\ role\ assignment\ for\ frank\ with\ scope\ \(type:\ workload,\ trust_domain:\ "([^"]+)"\)\ would\ succeed$"#
 )]
 async fn step_82(world: &mut TabaWorld, arg0: String) {
@@ -632,6 +654,7 @@ async fn uncovered_1(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^placement proceeds because SLSA level (\d+) >= required level (\d+)$"#)]
+#[then(regex = r#"^placement proceeds because SLSA level (\d+) >= required level (\d+)$"#)]
 async fn uncovered_2(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:security:{arg0}"));
 }

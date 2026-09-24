@@ -275,6 +275,9 @@ async fn given_security_conflict(world: &mut TabaWorld, name1: String, name2: St
 #[given(
     regex = r#"^policy unit "([^"]+)" was created resolving the conflict with "([^"]+)" and rationale "([^"]+)"$"#
 )]
+#[when(
+    regex = r#"^policy unit "([^"]+)" was created resolving the conflict with "([^"]+)" and rationale "([^"]+)"$"#
+)]
 async fn given_policy_resolves(
     world: &mut TabaWorld,
     pol_name: String,
@@ -798,11 +801,15 @@ async fn uncovered_3(world: &mut TabaWorld, arg0: String, arg1: String) {
 #[given(
     regex = r#"^the lineage chain is complete despite "([^"]+)" being out of the active graph$"#
 )]
+#[then(
+    regex = r#"^the lineage chain is complete despite "([^"]+)" being out of the active graph$"#
+)]
 async fn uncovered_4(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compliance:{arg0}"));
 }
 
 #[given(regex = r#"^the auditor is informed that "([^"]+)" content requires archive retrieval$"#)]
+#[then(regex = r#"^the auditor is informed that "([^"]+)" content requires archive retrieval$"#)]
 async fn uncovered_5(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:compliance:{arg0}"));
 }

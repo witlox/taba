@@ -781,6 +781,7 @@ async fn given_no_promotion_for_env(world: &mut TabaWorld, unit_name: String, en
 }
 
 #[given(regex = r#"^CI authors a promotion policy "([^"]+)":$"#)]
+#[when(regex = r#"^CI authors a promotion policy "([^"]+)":$"#)]
 async fn given_ci_promotion_policy_table(
     world: &mut TabaWorld,
     _policy_name: String,
@@ -806,6 +807,7 @@ async fn given_ci_promotion_policy_table(
 }
 
 #[given(regex = r#"^a promotion policy "([^"]+)" is authored:$"#)]
+#[when(regex = r#"^a promotion policy "([^"]+)" is authored:$"#)]
 async fn given_promotion_policy_authored_table(
     world: &mut TabaWorld,
     _policy_name: String,
@@ -1114,6 +1116,7 @@ async fn when_solver_evaluates_placement(world: &mut TabaWorld) {
 }
 
 #[when(regex = r#"^the solver evaluates placement for "([^"]+)" version "([^"]+)"$"#)]
+#[then(regex = r#"^the solver evaluates placement for "([^"]+)" version "([^"]+)"$"#)]
 async fn when_solver_evaluates_versioned(
     world: &mut TabaWorld,
     unit_name: String,

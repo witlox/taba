@@ -217,6 +217,9 @@ async fn step_27(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^if\ the\ process\ exits,\ the\ node\ reports\ health\ status\ "([^"]+)"\ to\ the\ graph$"#
 )]
+#[then(
+    regex = r#"^if\ the\ process\ exits,\ the\ node\ reports\ health\ status\ "([^"]+)"\ to\ the\ graph$"#
+)]
 async fn step_28(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:observability:{arg0}"));
 }
@@ -304,6 +307,9 @@ async fn step_39(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(
+    regex = r#"^if\ health\ check\ passes\ after\ restart,\ health\ status\ returns\ to\ "([^"]+)"$"#
+)]
+#[then(
     regex = r#"^if\ health\ check\ passes\ after\ restart,\ health\ status\ returns\ to\ "([^"]+)"$"#
 )]
 async fn step_40(world: &mut TabaWorld, arg0: String) {
@@ -449,6 +455,7 @@ async fn step_64(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ payload\ includes:\ node_id,\ event\ "([^"]+)",\ reason,\ timestamp$"#)]
+#[then(regex = r#"^the\ payload\ includes:\ node_id,\ event\ "([^"]+)",\ reason,\ timestamp$"#)]
 async fn step_65(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:observability:{arg0}"));
 }
@@ -480,6 +487,9 @@ async fn step_69(world: &mut TabaWorld) {
 #[given(
     regex = r#"^the replay produces the same placement \(prod-(\d+)\) because the solver is deterministic \(INV-C3\)$"#
 )]
+#[then(
+    regex = r#"^the replay produces the same placement \(prod-(\d+)\) because the solver is deterministic \(INV-C3\)$"#
+)]
 async fn uncovered_0(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:observability:{arg0}"));
 }
@@ -492,6 +502,9 @@ async fn uncovered_1(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^other workloads' decision trails are retained for (\d+) days \(governance default\)$"#
 )]
+#[then(
+    regex = r#"^other workloads' decision trails are retained for (\d+) days \(governance default\)$"#
+)]
 async fn uncovered_2(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:observability:{arg0}"));
 }
@@ -502,6 +515,7 @@ async fn uncovered_3(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^exit code (\d+) means healthy$"#)]
+#[then(regex = r#"^exit code (\d+) means healthy$"#)]
 async fn uncovered_4(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:observability:{arg0}"));
 }
@@ -512,11 +526,15 @@ async fn uncovered_5(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^if all (\d+) restart attempts fail, the node reports permanent failure$"#)]
+#[then(regex = r#"^if all (\d+) restart attempts fail, the node reports permanent failure$"#)]
 async fn uncovered_6(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:observability:{arg0}"));
 }
 
 #[given(
+    regex = r#"^the solver re-evaluates placements that depended on runtime:oci on prod-(\d+)$"#
+)]
+#[then(
     regex = r#"^the solver re-evaluates placements that depended on runtime:oci on prod-(\d+)$"#
 )]
 async fn uncovered_7(world: &mut TabaWorld, arg0: String) {

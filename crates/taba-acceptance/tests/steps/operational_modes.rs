@@ -142,6 +142,7 @@ async fn when_attempt_submit(world: &mut TabaWorld, _author: String, name: Strin
 
 #[when(regex = r#"^when the solver attempts to place a unit on "([^"]+)"$"#)]
 #[when(regex = r"^placement is rejected with error.*$")]
+#[then(regex = r#"^when the solver attempts to place a unit on "([^"]+)"$"#)]
 async fn when_solver_attempt_place(world: &mut TabaWorld, _node: String) {
     let snapshot = world.graph.snapshot().await.expect("snapshot");
     world.last_solver_result = Some(world.solver.solve(&snapshot, &world.membership));

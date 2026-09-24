@@ -107,6 +107,7 @@ async fn step_9(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the\ provenance\ includes\ the\ producing_workload\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ provenance\ includes\ the\ producing_workload\ "([^"]+)"$"#)]
 async fn step_10(world: &mut TabaWorld, arg0: String) {
     let unit = WorkloadUnitBuilder::new()
         .with_author(world.author_id)
@@ -120,6 +121,7 @@ async fn step_10(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^all\ three\ input\ lineage\ chains\ are\ reachable\ from\ "([^"]+)"$"#)]
+#[then(regex = r#"^all\ three\ input\ lineage\ chains\ are\ reachable\ from\ "([^"]+)"$"#)]
 async fn step_11(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
@@ -199,6 +201,9 @@ async fn step_21(world: &mut TabaWorld, arg0: String, arg1: String) {
 #[given(
     regex = r#"^if\ "([^"]+)"\ \(PII=4\)\ were\ added\ as\ an\ input,\ classification\ would\ become\ "([^"]+)"$"#
 )]
+#[then(
+    regex = r#"^if\ "([^"]+)"\ \(PII=4\)\ were\ added\ as\ an\ input,\ classification\ would\ become\ "([^"]+)"$"#
+)]
 async fn step_22(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
@@ -216,6 +221,7 @@ async fn step_24(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^downstream\ consumers\ of\ "([^"]+)"\ inherit\ "([^"]+)"\ \(not\ PII\)$"#)]
+#[then(regex = r#"^downstream\ consumers\ of\ "([^"]+)"\ inherit\ "([^"]+)"\ \(not\ PII\)$"#)]
 async fn step_25(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
@@ -228,6 +234,7 @@ async fn step_26(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String
 }
 
 #[given(regex = r#"^taint\ computation\ for\ any\ downstream\ consumer\ reflects\ "([^"]+)"$"#)]
+#[then(regex = r#"^taint\ computation\ for\ any\ downstream\ consumer\ reflects\ "([^"]+)"$"#)]
 async fn step_27(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
@@ -255,11 +262,15 @@ async fn step_31(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ no\ longer\ valid\ for\ new\ compositions$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ no\ longer\ valid\ for\ new\ compositions$"#)]
 async fn step_32(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
 
 #[given(
+    regex = r#"^provenance\ references\ to\ "([^"]+)"\ are\ preserved\ \(lineage\ is\ not\ broken\)$"#
+)]
+#[then(
     regex = r#"^provenance\ references\ to\ "([^"]+)"\ are\ preserved\ \(lineage\ is\ not\ broken\)$"#
 )]
 async fn step_33(world: &mut TabaWorld, arg0: String) {
@@ -309,6 +320,7 @@ async fn step_40(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^the\ retention\ widening\ is\ also\ flagged:\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ retention\ widening\ is\ also\ flagged:\ "([^"]+)"$"#)]
 async fn step_41(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
@@ -334,6 +346,9 @@ async fn step_44(world: &mut TabaWorld) {
 }
 
 #[given(
+    regex = r#"^a\ workload\ consuming\ "([^"]+)"\ and\ "([^"]+)"\ produces\ output\ classified\ as\ "([^"]+)"$"#
+)]
+#[then(
     regex = r#"^a\ workload\ consuming\ "([^"]+)"\ and\ "([^"]+)"\ produces\ output\ classified\ as\ "([^"]+)"$"#
 )]
 async fn step_45(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
@@ -402,11 +417,13 @@ async fn step_52(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the\ provenance\ reference\ to\ "([^"]+)"\ is\ marked\ as\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ provenance\ reference\ to\ "([^"]+)"\ is\ marked\ as\ "([^"]+)"$"#)]
 async fn step_53(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
 
 #[given(regex = r#"^the\ WAL\ records\ Pending\("([^"]+)",\ missing_refs:\ \["([^"]+)"\]\)$"#)]
+#[then(regex = r#"^the\ WAL\ records\ Pending\("([^"]+)",\ missing_refs:\ \["([^"]+)"\]\)$"#)]
 async fn step_54(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
@@ -417,11 +434,15 @@ async fn step_55(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ WAL\ records\ Promoted\("([^"]+)"\)$"#)]
+#[then(regex = r#"^the\ WAL\ records\ Promoted\("([^"]+)"\)$"#)]
 async fn step_56(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
 
 #[given(
+    regex = r#"^provenance\ query\ for\ "([^"]+)"\ now\ returns\ the\ complete\ chain\ including\ "([^"]+)"$"#
+)]
+#[then(
     regex = r#"^provenance\ query\ for\ "([^"]+)"\ now\ returns\ the\ complete\ chain\ including\ "([^"]+)"$"#
 )]
 async fn step_57(world: &mut TabaWorld, arg0: String, arg1: String) {
@@ -446,6 +467,9 @@ async fn step_60(world: &mut TabaWorld) {
 }
 
 #[given(
+    regex = r#"^taint\ propagation\ applies\ normally\ \(if\ "([^"]+)"\ is\ PII,\ "([^"]+)"\ inherits\ PII\)$"#
+)]
+#[then(
     regex = r#"^taint\ propagation\ applies\ normally\ \(if\ "([^"]+)"\ is\ PII,\ "([^"]+)"\ inherits\ PII\)$"#
 )]
 async fn step_61(world: &mut TabaWorld, arg0: String, arg1: String) {
@@ -554,11 +578,15 @@ async fn step_79(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ tombstone\ includes\ the\ reference\ to\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ tombstone\ includes\ the\ reference\ to\ "([^"]+)"$"#)]
 async fn step_80(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
 
 #[given(
+    regex = r#"^if\ full\ details\ of\ "([^"]+)"\ are\ needed,\ archive\ retrieval\ is\ available$"#
+)]
+#[then(
     regex = r#"^if\ full\ details\ of\ "([^"]+)"\ are\ needed,\ archive\ retrieval\ is\ available$"#
 )]
 async fn step_81(world: &mut TabaWorld, arg0: String) {
@@ -601,6 +629,7 @@ async fn step_87(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ bridge\ returns\ provenance\ from\ "([^"]+)"\ \(read\-only,\ INV\-X2\)$"#)]
+#[then(regex = r#"^the\ bridge\ returns\ provenance\ from\ "([^"]+)"\ \(read\-only,\ INV\-X2\)$"#)]
 async fn step_88(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
@@ -627,6 +656,9 @@ async fn uncovered_0(
 #[given(
     regex = r#"^the lattice comparison is: max\(public=(\d+), internal=(\d+), confidential=(\d+)\) = confidential$"#
 )]
+#[then(
+    regex = r#"^the lattice comparison is: max\(public=(\d+), internal=(\d+), confidential=(\d+)\) = confidential$"#
+)]
 async fn uncovered_1(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
@@ -648,6 +680,7 @@ async fn uncovered_3(
 }
 
 #[given(regex = r#"^retention (\d+) > (\d+) days \(narrowing: longer retention\)$"#)]
+#[then(regex = r#"^retention (\d+) > (\d+) days \(narrowing: longer retention\)$"#)]
 async fn uncovered_4(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }
@@ -676,6 +709,7 @@ async fn uncovered_7(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the (\d+)-level hierarchy remains valid$"#)]
+#[then(regex = r#"^the (\d+)-level hierarchy remains valid$"#)]
 async fn uncovered_8(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:data:{arg0}"));
 }

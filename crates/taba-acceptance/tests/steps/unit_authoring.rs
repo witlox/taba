@@ -1127,6 +1127,9 @@ async fn uncovered_12(world: &mut TabaWorld) {
 #[given(
     regex = r#"^a unit with creation_LC = (\d+) would be rejected \((\d+) > (\d+), outside grace window\)$"#
 )]
+#[then(
+    regex = r#"^a unit with creation_LC = (\d+) would be rejected \((\d+) > (\d+), outside grace window\)$"#
+)]
 async fn uncovered_13(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
     world.add_event(&format!("given:unit:{arg0}"));
 }

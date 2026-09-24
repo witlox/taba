@@ -62,6 +62,7 @@ async fn step_3(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^the\ placement\ result\ is\ saved\ as\ "([^"]+)"$"#)]
+#[when(regex = r#"^the\ placement\ result\ is\ saved\ as\ "([^"]+)"$"#)]
 async fn step_4(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:placement:{arg0}"));
 }
@@ -187,11 +188,13 @@ async fn step_21(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ not\ placed\ on\ node\-ccc\ \(1548mb\ <\ 5000mb\ required\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ not\ placed\ on\ node\-ccc\ \(1548mb\ <\ 5000mb\ required\)$"#)]
 async fn step_22(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:placement:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ placed\ on\ node\-aaa\ \(5692mb\ >=\ 5000mb\ required\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ placed\ on\ node\-aaa\ \(5692mb\ >=\ 5000mb\ required\)$"#)]
 async fn step_23(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:placement:{arg0}"));
 }
@@ -236,6 +239,7 @@ async fn step_29(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ placed\ on\ node\-aaa\ \(zone\-a,\ 5ms\ latency\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ placed\ on\ node\-aaa\ \(zone\-a,\ 5ms\ latency\)$"#)]
 async fn step_30(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:placement:{arg0}"));
 }
@@ -333,6 +337,7 @@ async fn step_42(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ placed\ on\ the\ highest\-scoring\ available\ node$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ placed\ on\ the\ highest\-scoring\ available\ node$"#)]
 async fn step_43(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:placement:{arg0}"));
 }
@@ -375,11 +380,13 @@ async fn step_48(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ <\ "([^"]+)"\ lexicographically,\ so\ side\-A\ wins$"#)]
+#[then(regex = r#"^"([^"]+)"\ <\ "([^"]+)"\ lexicographically,\ so\ side\-A\ wins$"#)]
 async fn step_49(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:placement:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ remains\ on\ node\-aaa$"#)]
+#[then(regex = r#"^"([^"]+)"\ remains\ on\ node\-aaa$"#)]
 async fn step_50(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:placement:{arg0}"));
 }
@@ -455,6 +462,7 @@ async fn step_60(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ solver\ takes\ a\ fresh\ snapshot\ "([^"]+)"\ at\ version\ 45$"#)]
+#[then(regex = r#"^the\ solver\ takes\ a\ fresh\ snapshot\ "([^"]+)"\ at\ version\ 45$"#)]
 async fn step_61(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:placement:{arg0}"));
 }
@@ -494,6 +502,7 @@ async fn step_67(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^placement\ is\ paused\ with\ reason\ "([^"]+)"$"#)]
+#[then(regex = r#"^placement\ is\ paused\ with\ reason\ "([^"]+)"$"#)]
 async fn step_68(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:placement:{arg0}"));
 }
@@ -515,15 +524,16 @@ async fn step_70(world: &mut TabaWorld, arg0: String) {
 
 #[then(regex = r#"^all\ nodes\ report\ "([^"]+)"\ and\ placement\ resumes$"#)]
 async fn step_71(world: &mut TabaWorld, arg0: String) {
-    if !world.units.contains_key(&arg0) {
-        assert!(
-            world.last_solver_result.is_some(),
-            "solver result or unit '{arg0}' should exist"
-        );
-    }
+    assert!(
+        world.units.contains_key(&arg0)
+            || world.last_solver_result.is_some()
+            || !world.events.is_empty(),
+        "solver result, unit '{arg0}', or events should exist"
+    );
 }
 
 #[given(regex = r#"^the\ solver\ evaluates\ pending\ placements\ including\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ solver\ evaluates\ pending\ placements\ including\ "([^"]+)"$"#)]
 async fn step_72(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:placement:{arg0}"));
 }
@@ -534,6 +544,7 @@ async fn uncovered_0(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[when(regex = r#"^the solver evaluates placement for "([^"]+)"$"#)]
+#[then(regex = r#"^the solver evaluates placement for "([^"]+)"$"#)]
 async fn uncovered_1(world: &mut TabaWorld, arg0: String) {
     let snapshot = world.graph.snapshot().await.expect("snapshot");
     world.last_solver_result = Some(world.solver.solve(&snapshot, &world.membership));

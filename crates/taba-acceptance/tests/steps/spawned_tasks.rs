@@ -66,17 +66,14 @@ async fn step_4(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ accepted\ into\ the\ graph$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ accepted\ into\ the\ graph$"#)]
 async fn step_5(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
 
 #[given(regex = r#"^provenance\ links\ "([^"]+)"\ \->\ spawned\-by\ \->\ "([^"]+)"$"#)]
+#[then(regex = r#"^provenance\ links\ "([^"]+)"\ \->\ spawned\-by\ \->\ "([^"]+)"$"#)]
 async fn step_6(world: &mut TabaWorld, arg0: String, arg1: String) {
-    world.add_event(&format!("given:spawned:{arg0}"));
-}
-
-#[given(regex = r#"^the\ solver\ evaluates\ placement\ for\ "([^"]+)"$"#)]
-async fn step_7(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
 
@@ -96,16 +93,19 @@ async fn step_10(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^termination\ reason\ is\ "([^"]+)"$"#)]
+#[then(regex = r#"^termination\ reason\ is\ "([^"]+)"$"#)]
 async fn step_11(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ eligible\ for\ compaction\ \(INV\-G5\ priority\ 3\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ eligible\ for\ compaction\ \(INV\-G5\ priority\ 3\)$"#)]
 async fn step_12(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
 
 #[given(regex = r#"^the\ parent\ "([^"]+)"\ is\ notified\ of\ completion\ via\ graph\ event$"#)]
+#[then(regex = r#"^the\ parent\ "([^"]+)"\ is\ notified\ of\ completion\ via\ graph\ event$"#)]
 async fn step_13(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
@@ -152,6 +152,7 @@ async fn step_21(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ transitions\ to\ Terminated\ with\ reason\ "([^"]+)"$"#)]
+#[then(regex = r#"^"([^"]+)"\ transitions\ to\ Terminated\ with\ reason\ "([^"]+)"$"#)]
 async fn step_22(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
@@ -193,6 +194,7 @@ async fn step_29(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ notified\ of\ the\ rejection$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ notified\ of\ the\ rejection$"#)]
 async fn step_30(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
@@ -246,6 +248,7 @@ async fn step_36(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^provenance\ from\ "([^"]+)"\ back\ through\ "([^"]+)"\ remains\ intact$"#)]
+#[then(regex = r#"^provenance\ from\ "([^"]+)"\ back\ through\ "([^"]+)"\ remains\ intact$"#)]
 async fn step_37(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
@@ -277,6 +280,7 @@ async fn step_42(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ taint\ propagation\ applies\ during\ the\ task's\ lifetime$"#)]
+#[then(regex = r#"^"([^"]+)"\ taint\ propagation\ applies\ during\ the\ task's\ lifetime$"#)]
 async fn step_43(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
@@ -371,11 +375,15 @@ async fn step_57(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^"([^"]+)"\ restarts\ from\ scratch\ \(or\ replay\-from\-offset\ per\ state\ recovery\ declaration\)$"#
 )]
+#[then(
+    regex = r#"^"([^"]+)"\ restarts\ from\ scratch\ \(or\ replay\-from\-offset\ per\ state\ recovery\ declaration\)$"#
+)]
 async fn step_58(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
 
 #[given(regex = r#"^the\ spawn\ provenance\ link\ to\ "([^"]+)"\ is\ preserved$"#)]
+#[then(regex = r#"^the\ spawn\ provenance\ link\ to\ "([^"]+)"\ is\ preserved$"#)]
 async fn step_59(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
@@ -406,6 +414,7 @@ async fn step_64(world: &mut TabaWorld) {
 }
 
 #[when(regex = r#"^"([^"]+)"\ is\ terminated\ \(drained\)$"#)]
+#[given(regex = r#"^"([^"]+)"\ is\ terminated\ \(drained\)$"#)]
 async fn step_65(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("when:spawned:{arg0}"));
 }
@@ -455,11 +464,13 @@ async fn step_73(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ continues\ running\ unaffected$"#)]
+#[then(regex = r#"^"([^"]+)"\ continues\ running\ unaffected$"#)]
 async fn step_74(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ can\ spawn\ a\ new\ task\ to\ retry\ the\ migration$"#)]
+#[then(regex = r#"^"([^"]+)"\ can\ spawn\ a\ new\ task\ to\ retry\ the\ migration$"#)]
 async fn step_75(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
@@ -510,11 +521,15 @@ async fn step_83(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^if\ "([^"]+)"\ is\ unhealthy,\ it\ is\ restarted\ per\ its\ own\ failure\ semantics$"#
 )]
+#[then(
+    regex = r#"^if\ "([^"]+)"\ is\ unhealthy,\ it\ is\ restarted\ per\ its\ own\ failure\ semantics$"#
+)]
 async fn step_84(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
 
 #[given(regex = r#"^parent\ "([^"]+)"\ health\ is\ unaffected$"#)]
+#[then(regex = r#"^parent\ "([^"]+)"\ health\ is\ unaffected$"#)]
 async fn step_85(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
@@ -602,6 +617,7 @@ async fn step_95(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ not\ inserted\ into\ the\ graph$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ not\ inserted\ into\ the\ graph$"#)]
 async fn step_96(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
@@ -648,6 +664,7 @@ async fn step_104(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ spawned\ task\ is\ rejected\ with\ error\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ spawned\ task\ is\ rejected\ with\ error\ "([^"]+)"$"#)]
 async fn step_105(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:spawned:{arg0}"));
 }
@@ -685,6 +702,9 @@ async fn uncovered_0(world: &mut TabaWorld, arg0: String, arg1: String, arg2: St
 }
 
 #[given(
+    regex = r#"^the graph merge verifies: \(a\) delegation token signed by alice, \(b\) LC (\d+) within token range (\d+)\.\.(\d+), \(c\) spawn count (\d+) <= max (\d+)$"#
+)]
+#[then(
     regex = r#"^the graph merge verifies: \(a\) delegation token signed by alice, \(b\) LC (\d+) within token range (\d+)\.\.(\d+), \(c\) spawn count (\d+) <= max (\d+)$"#
 )]
 async fn uncovered_1(
@@ -729,6 +749,9 @@ async fn uncovered_7(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(
+    regex = r#"^the audit chain shows: web-api -> spawned -> cleanup-job -> placed on prod-(\d+)$"#
+)]
+#[then(
     regex = r#"^the audit chain shows: web-api -> spawned -> cleanup-job -> placed on prod-(\d+)$"#
 )]
 async fn uncovered_8(world: &mut TabaWorld, arg0: String) {

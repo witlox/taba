@@ -87,6 +87,7 @@ async fn step_10(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ does\ NOT\ respond\ \(not\ designated,\ governance\ restricts\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ does\ NOT\ respond\ \(not\ designated,\ governance\ restricts\)$"#)]
 async fn step_11(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -107,11 +108,13 @@ async fn step_14(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ learns\ that\ "([^"]+)"\ offers\ "([^"]+)"$"#)]
+#[then(regex = r#"^"([^"]+)"\ learns\ that\ "([^"]+)"\ offers\ "([^"]+)"$"#)]
 async fn step_15(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ learns\ the\ same\ via\ gossip$"#)]
+#[then(regex = r#"^"([^"]+)"\ learns\ the\ same\ via\ gossip$"#)]
 async fn step_16(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -163,26 +166,33 @@ async fn step_22(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the\ solver\ finds\ cross\-domain\ advertisement\ from\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ solver\ finds\ cross\-domain\ advertisement\ from\ "([^"]+)"$"#)]
 async fn step_23(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
 #[given(regex = r#"^the\ solver\ sends\ a\ signed\ forwarding\ query\ to\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ solver\ sends\ a\ signed\ forwarding\ query\ to\ "([^"]+)"$"#)]
 async fn step_24(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ verifies\ bilateral\ policy\ in\ both\ domains$"#)]
+#[then(regex = r#"^"([^"]+)"\ verifies\ bilateral\ policy\ in\ both\ domains$"#)]
 async fn step_25(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ executes\ the\ query\ against\ "([^"]+)"\ graph$"#)]
+#[then(regex = r#"^"([^"]+)"\ executes\ the\ query\ against\ "([^"]+)"\ graph$"#)]
 async fn step_26(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
 #[given(
+    regex = r#"^"([^"]+)"\ returns\ a\ signed\ result\ with\ the\ "([^"]+)"\ provider\ details$"#
+)]
+#[then(
     regex = r#"^"([^"]+)"\ returns\ a\ signed\ result\ with\ the\ "([^"]+)"\ provider\ details$"#
 )]
 async fn step_27(world: &mut TabaWorld, arg0: String, arg1: String) {
@@ -192,11 +202,15 @@ async fn step_27(world: &mut TabaWorld, arg0: String, arg1: String) {
 #[given(
     regex = r#"^the\ solver\ creates\ a\ cross\-domain\ composition\ linking\ "([^"]+)"\ to\ the\ foreign\ provider$"#
 )]
+#[then(
+    regex = r#"^the\ solver\ creates\ a\ cross\-domain\ composition\ linking\ "([^"]+)"\ to\ the\ foreign\ provider$"#
+)]
 async fn step_28(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
 #[given(regex = r#"^the\ result\ is\ cached\ in\ "([^"]+)"\ for\ future\ queries$"#)]
+#[then(regex = r#"^the\ result\ is\ cached\ in\ "([^"]+)"\ for\ future\ queries$"#)]
 async fn step_29(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -228,6 +242,7 @@ async fn step_34(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^rejects\ the\ query:\ "([^"]+)"$"#)]
+#[then(regex = r#"^rejects\ the\ query:\ "([^"]+)"$"#)]
 async fn step_35(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -239,6 +254,7 @@ async fn step_36(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ remains\ with\ unresolved\ need\ "([^"]+)"$"#)]
+#[then(regex = r#"^"([^"]+)"\ remains\ with\ unresolved\ need\ "([^"]+)"$"#)]
 async fn step_37(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -262,6 +278,7 @@ async fn step_40(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ has\ unresolved\ need\ "([^"]+)"$"#)]
+#[then(regex = r#"^"([^"]+)"\ has\ unresolved\ need\ "([^"]+)"$"#)]
 async fn step_41(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -288,16 +305,19 @@ async fn step_44(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^the\ foreign\ unit\ is\ NOT\ inserted\ into\ "([^"]+)"'s\ composition\ graph$"#
 )]
+#[then(regex = r#"^the\ foreign\ unit\ is\ NOT\ inserted\ into\ "([^"]+)"'s\ composition\ graph$"#)]
 async fn step_45(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
 #[given(regex = r#"^the\ foreign\ unit's\ full\ content\ stays\ in\ "([^"]+)"\ graph\ only$"#)]
+#[then(regex = r#"^the\ foreign\ unit's\ full\ content\ stays\ in\ "([^"]+)"\ graph\ only$"#)]
 async fn step_46(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ references\ it\ by\ UnitId\ only$"#)]
+#[then(regex = r#"^"([^"]+)"\ references\ it\ by\ UnitId\ only$"#)]
 async fn step_47(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -314,6 +334,7 @@ async fn step_49(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ continues\ operating\ with\ the\ cached\ composition$"#)]
+#[then(regex = r#"^"([^"]+)"\ continues\ operating\ with\ the\ cached\ composition$"#)]
 async fn step_50(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -336,6 +357,7 @@ async fn step_53(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ cross\-domain\ composition\ enters\ pending\ state$"#)]
+#[then(regex = r#"^"([^"]+)"\ cross\-domain\ composition\ enters\ pending\ state$"#)]
 async fn step_54(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -434,6 +456,7 @@ async fn step_68(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String
 }
 
 #[given(regex = r#"^"([^"]+)"\ begins\ gossiping\ cross\-domain\ capability\ advertisements$"#)]
+#[then(regex = r#"^"([^"]+)"\ begins\ gossiping\ cross\-domain\ capability\ advertisements$"#)]
 async fn step_69(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -511,6 +534,7 @@ async fn step_82(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^alert\ raised:\ "([^"]+)"$"#)]
+#[then(regex = r#"^alert\ raised:\ "([^"]+)"$"#)]
 async fn step_83(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -536,6 +560,7 @@ async fn step_87(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ can\ now\ discover\ "([^"]+)"\ from\ "([^"]+)"$"#)]
+#[then(regex = r#"^"([^"]+)"\ can\ now\ discover\ "([^"]+)"\ from\ "([^"]+)"$"#)]
 async fn step_88(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -562,6 +587,7 @@ async fn step_92(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ response\ includes\ advertised\ capabilities\ from\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ response\ includes\ advertised\ capabilities\ from\ "([^"]+)"$"#)]
 async fn step_93(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
@@ -599,11 +625,13 @@ async fn step_98(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the\ cross\-domain\ segment\ issues\ a\ forwarding\ query\ to\ "([^"]+)"$"#)]
+#[then(regex = r#"^the\ cross\-domain\ segment\ issues\ a\ forwarding\ query\ to\ "([^"]+)"$"#)]
 async fn step_99(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }
 
 #[given(regex = r#"^"([^"]+)"\ returns\ the\ provenance\ from\ "([^"]+)"\ \(read\-only\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ returns\ the\ provenance\ from\ "([^"]+)"\ \(read\-only\)$"#)]
 async fn step_100(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:cross:{arg0}"));
 }

@@ -61,6 +61,7 @@ async fn step_5(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the\ ceremony\ remains\ in\ "([^"]+)"\ state$"#)]
+#[then(regex = r#"^the\ ceremony\ remains\ in\ "([^"]+)"\ state$"#)]
 async fn step_6(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -76,6 +77,7 @@ async fn step_8(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the\ ceremony\ transitions\ to\ "([^"]+)"\ state$"#)]
+#[then(regex = r#"^the\ ceremony\ transitions\ to\ "([^"]+)"\ state$"#)]
 async fn step_9(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -101,6 +103,7 @@ async fn step_13(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ public\ key\ "([^"]+)"\ is\ recorded$"#)]
+#[then(regex = r#"^the\ public\ key\ "([^"]+)"\ is\ recorded$"#)]
 async fn step_14(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -127,6 +130,7 @@ async fn step_18(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ is\ inserted\ as\ the\ first\ unit\ in\ the\ composition\ graph$"#)]
+#[then(regex = r#"^"([^"]+)"\ is\ inserted\ as\ the\ first\ unit\ in\ the\ composition\ graph$"#)]
 async fn step_19(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -204,6 +208,7 @@ async fn step_32(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the\ list\ of\ holders\ who\ submitted:\ \["([^"]+)",\ "([^"]+)"\]$"#)]
+#[then(regex = r#"^the\ list\ of\ holders\ who\ submitted:\ \["([^"]+)",\ "([^"]+)"\]$"#)]
 async fn step_33(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -232,6 +237,7 @@ async fn step_37(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^it\ is\ compared\ against\ "([^"]+)"$"#)]
+#[then(regex = r#"^it\ is\ compared\ against\ "([^"]+)"$"#)]
 async fn step_38(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -243,6 +249,7 @@ async fn step_39(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^if\ they\ do\ not\ match,\ the\ ceremony\ fails\ with\ "([^"]+)"$"#)]
+#[then(regex = r#"^if\ they\ do\ not\ match,\ the\ ceremony\ fails\ with\ "([^"]+)"$"#)]
 async fn step_40(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -275,6 +282,7 @@ async fn step_45(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^only\ the\ public\ key\ "([^"]+)"\ persists\ for\ future\ verification$"#)]
+#[then(regex = r#"^only\ the\ public\ key\ "([^"]+)"\ persists\ for\ future\ verification$"#)]
 async fn step_46(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -301,11 +309,13 @@ async fn step_50(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^a\ self\-signed\ trust\ domain\ governance\ unit\ "([^"]+)"\ is\ created$"#)]
+#[then(regex = r#"^a\ self\-signed\ trust\ domain\ governance\ unit\ "([^"]+)"\ is\ created$"#)]
 async fn step_51(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
 #[given(regex = r#"^a\ root\ role\ assignment\ grants\ the\ author\ full\ scope\ in\ "([^"]+)"$"#)]
+#[then(regex = r#"^a\ root\ role\ assignment\ grants\ the\ author\ full\ scope\ in\ "([^"]+)"$"#)]
 async fn step_52(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -333,6 +343,7 @@ async fn step_56(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^alice\ authors\ a\ data\ unit\ "([^"]+)"$"#)]
+#[when(regex = r#"^alice\ authors\ a\ data\ unit\ "([^"]+)"$"#)]
 async fn step_57(world: &mut TabaWorld, arg0: String) {
     let unit = taba_test_harness::DataUnitBuilder::new()
         .with_author(world.author_id)
@@ -373,16 +384,19 @@ async fn step_63(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ remains\ fully\ operational\ with\ all\ 10\ existing\ units$"#)]
+#[then(regex = r#"^"([^"]+)"\ remains\ fully\ operational\ with\ all\ 10\ existing\ units$"#)]
 async fn step_64(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
 #[given(regex = r#"^alice\ can\ migrate\ units\ from\ "([^"]+)"\ to\ "([^"]+)"\ incrementally$"#)]
+#[then(regex = r#"^alice\ can\ migrate\ units\ from\ "([^"]+)"\ to\ "([^"]+)"\ incrementally$"#)]
 async fn step_65(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
 #[given(regex = r#"^existing\ units\ in\ "([^"]+)"\ do\ NOT\ require\ re\-signing$"#)]
+#[then(regex = r#"^existing\ units\ in\ "([^"]+)"\ do\ NOT\ require\ re\-signing$"#)]
 async fn step_66(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -398,6 +412,7 @@ async fn step_68(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ remains\ fully\ operational\ \(unaffected\ by\ failed\ upgrade\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ remains\ fully\ operational\ \(unaffected\ by\ failed\ upgrade\)$"#)]
 async fn step_69(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -409,6 +424,7 @@ async fn step_70(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^no\ units\ in\ "([^"]+)"\ were\ affected$"#)]
+#[then(regex = r#"^no\ units\ in\ "([^"]+)"\ were\ affected$"#)]
 async fn step_71(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -424,6 +440,7 @@ async fn uncovered_1(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^the ceremony share count remains unchanged at (\d+)$"#)]
+#[then(regex = r#"^the ceremony share count remains unchanged at (\d+)$"#)]
 async fn uncovered_2(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -434,6 +451,7 @@ async fn uncovered_3(world: &mut TabaWorld, arg0: String, arg1: String, arg2: St
 }
 
 #[given(regex = r#"^shares_received=(\d+), threshold=(\d+), total_shares=(\d+)$"#)]
+#[then(regex = r#"^shares_received=(\d+), threshold=(\d+), total_shares=(\d+)$"#)]
 async fn uncovered_4(world: &mut TabaWorld, arg0: String, arg1: String, arg2: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
@@ -444,16 +462,19 @@ async fn uncovered_5(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^the composition graph functions identically to a Tier (\d+)\+ domain$"#)]
+#[then(regex = r#"^the composition graph functions identically to a Tier (\d+)\+ domain$"#)]
 async fn uncovered_6(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
 #[given(regex = r#"^the ceremony completes with (\d+) shares, threshold (\d+)$"#)]
+#[when(regex = r#"^the ceremony completes with (\d+) shares, threshold (\d+)$"#)]
 async fn uncovered_7(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }
 
 #[given(regex = r#"^the ceremony fails at share (\d+) of (\d+) \(network error\)$"#)]
+#[when(regex = r#"^the ceremony fails at share (\d+) of (\d+) \(network error\)$"#)]
 async fn uncovered_8(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:ceremony:{arg0}"));
 }

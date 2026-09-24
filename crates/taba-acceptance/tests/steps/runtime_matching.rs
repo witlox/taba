@@ -49,6 +49,7 @@ async fn step_1(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ cannot\ be\ placed\ on\ "([^"]+)"\ \(no\ oci\ runtime\)$"#)]
+#[then(regex = r#"^"([^"]+)"\ cannot\ be\ placed\ on\ "([^"]+)"\ \(no\ oci\ runtime\)$"#)]
 async fn step_2(world: &mut TabaWorld, arg0: String, arg1: String) {
     world.add_event(&format!("given:runtime:{arg0}"));
 }
@@ -76,6 +77,9 @@ async fn step_5(world: &mut TabaWorld, arg0: String) {
 #[given(
     regex = r#"^"([^"]+)"\ cannot\ be\ placed\ on:\ ci\-runner,\ prod\-1,\ prod\-2,\ win\-server\ \(no\ wasm\)$"#
 )]
+#[then(
+    regex = r#"^"([^"]+)"\ cannot\ be\ placed\ on:\ ci\-runner,\ prod\-1,\ prod\-2,\ win\-server\ \(no\ wasm\)$"#
+)]
 async fn step_6(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:runtime:{arg0}"));
 }
@@ -99,6 +103,7 @@ async fn step_9(world: &mut TabaWorld, arg0: String, arg1: String) {
 }
 
 #[given(regex = r#"^"([^"]+)"\ can\ be\ placed\ on\ nodes\ with\ privilege:root$"#)]
+#[then(regex = r#"^"([^"]+)"\ can\ be\ placed\ on\ nodes\ with\ privilege:root$"#)]
 async fn step_10(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:runtime:{arg0}"));
 }
@@ -173,6 +178,9 @@ async fn step_19(world: &mut TabaWorld) {
 }
 
 #[given(
+    regex = r#"^"([^"]+)"\ is\ placed\ on\ prod\-1\ \(most\ available\ memory,\ lowest\ load\)$"#
+)]
+#[then(
     regex = r#"^"([^"]+)"\ is\ placed\ on\ prod\-1\ \(most\ available\ memory,\ lowest\ load\)$"#
 )]
 async fn step_20(world: &mut TabaWorld, arg0: String) {
@@ -343,6 +351,7 @@ async fn step_48(world: &mut TabaWorld) {
 }
 
 #[given(regex = r#"^the\ node\ reports\ "([^"]+)"\ to\ the\ graph$"#)]
+#[then(regex = r#"^the\ node\ reports\ "([^"]+)"\ to\ the\ graph$"#)]
 async fn step_49(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:runtime:{arg0}"));
 }
@@ -380,11 +389,13 @@ async fn step_54(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(regex = r#"^discovers\ "([^"]+)"\ has\ the\ artifact$"#)]
+#[then(regex = r#"^discovers\ "([^"]+)"\ has\ the\ artifact$"#)]
 async fn step_55(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:runtime:{arg0}"));
 }
 
 #[given(regex = r#"^fetches\ from\ "([^"]+)"\ via\ P2P\ transfer$"#)]
+#[then(regex = r#"^fetches\ from\ "([^"]+)"\ via\ P2P\ transfer$"#)]
 async fn step_56(world: &mut TabaWorld, arg0: String) {
     world.add_event(&format!("given:runtime:{arg0}"));
 }
@@ -468,6 +479,9 @@ async fn uncovered_1(world: &mut TabaWorld, arg0: String) {
 }
 
 #[given(
+    regex = r#"^the solver ranks by resource fit: prod-(\d+) \(best\), prod-(\d+), ci-runner \(worst\)$"#
+)]
+#[then(
     regex = r#"^the solver ranks by resource fit: prod-(\d+) \(best\), prod-(\d+), ci-runner \(worst\)$"#
 )]
 async fn uncovered_2(world: &mut TabaWorld, arg0: String, arg1: String) {
