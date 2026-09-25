@@ -191,3 +191,38 @@ Feature: Runtime matching and node capabilities
     Then the artifact is distributed to peer nodes via P2P
     And nodes receiving the artifact verify the digest (INV-A1)
     And the artifact becomes available in peer cache across the cluster
+
+  # --- MicroVM runtime matching (INV-N6) ---
+
+  Scenario: MicroVM workload matches nodes with MicroVm runtime
+    Given a workload unit "vm-server" with:
+      | field          | value              |
+      | artifact.type  | microvm            |
+      | artifact.ref   | vmlinux-5.10       |
+      | kernel         | /opt/vmlinux        |
+      | rootfs         | /opt/rootfs.ext4    |
+    When the solver evaluates placement for "vm-server"
+    Then "vm-server" can only be placed on nodes with runtime:microvm
+    And "vm-server" cannot be placed on nodes without microvm runtime
+
+  # --- Native binary execution ---
+
+  Scenario: Native binary workload starts as a process
+    Given a workload unit "batch-job" with:
+      | field          | value              |
+      | artifact.type  | native             |
+      | artifact.ref   | /bin/sleep         |
+    When the solver evaluates placement for "batch-job"
+    Then "batch-job" can be placed on nodes with runtime:native
+    And "batch-job" starts as a native process (not a container)
+
+  # --- Wasm module execution ---
+
+  Scenario: Wasm module workload starts in Wasm runtime
+    Given a workload unit "edge-fn" with:
+      | field          | value              |
+      | artifact.type  | wasm               |
+      | artifact.ref   | /opt/module.wasm   |
+    When the solver evaluates placement for "edge-fn"
+    Then "edge-fn" can be placed on nodes with runtime:wasm
+    And "edge-fn" starts in the Wasm runtime (not a container)

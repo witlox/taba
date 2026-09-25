@@ -68,6 +68,7 @@ fn parse_artifact_type(s: &str) -> ArtifactType {
         "native" => ArtifactType::Native,
         "wasm" => ArtifactType::Wasm,
         "k8s" | "k8s-manifest" => ArtifactType::K8sManifest,
+        "microvm" => ArtifactType::MicroVm,
         _ => ArtifactType::Oci,
     }
 }
@@ -283,8 +284,8 @@ async fn step_0(world: &mut TabaWorld, arg0: String, step: &cucumber::gherkin::S
         artifact_ref,
         digest,
         requires,
-        kernel_ref: None,
-        rootfs_ref: None,
+        kernel_ref: table.get("kernel").cloned(),
+        rootfs_ref: table.get("rootfs").cloned(),
     };
     world.store_unit(&arg0, Unit::Workload(unit.clone()));
     let _ = world.graph.insert(Unit::Workload(unit)).await;
@@ -1513,4 +1514,138 @@ async fn uncovered_2(world: &mut TabaWorld, arg0: String, arg1: String) {
             assert!(eligible.contains(&cr), "ci-runner should be eligible");
         }
     }
+}
+
+// ===========================================================================
+// MicroVM, Native, Wasm runtime matching (INV-N6)
+// ===========================================================================
+
+#[then(regex = r#"^"([^"]+)"\ can\ only\ be\ placed\ on\ nodes\ with\ runtime:microvm$"#)]
+async fn then_only_microvm(world: &mut TabaWorld, arg0: String) {
+    let unit = world.units.get(&arg0).expect("unit should exist");
+    let nodes: Vec<(taba_common::NodeId, taba_core::NodeCapabilitySet)> = world
+        .node_caps
+        .iter()
+        .map(|(_, (id, caps))| (*id, caps.clone()))
+        .collect();
+
+    let filter = taba_solver::DefaultCapabilityFilter::new();
+    let eligible = filter.filter(unit, &nodes, &[]);
+
+    let microvm_nodes: Vec<_> = nodes
+        .iter()
+        .filter(|(_, caps)| {
+            caps.runtimes
+                .contains(&taba_core::RuntimeCapability::MicroVm)
+        })
+        .collect();
+
+    assert!(
+        eligible.len() <= microvm_nodes.len() || microvm_nodes.is_empty(),
+        "'{arg0}' should only be placed on nodes with microvm runtime, eligible: {eligible:?}, microvm nodes: {microvm_nodes:?}"
+    );
+}
+
+#[then(regex = r#"^"([^"]+)"\ cannot\ be\ placed\ on\ nodes\ without\ microvm\ runtime$"#)]
+async fn then_not_without_microvm(world: &mut TabaWorld, arg0: String) {
+    let unit = world.units.get(&arg0).expect("unit should exist");
+    let nodes: Vec<(taba_common::NodeId, taba_core::NodeCapabilitySet)> = world
+        .node_caps
+        .iter()
+        .map(|(_, (id, caps))| (*id, caps.clone()))
+        .collect();
+
+    let filter = taba_solver::DefaultCapabilityFilter::new();
+    let eligible = filter.filter(unit, &nodes, &[]);
+
+    let non_microvm_nodes: Vec<_> = nodes
+        .iter()
+        .filter(|(_, caps)| {
+            !caps
+                .runtimes
+                .contains(&taba_core::RuntimeCapability::MicroVm)
+        })
+        .collect();
+
+    for (id, _) in &non_microvm_nodes {
+        assert!(
+            !eligible.contains(id),
+            "'{arg0}' should not be placed on non-microvm node {id:?}"
+        );
+    }
+}
+
+#[then(regex = r#"^"([^"]+)"\ can\ be\ placed\ on\ nodes\ with\ runtime:native$"#)]
+async fn then_can_native(world: &mut TabaWorld, arg0: String) {
+    let unit = world.units.get(&arg0).expect("unit should exist");
+    let nodes: Vec<(taba_common::NodeId, taba_core::NodeCapabilitySet)> = world
+        .node_caps
+        .iter()
+        .map(|(_, (id, caps))| (*id, caps.clone()))
+        .collect();
+
+    let filter = taba_solver::DefaultCapabilityFilter::new();
+    let eligible = filter.filter(unit, &nodes, &[]);
+
+    let native_nodes: Vec<_> = nodes
+        .iter()
+        .filter(|(_, caps)| {
+            caps.runtimes
+                .contains(&taba_core::RuntimeCapability::Native)
+        })
+        .collect();
+
+    if !native_nodes.is_empty() {
+        assert!(
+            eligible
+                .iter()
+                .any(|id| native_nodes.iter().any(|(nid, _)| nid == id)),
+            "'{arg0}' should be placed on at least one native node"
+        );
+    }
+}
+
+#[then(regex = r#"^"([^"]+)"\ starts\ as\ a\ native\ process\ \(not\ a\ container\)$"#)]
+async fn then_starts_native(world: &mut TabaWorld, arg0: String) {
+    let unit = world.units.get(&arg0).expect("unit should exist");
+    assert!(
+        matches!(unit, taba_core::Unit::Workload(w) if w.artifact.artifact_type == taba_core::ArtifactType::Native),
+        "'{arg0}' should have Native artifact type (starts as a process, not a container)"
+    );
+}
+
+#[then(regex = r#"^"([^"]+)"\ can\ be\ placed\ on\ nodes\ with\ runtime:wasm$"#)]
+async fn then_can_wasm(world: &mut TabaWorld, arg0: String) {
+    let unit = world.units.get(&arg0).expect("unit should exist");
+    let nodes: Vec<(taba_common::NodeId, taba_core::NodeCapabilitySet)> = world
+        .node_caps
+        .iter()
+        .map(|(_, (id, caps))| (*id, caps.clone()))
+        .collect();
+
+    let filter = taba_solver::DefaultCapabilityFilter::new();
+    let eligible = filter.filter(unit, &nodes, &[]);
+
+    let wasm_nodes: Vec<_> = nodes
+        .iter()
+        .filter(|(_, caps)| caps.runtimes.contains(&taba_core::RuntimeCapability::Wasm))
+        .collect();
+
+    if !wasm_nodes.is_empty() {
+        assert!(
+            eligible
+                .iter()
+                .any(|id| wasm_nodes.iter().any(|(wid, _)| wid == id)),
+            "'{arg0}' should be placed on at least one wasm node"
+        );
+    }
+}
+
+#[then(regex = r#"^"([^"]+)"\ starts\ in\ the\ Wasm\ runtime\ \(not\ a\ container\)$"#)]
+async fn then_starts_wasm(world: &mut TabaWorld, arg0: String) {
+    let unit = world.units.get(&arg0).expect("unit should exist");
+    assert!(
+        matches!(unit, taba_core::Unit::Workload(w) if w.artifact.artifact_type == taba_core::ArtifactType::Wasm),
+        "'{arg0}' should have Wasm artifact type (starts in Wasm runtime, not a container)"
+    );
 }
