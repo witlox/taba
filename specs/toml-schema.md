@@ -131,6 +131,31 @@ timeout = "2s"
 
 ---
 
+## Level 2.5 — MicroVM workload (INV-N6)
+
+```toml
+[unit]
+name = "secure-worker"
+microvm = "vmlinux-5.10"
+kernel = "/opt/vmlinux"
+rootfs = "/opt/rootfs.ext4"
+digest = "sha256:abc123..."
+```
+
+MicroVM workloads require `kernel` and `rootfs` paths. The
+`microvm` key is the kernel identifier (used for deduplication
+and peer cache). At runtime, the node detects the VM monitor
+(Firecracker, cloud-hypervisor, or QEMU) and generates the
+appropriate VM configuration.
+
+| Field | Default | Source |
+|-------|---------|--------|
+| `kernel` | — | Required for MicroVm (INV-N6) |
+| `rootfs` | — | Required for MicroVm (INV-N6) |
+| `digest` | `"sha256:unset"` | Recommended for production (INV-A1) |
+
+---
+
 ## Level 3 — Data unit
 
 ```toml
@@ -322,6 +347,7 @@ The `[unit]` section uses shorthand keys to infer artifact type:
 | `binary` | Native binary | `binary = "bin/myapp"` |
 | `wasm` | WebAssembly module | `wasm = "module.wasm"` |
 | `k8s` | Kubernetes manifest | `k8s = "pod-spec.yaml"` |
+| `microvm` | MicroVM kernel | `microvm = "vmlinux-5.10"` |
 
 Only one artifact key per unit. `digest` (SHA256) is always recommended
 and required for production environments (INV-A1).
