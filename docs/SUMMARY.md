@@ -9,6 +9,7 @@
 - [Getting Started](guide/getting-started.md)
 - [Unit Authoring](guide/unit-authoring.md)
 - [Composition & Placement](guide/composition.md)
+- [Runtime Matching](guide/runtime-matching.md)
 - [Status & Audit](guide/status-audit.md)
 - [K8s Migration](guide/k8s-migration.md)
 

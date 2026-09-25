@@ -218,6 +218,13 @@ not distinguish between auto-discovered and operator-declared capabilities.
 defaults to leave-dead, all other environments default to auto-replace.
 Per-unit `placement_on_failure` declaration overrides the environment default.
 
+**INV-N6**: MicroVM workloads require `kernel_ref` and `rootfs_ref` on
+the `Artifact`. The `RuntimeSelector` dispatches `ArtifactType::MicroVm`
+to `MicroVmRuntime`, which detects the VM monitor (Firecracker,
+cloud-hypervisor, or QEMU) at runtime and generates the appropriate
+VM configuration. Nodes without `RuntimeCapability::MicroVm` are
+excluded by the capability filter.
+
 ## Artifact Distribution Invariants
 
 **INV-A1**: Every artifact referenced by a workload unit in the graph must

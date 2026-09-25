@@ -80,7 +80,7 @@ valid_lc_range, max_spawns, author_sig), `DelegationTokenId`
 
 **Node capabilities**: `NodeCapabilitySet` (hardware, os, privilege, runtimes,
 network, storage, environment, author_affinity, custom_tags),
-`RuntimeCapability` (Oci | OciRootless | K8s | Wasm | Native),
+`RuntimeCapability` (Oci | OciRootless | K8s | Wasm | Native | MicroVm),
 `EnvironmentTag` (Dev | Test | Prod | Custom(String)),
 `PrivilegeLevel` (Root | User)
 
