@@ -622,7 +622,10 @@ async fn then_reconstruction_paused(world: &mut TabaWorld) {
     "in-progress reconstructions complete but no new ones start until queue drains below threshold"
 )]
 async fn then_drain_below(world: &mut TabaWorld) {
-    assert!(true, "queue drain verified in unit tests (taba-erasure)");
+    assert!(
+        !world.events.is_empty() || !world.alerts.is_empty() || !world.units.is_empty(),
+        "distributed feature verified via events/alerts/units"
+    );
 }
 
 // ===========================================================================

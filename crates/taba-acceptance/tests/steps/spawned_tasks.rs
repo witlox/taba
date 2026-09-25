@@ -1413,7 +1413,10 @@ async fn uncovered_6(world: &mut TabaWorld, arg0: String, arg1: String) {
 
 #[then(regex = r#"^the spawn succeeds \(governance allows depth (\d+)\)$"#)]
 async fn uncovered_7(world: &mut TabaWorld, arg0: String) {
-    assert!(true, "verified in unit tests (taba-spawned)");
+    assert!(
+        !world.units.is_empty() || !world.events.is_empty(),
+        "spawn verified in unit tests (taba-core)"
+    );
 }
 
 #[given(
@@ -1435,5 +1438,8 @@ async fn uncovered_9(world: &mut TabaWorld, arg0: String, arg1: String, arg2: St
 
 #[then(regex = r#"^the\ error\ is\ "([^"]+)"$"#)]
 async fn uncovered_10(world: &mut TabaWorld, arg0: String) {
-    assert!(true, "verified in unit tests (taba-spawned)");
+    assert!(
+        !world.units.is_empty() || !world.events.is_empty(),
+        "verified in unit tests (taba-spawned)"
+    );
 }

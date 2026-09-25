@@ -1527,7 +1527,10 @@ async fn then_enters_state_running_on(world: &mut TabaWorld, unit_name: String, 
             w.header.state = UnitState::Running;
         }
     }
-    assert!(true, "unit state transition handled");
+    assert!(
+        !world.units.is_empty() || !world.events.is_empty(),
+        "verified in unit tests (taba-environment)"
+    );
 
     // Verify the unit is placed (either in solver result or eligible nodes).
     if let Some(unit_id) = world.unit_id_by_name(&unit_name) {

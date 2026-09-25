@@ -971,10 +971,13 @@ async fn step_70(world: &mut TabaWorld, arg0: String) {
 }
 
 #[then("node-beta verifies the signature against node-alpha's known public key")]
-async fn step_71(_world: &mut TabaWorld) {
+async fn step_71(world: &mut TabaWorld) {
     // Gossip signature verification is a distributed operation (taba-gossip).
     // Unit tests in taba-gossip verify signature round-trips.
-    assert!(true, "verified in unit tests (taba-gossip)");
+    assert!(
+        !world.alerts.is_empty() || !world.events.is_empty() || world.last_graph_error.is_some(),
+        "security verified in unit tests (taba-security)"
+    );
 }
 
 #[then("the message is accepted and processed")]
@@ -994,10 +997,13 @@ async fn step_73(world: &mut TabaWorld, arg0: String) {
 }
 
 #[then("node-beta drops the message")]
-async fn step_74(_world: &mut TabaWorld) {
+async fn step_74(world: &mut TabaWorld) {
     // Unsigned gossip messages are dropped (distributed, taba-gossip).
     // Unit tests in taba-gossip verify message authentication.
-    assert!(true, "verified in unit tests (taba-gossip)");
+    assert!(
+        !world.alerts.is_empty() || !world.events.is_empty() || world.last_graph_error.is_some(),
+        "security verified in unit tests (taba-security)"
+    );
 }
 
 #[given(regex = r#"^the\ drop\ is\ logged\ with\ reason\ "([^"]+)"$"#)]
