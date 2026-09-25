@@ -966,7 +966,7 @@ impl RuntimeExecutor for MicroVmRuntime {
 ///
 /// `select(&unit)` returns the executor that matches the unit's
 /// artifact type, or `None` if no matching runtime is available.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(clippy::doc_markdown)]
 pub struct RuntimeSelector {
     docker: Option<DockerRuntime>,
@@ -1120,6 +1120,34 @@ impl Default for RuntimeSelector {
     }
 }
 
+impl Clone for NativeRuntime {
+    fn clone(&self) -> Self {
+        // Clone the PID map (shared state is OK — both clones see the same PIDs).
+        let processes = self.processes.lock().expect("mutex poisoned");
+        Self {
+            processes: std::sync::Mutex::new(processes.clone()),
+        }
+    }
+}
+
+impl Clone for WasmRuntime {
+    fn clone(&self) -> Self {
+        let states = self.states.lock().expect("mutex poisoned");
+        Self {
+            states: std::sync::Mutex::new(states.clone()),
+        }
+    }
+}
+
+impl Clone for MicroVmRuntime {
+    fn clone(&self) -> Self {
+        let processes = self.processes.lock().expect("mutex poisoned");
+        Self {
+            monitor_path: self.monitor_path.clone(),
+            processes: std::sync::Mutex::new(processes.clone()),
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

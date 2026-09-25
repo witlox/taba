@@ -53,9 +53,9 @@ pub struct LocalClient {
     key_pair: KeyPair,
     /// Decision trail recorder.
     trail_recorder: DefaultDecisionTrailRecorder,
-    /// Optional Docker runtime for container management.
-    /// When `Some`, `reconcile` can start/stop containers.
-    docker: Option<taba_node::runtime::DockerRuntime>,
+    /// Runtime selector for workload lifecycle management.
+    /// Dispatches to Docker, Native, Wasm, or [`MicroVm`] based on artifact type.
+    runtime: Option<taba_node::runtime::RuntimeSelector>,
     /// Optional disk-backed WAL for crash-safe persistence.
     /// When `Some`, `insert_unit` appends to the WAL in addition
     /// to `graph.json`. On load, the WAL is replayed to restore
@@ -233,7 +233,7 @@ impl LocalClient {
             config,
             key_pair,
             trail_recorder,
-            docker: taba_node::runtime::DockerRuntime::new().ok(),
+            runtime: Some(taba_node::runtime::RuntimeSelector::new()),
             wal,
         })
     }
@@ -273,7 +273,7 @@ impl LocalClient {
             config,
             key_pair,
             trail_recorder,
-            docker: None,
+            runtime: None,
             wal: None,
         })
     }
@@ -507,16 +507,17 @@ impl LocalClient {
     ///
     /// # Errors
     ///
-    /// - [`CliError::InvalidInput`] if Docker is not available.
+    /// - [`CliError::InvalidInput`] if no runtime is available.
     pub async fn reconcile(
         &self,
         placements: &[taba_solver::Placement],
     ) -> Result<Vec<(taba_common::UnitId, String)>, CliError> {
-        use taba_node::runtime::RuntimeExecutor;
-
-        let docker = self.docker.as_ref().ok_or_else(|| CliError::InvalidInput {
-            reason: "Docker is not available.".to_string(),
-        })?;
+        let runtime = self
+            .runtime
+            .as_ref()
+            .ok_or_else(|| CliError::InvalidInput {
+                reason: "No runtime available.".to_string(),
+            })?;
 
         let snapshot = self.graph.snapshot().await.map_err(CliError::from)?;
         let mut errors = Vec::new();
@@ -527,8 +528,8 @@ impl LocalClient {
             }
             if let Some(entry) = snapshot.entries.get(&placement.unit) {
                 let unit_clone = entry.signed_unit.unit.clone();
-                let docker_clone = docker.clone();
-                let result = std::thread::spawn(move || docker_clone.start(&unit_clone))
+                let runtime_clone = runtime.clone();
+                let result = std::thread::spawn(move || runtime_clone.start(&unit_clone))
                     .join()
                     .map_err(|e| CliError::InvalidInput {
                         reason: format!("thread panic: {e:?}"),
@@ -566,7 +567,7 @@ impl LocalClient {
             arch: "x86_64".to_string(),
             os: "linux".to_string(),
             privilege: taba_core::PrivilegeLevel::User,
-            runtimes: vec![taba_core::RuntimeCapability::Oci],
+            runtimes: taba_node::runtime::RuntimeSelector::new().available(),
             ports_privileged: false,
             storage: vec!["ssd".to_string()],
             environment: Some("env:dev".to_string()),
