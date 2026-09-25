@@ -394,6 +394,8 @@ fn parse_artifact(unit: &UnitSection) -> Result<Option<Artifact>, CliError> {
                     |d| ContentDigest(d.clone()),
                 ),
                 requires: Vec::new(),
+                kernel_ref: None,
+                rootfs_ref: None,
             }))
         }
         _ => {
@@ -689,6 +691,8 @@ fn parse_workload(decl: &UnitDeclaration) -> Result<Unit, CliError> {
             artifact_ref: String::new(),
             digest: ContentDigest("sha256:unset".to_string()),
             requires: Vec::new(),
+            kernel_ref: None,
+            rootfs_ref: None,
         }),
         needs,
         provides,

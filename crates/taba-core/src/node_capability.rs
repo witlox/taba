@@ -61,6 +61,7 @@ pub enum PrivilegeLevel {
 /// Runtime capability that a node can execute (INV-N2).
 ///
 /// The solver treats these as hard constraints: a workload requiring
+#[allow(clippy::doc_markdown)]
 /// `Oci` cannot be placed on a node without `Oci` or `OciRootless`.
 /// No fallback, no approximation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -76,6 +77,12 @@ pub enum RuntimeCapability {
     Wasm,
     /// Native binary/package execution.
     Native,
+    /// MicroVM execution (Firecracker, cloud-hypervisor, QEMU).
+    ///
+    /// Nodes with this capability can run [`ArtifactType::MicroVm`](crate::ArtifactType::MicroVm)
+    /// workloads. The VM monitor binary (firecracker, cloud-hypervisor,
+    /// or qemu-system-*) must be installed and accessible.
+    MicroVm,
 }
 
 // ---------------------------------------------------------------------------

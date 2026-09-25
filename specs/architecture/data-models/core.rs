@@ -131,7 +131,9 @@ pub struct Artifact {
     pub digest: ContentDigest,
     /// Additional runtime requirements (e.g., ["windows", "dotnet-4.8"]).
     pub requires: Vec<String>,
-}
+        kernel_ref: None,
+        rootfs_ref: None,
+    }
 
 /// Artifact type — matched against node runtime capabilities by the solver.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

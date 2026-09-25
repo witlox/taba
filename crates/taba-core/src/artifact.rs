@@ -13,7 +13,8 @@ use taba_common::ContentDigest;
 // Artifact
 // ---------------------------------------------------------------------------
 
-/// A workload's packaged executable and integrity metadata.
+/// A workload.s packaged executable and integrity metadata.
+#[allow(clippy::doc_markdown)]
 ///
 /// Runtime-agnostic: the solver matches [`ArtifactType`](crate::ArtifactType)
 /// to node runtime capabilities (INV-N2). The digest enables
@@ -29,6 +30,18 @@ pub struct Artifact {
     pub digest: ContentDigest,
     /// Additional runtime requirements (e.g., `["windows", "dotnet-4.8"]`).
     pub requires: Vec<String>,
+    /// Path to the kernel image for MicroVm workloads (INV-N6).
+    ///
+    /// `None` for Oci, Native, Wasm, and K8sManifest artifacts.
+    /// `Some("path/to/vmlinux")` for MicroVm artifacts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kernel_ref: Option<String>,
+    /// Path to the root filesystem image for MicroVm workloads (INV-N6).
+    ///
+    /// `None` for Oci, Native, Wasm, and K8sManifest artifacts.
+    /// `Some("path/to/rootfs.ext4")` for MicroVm artifacts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rootfs_ref: Option<String>,
 }
 
 /// Artifact type — matched against node runtime capabilities by the solver.
@@ -47,6 +60,12 @@ pub enum ArtifactType {
     Wasm,
     /// Kubernetes manifest (pod spec).
     K8sManifest,
+    /// [`MicroVm`] (Firecracker, cloud-hypervisor, QEMU).
+    ///
+    /// Requires `kernel_ref` and `rootfs_ref` on the [`Artifact`]
+    /// (INV-N6). The solver matches this to
+    /// [`RuntimeCapability::MicroVm`](crate::node_capability::RuntimeCapability::MicroVm).
+    MicroVm,
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +83,8 @@ mod tests {
             artifact_ref: "registry.example.com/app:v1".to_string(),
             digest: ContentDigest("sha256:abc123".to_string()),
             requires: vec!["linux".to_string(), "glibc-2.31".to_string()],
+            kernel_ref: None,
+            rootfs_ref: None,
         };
 
         let json = serde_json::to_string(&artifact).expect("serialize Artifact");
@@ -78,6 +99,7 @@ mod tests {
             ArtifactType::Native,
             ArtifactType::Wasm,
             ArtifactType::K8sManifest,
+            ArtifactType::MicroVm,
         ];
 
         for variant in variants {
@@ -95,9 +117,29 @@ mod tests {
             artifact_ref: "/usr/local/bin/daemon".to_string(),
             digest: ContentDigest("sha256:deadbeef".to_string()),
             requires: Vec::new(),
+            kernel_ref: None,
+            rootfs_ref: None,
         };
 
         assert!(artifact.requires.is_empty());
         assert_eq!(artifact.artifact_type, ArtifactType::Native);
+    }
+
+    #[test]
+    fn test_artifact_microvm_with_kernel_rootfs() {
+        let artifact = Artifact {
+            artifact_type: ArtifactType::MicroVm,
+            artifact_ref: "vmlinux-5.10".to_string(),
+            digest: ContentDigest("sha256:kernel123".to_string()),
+            requires: Vec::new(),
+            kernel_ref: Some("/opt/vmlinux".to_string()),
+            rootfs_ref: Some("/opt/rootfs.ext4".to_string()),
+        };
+
+        let json = serde_json::to_string(&artifact).expect("serialize MicroVm Artifact");
+        let decoded: Artifact = serde_json::from_str(&json).expect("deserialize MicroVm Artifact");
+        assert_eq!(artifact, decoded);
+        assert!(decoded.kernel_ref.is_some());
+        assert!(decoded.rootfs_ref.is_some());
     }
 }

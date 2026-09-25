@@ -577,6 +577,8 @@ mod tests {
                 artifact_ref: "registry.example.com/app:v1".to_string(),
                 digest: taba_common::ContentDigest("sha256:abc123".to_string()),
                 requires: Vec::new(),
+                kernel_ref: None,
+                rootfs_ref: None,
             },
             needs: Vec::new(),
             provides: vec![

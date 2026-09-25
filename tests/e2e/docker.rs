@@ -134,6 +134,8 @@ fn test_docker_runtime_start_stop() {
         artifact_ref: "alpine:latest".to_string(),
         digest: ContentDigest("sha256:".to_string()),
         requires: Vec::new(),
+        kernel_ref: None,
+        rootfs_ref: None,
     };
 
     // Start

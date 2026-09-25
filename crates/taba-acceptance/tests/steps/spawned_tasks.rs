@@ -550,6 +550,8 @@ async fn step_53(world: &mut TabaWorld, _arg0: String, _arg1: String) {
         artifact_ref: "native/gpu-process:latest".to_string(),
         digest: taba_common::ContentDigest("sha256:gpu123".to_string()),
         requires: vec!["gpu:cuda".to_string()],
+        kernel_ref: None,
+        rootfs_ref: None,
     };
 
     let gpu_node = taba_common::NodeId(uuid::Uuid::new_v4());

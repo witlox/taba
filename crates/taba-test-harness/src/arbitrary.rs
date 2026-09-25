@@ -156,6 +156,8 @@ pub fn arbitrary_workload_unit() -> impl Strategy<Value = WorkloadUnit> {
                         artifact_ref: format!("registry.example.com/{cap_name}:v1"),
                         digest: ContentDigest("sha256:abc123".to_string()),
                         requires: Vec::new(),
+                        kernel_ref: None,
+                        rootfs_ref: None,
                     },
                     needs,
                     provides,

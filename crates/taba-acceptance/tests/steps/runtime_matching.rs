@@ -283,6 +283,8 @@ async fn step_0(world: &mut TabaWorld, arg0: String, step: &cucumber::gherkin::S
         artifact_ref,
         digest,
         requires,
+        kernel_ref: None,
+        rootfs_ref: None,
     };
     world.store_unit(&arg0, Unit::Workload(unit.clone()));
     let _ = world.graph.insert(Unit::Workload(unit)).await;
