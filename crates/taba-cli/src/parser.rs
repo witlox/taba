@@ -91,6 +91,9 @@ struct UnitSection {
     binary: Option<String>,
     wasm: Option<String>,
     k8s: Option<String>,
+    microvm: Option<String>,
+    kernel: Option<String>,
+    rootfs: Option<String>,
     digest: Option<String>,
     governance_type: Option<String>,
     supersedes: Option<String>,
@@ -375,6 +378,7 @@ fn parse_artifact(unit: &UnitSection) -> Result<Option<Artifact>, CliError> {
         ("binary", &unit.binary, ArtifactType::Native),
         ("wasm", &unit.wasm, ArtifactType::Wasm),
         ("k8s", &unit.k8s, ArtifactType::K8sManifest),
+        ("microvm", &unit.microvm, ArtifactType::MicroVm),
     ];
 
     let found: Vec<(&str, &str, ArtifactType)> = artifact_keys
@@ -394,8 +398,8 @@ fn parse_artifact(unit: &UnitSection) -> Result<Option<Artifact>, CliError> {
                     |d| ContentDigest(d.clone()),
                 ),
                 requires: Vec::new(),
-                kernel_ref: None,
-                rootfs_ref: None,
+                kernel_ref: unit.kernel.clone(),
+                rootfs_ref: unit.rootfs.clone(),
             }))
         }
         _ => {
