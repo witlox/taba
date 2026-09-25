@@ -2706,6 +2706,7 @@ dependencies = [
  "bytes",
  "crc32c",
  "futures",
+ "libc",
  "proptest",
  "prost",
  "serde",

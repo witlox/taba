@@ -65,6 +65,15 @@ impl Unit {
         }
     }
 
+    /// Returns the artifact type if this is a workload unit, `None` otherwise.
+    #[must_use]
+    pub const fn artifact_type_opt(&self) -> Option<crate::artifact::ArtifactType> {
+        match self {
+            Self::Workload(w) => Some(w.artifact.artifact_type),
+            _ => None,
+        }
+    }
+
     /// Capabilities this unit requires from the environment.
     ///
     /// Only workload units declare needs. Data, policy, and governance

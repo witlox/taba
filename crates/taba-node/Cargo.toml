@@ -28,6 +28,7 @@ bytes = { workspace = true }
 bollard = { workspace = true }
 sha2 = { workspace = true }
 uuid = { workspace = true }
+libc = "0.2"
 futures = { workspace = true }
 
 [dev-dependencies]
