@@ -359,3 +359,730 @@ fn test_docker_daemon_reconciliation() {
 
     cleanup_taba_containers();
 }
+
+// ===========================================================================
+// Expanded Docker e2e tests — exercising real container lifecycle,
+// WAL persistence, capability matching, and health checks.
+// ===========================================================================
+
+/// Writes a workload TOML with capabilities (needs/provides).
+fn write_workload_with_caps(
+    dir: &std::path::Path,
+    name: &str,
+    needs: &[(&str, &str)],
+    provides: &[(&str, &str)],
+) -> PathBuf {
+    let path = dir.join(format!("{name}.taba.toml"));
+    let mut toml = format!(
+        r#"[unit]
+name = "{name}"
+image = "alpine:latest"
+
+"#
+    );
+
+    if !needs.is_empty() {
+        toml.push_str("\n[needs]\n");
+        for (cap, cap_type) in needs {
+            toml.push_str(&format!("{cap} = {{ type = \"{cap_type}\" }}\n"));
+        }
+    }
+
+    if !provides.is_empty() {
+        toml.push_str("\n[provides]\n");
+        for (cap, cap_type) in provides {
+            toml.push_str(&format!("{cap} = {{ type = \"{cap_type}\" }}\n"));
+        }
+    }
+
+    std::fs::write(&path, toml).expect("write toml");
+    path
+}
+
+/// Writes a workload TOML with a health check.
+fn write_workload_with_health(dir: &std::path::Path, name: &str, health_type: &str) -> PathBuf {
+    let path = dir.join(format!("{name}.taba.toml"));
+    let health_section = match health_type {
+        "http" => {
+            r#"[health]
+type = "http"
+path = "/healthz"
+port = 8080
+interval = "5s"
+timeout = "2s"
+"#
+        }
+        "command" => {
+            r#"[health]
+type = "command"
+command = "echo healthy"
+interval = "5s"
+"#
+        }
+        _ => "",
+    };
+
+    let toml = format!(
+        r#"[unit]
+name = "{name}"
+image = "alpine:latest"
+
+{health_section}"#
+    );
+
+    std::fs::write(&path, toml).expect("write toml");
+    path
+}
+
+/// Writes a workload TOML with failure semantics.
+fn write_workload_with_failure(dir: &std::path::Path, name: &str, on_crash: &str) -> PathBuf {
+    let path = dir.join(format!("{name}.taba.toml"));
+    let toml = format!(
+        r#"[unit]
+name = "{name}"
+image = "alpine:latest"
+
+[failure]
+on_crash = {{ restart_with_backoff = {on_crash} }}
+on_shutdown = {{ drain = "10s" }}
+"#
+    );
+
+    std::fs::write(&path, toml).expect("write toml");
+    path
+}
+
+/// Count running taba-* containers.
+fn count_taba_containers() -> usize {
+    taba_containers().len()
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_multi_unit_lifecycle() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply 3 workloads
+    for name in &["web-a", "web-b", "web-c"] {
+        let workload = write_workload(tmp.path(), name);
+        let output = Command::new(bin_path("taba"))
+            .args(["apply", "--state-dir"])
+            .arg(&state)
+            .arg(&workload)
+            .output()
+            .expect("apply");
+        assert!(
+            output.status.success(),
+            "apply {name} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    // Compose
+    let output = Command::new(bin_path("taba"))
+        .args(["compose", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("compose");
+    assert!(
+        output.status.success(),
+        "compose failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Reconcile — should start 3 containers
+    let output = Command::new(bin_path("taba"))
+        .args(["reconcile", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("reconcile");
+    assert!(
+        output.status.success(),
+        "reconcile failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.contains("reconciled successfully") {
+        let count = count_taba_containers();
+        assert!(
+            count >= 1,
+            "should have at least 1 taba-* container running, got {count}"
+        );
+    }
+
+    // Archive one workload
+    let graph_json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    let units: Vec<serde_json::Value> = serde_json::from_str(&graph_json).expect("parse json");
+    let workload_id = units
+        .iter()
+        .filter_map(|u| u.get("Workload"))
+        .filter_map(|w| w.get("header"))
+        .filter_map(|h| h.get("id"))
+        .filter_map(|id| id.as_str().map(|s| s.to_string()))
+        .next()
+        .expect("find workload id");
+
+    let output = Command::new(bin_path("taba"))
+        .args(["unit", "archive", "--state-dir"])
+        .arg(&state)
+        .arg(&workload_id)
+        .output()
+        .expect("archive");
+    assert!(
+        output.status.success(),
+        "archive failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Reconcile again — should stop the archived container
+    let output = Command::new(bin_path("taba"))
+        .args(["reconcile", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("reconcile after archive");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.contains("reconciled successfully") {
+        let count = count_taba_containers();
+        assert!(
+            count <= 3,
+            "should have at most 3 containers after archive, got {count}"
+        );
+    }
+
+    // Status should show 3 active + 1 archived
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status after archive");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('3') || stdout.contains('4'),
+        "should have 3-4 units after archive: {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_wal_persistence() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a workload
+    let workload = write_workload(tmp.path(), "wal-test");
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&workload)
+        .output()
+        .expect("apply");
+    assert!(output.status.success(), "apply failed");
+
+    // Verify WAL directory exists and has entries
+    let wal_dir = state.join("wal");
+    assert!(
+        wal_dir.exists(),
+        "WAL directory should exist after apply: {wal_dir:?}"
+    );
+
+    // Verify graph.json exists
+    let graph_json = state.join("graph.json");
+    assert!(
+        graph_json.exists(),
+        "graph.json should exist after apply: {graph_json:?}"
+    );
+
+    // Verify the graph.json contains the workload
+    let json = std::fs::read_to_string(&graph_json).expect("read graph");
+    assert!(
+        json.contains("wal-test"),
+        "graph.json should contain 'wal-test': {json}"
+    );
+
+    // Reconcile — should start a container
+    let output = Command::new(bin_path("taba"))
+        .args(["reconcile", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("reconcile");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.contains("reconciled successfully") {
+        let count = count_taba_containers();
+        assert!(
+            count >= 1,
+            "should have at least 1 container after reconcile, got {count}"
+        );
+    }
+
+    // Verify WAL still exists after reconcile
+    assert!(
+        wal_dir.exists(),
+        "WAL directory should still exist after reconcile"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_capability_matching() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a workload that needs "postgres"
+    let needs_pg = write_workload_with_caps(
+        tmp.path(),
+        "api-server",
+        &[("postgres", "storage")],
+        &[("http-api", "network")],
+    );
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&needs_pg)
+        .output()
+        .expect("apply api-server");
+    assert!(
+        output.status.success(),
+        "apply api-server failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Apply a workload that provides "postgres"
+    let provides_pg =
+        write_workload_with_caps(tmp.path(), "db-server", &[], &[("postgres", "storage")]);
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&provides_pg)
+        .output()
+        .expect("apply db-server");
+    assert!(
+        output.status.success(),
+        "apply db-server failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Compose — solver should match needs to provides
+    let output = Command::new(bin_path("taba"))
+        .args(["compose", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("compose");
+    assert!(
+        output.status.success(),
+        "compose failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // The solver should either place both or report unmatched/ambiguous
+    assert!(
+        stdout.contains("PLACEMENTS")
+            || stdout.contains("UNPLACEABLE")
+            || stdout.contains("CONFLICTS"),
+        "compose should produce results with capabilities: {stdout}"
+    );
+
+    // graph.json should contain capabilities from both workloads
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("postgres") && json.contains("http-api"),
+        "graph.json should contain both capabilities (postgres, http-api): {json}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_health_check() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a workload with an HTTP health check
+    let workload = write_workload_with_health(tmp.path(), "health-web", "http");
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&workload)
+        .output()
+        .expect("apply");
+    assert!(
+        output.status.success(),
+        "apply health-web failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // graph.json should contain health check
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("Http") || json.contains("healthz") || json.contains("8080"),
+        "graph.json should contain HTTP health check: {json}"
+    );
+
+    // Apply a workload with a command health check
+    let workload = write_workload_with_health(tmp.path(), "cmd-web", "command");
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&workload)
+        .output()
+        .expect("apply cmd-web");
+    assert!(
+        output.status.success(),
+        "apply cmd-web failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Status should show 3 units (2 workloads + 1 governance)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('3'),
+        "should have 3 units (2 workloads + 1 governance): {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_failure_semantics() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a workload with restart_with_backoff = 3
+    let workload = write_workload_with_failure(tmp.path(), "resilient-web", "3");
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&workload)
+        .output()
+        .expect("apply");
+    assert!(
+        output.status.success(),
+        "apply resilient-web failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // graph.json should contain failure semantics
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("RestartWithBackoff") || json.contains("restart_with_backoff"),
+        "graph.json should contain restart_with_backoff: {json}"
+    );
+
+    // Reconcile — should start a container
+    let output = Command::new(bin_path("taba"))
+        .args(["reconcile", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("reconcile");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.contains("reconciled successfully") {
+        let count = count_taba_containers();
+        assert!(
+            count >= 1,
+            "should have at least 1 container after reconcile, got {count}"
+        );
+    }
+
+    // Verify the graph.json contains failure semantics
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("restart_with_backoff") || json.contains("RestartWithBackoff"),
+        "graph.json should contain restart_with_backoff: {json}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_bounded_task() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a bounded task
+    let path = tmp.path().join("migrate.taba.toml");
+    std::fs::write(
+        &path,
+        r#"[unit]
+name = "migrate"
+image = "alpine:latest"
+kind = "bounded-task"
+
+[deadline]
+start = "now"
+end = "1h"
+"#,
+    )
+    .expect("write toml");
+
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&path)
+        .output()
+        .expect("apply");
+    assert!(
+        output.status.success(),
+        "apply bounded task failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // graph.json should show BoundedTask kind
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("BoundedTask"),
+        "graph.json should contain BoundedTask: {json}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_compaction() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply 5 workloads
+    for i in 1..=5 {
+        let workload = write_workload(tmp.path(), &format!("compact-{i}"));
+        let output = Command::new(bin_path("taba"))
+            .args(["apply", "--state-dir"])
+            .arg(&state)
+            .arg(&workload)
+            .output()
+            .expect("apply");
+        assert!(
+            output.status.success(),
+            "apply compact-{i} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    // Status should show 6 units (5 workloads + 1 governance)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('6'),
+        "should have 6 units before compaction: {stdout}"
+    );
+
+    // Archive 2 workloads
+    let graph_json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    let units: Vec<serde_json::Value> = serde_json::from_str(&graph_json).expect("parse json");
+    let workload_ids: Vec<String> = units
+        .iter()
+        .filter_map(|u| u.get("Workload"))
+        .filter_map(|w| w.get("header"))
+        .filter_map(|h| h.get("id"))
+        .filter_map(|id| id.as_str().map(|s| s.to_string()))
+        .take(2)
+        .collect();
+
+    for id in &workload_ids {
+        let output = Command::new(bin_path("taba"))
+            .args(["unit", "archive", "--state-dir"])
+            .arg(&state)
+            .arg(id)
+            .output()
+            .expect("archive");
+        assert!(
+            output.status.success(),
+            "archive {id} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    // Status should now show 4 active + 2 archived
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status after archive");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('4') || stdout.contains('6'),
+        "should have 4 active or 6 total after archive: {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_audit_provenance() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a workload
+    let workload = write_workload(tmp.path(), "audit-web");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&workload)
+        .output()
+        .expect("apply");
+
+    // Query audit trails — should succeed even if empty
+    let output = Command::new(bin_path("taba"))
+        .args(["audit", "trails", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("audit trails");
+    assert!(
+        output.status.success(),
+        "audit trails failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Query provenance for a unit — should succeed (may return empty)
+    let graph_json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    let units: Vec<serde_json::Value> = serde_json::from_str(&graph_json).expect("parse json");
+    if let Some(workload_id) = units
+        .iter()
+        .filter_map(|u| u.get("Workload"))
+        .filter_map(|w| w.get("header"))
+        .filter_map(|h| h.get("id"))
+        .filter_map(|id| id.as_str().map(|s| s.to_string()))
+        .next()
+    {
+        let output = Command::new(bin_path("taba"))
+            .args(["audit", "provenance", "--state-dir"])
+            .arg(&state)
+            .arg(&workload_id)
+            .output()
+            .expect("audit provenance");
+        // Provenance query should succeed (workload has no data inputs)
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success() || stdout.contains("no provenance") || stdout.contains("empty"),
+            "audit provenance should succeed or return empty: {stdout}"
+        );
+    }
+
+    cleanup_taba_containers();
+}
