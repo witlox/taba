@@ -1119,9 +1119,12 @@ impl Default for RuntimeSelector {
         Self::new()
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use taba_common::ContentDigest;
+    use taba_core::{Artifact, ArtifactType};
 
     use taba_test_harness::WorkloadUnitBuilder;
 
@@ -1261,5 +1264,242 @@ mod tests {
 
         // Container was never created → Unknown.
         assert_eq!(runtime.check_state(&unit), RuntimeState::Unknown);
+    }
+    // -----------------------------------------------------------------------
+    // NativeRuntime tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_native_runtime_start_stop() {
+        let runtime = NativeRuntime::new();
+        let id = UnitId(uuid::Uuid::new_v4());
+
+        let mut unit = WorkloadUnitBuilder::new().with_id(id).build();
+        unit.artifact = Artifact {
+            artifact_type: ArtifactType::Native,
+            artifact_ref: "/bin/sleep".to_string(),
+            digest: ContentDigest("sha256:".to_string()),
+            requires: Vec::new(),
+            kernel_ref: None,
+            rootfs_ref: None,
+        };
+
+        let state = runtime
+            .start(&Unit::Workload(unit))
+            .expect("start should succeed");
+        assert_eq!(state, RuntimeState::Running);
+
+        let state = runtime.check_state(&Unit::Workload(
+            WorkloadUnitBuilder::new().with_id(id).build(),
+        ));
+        assert_eq!(state, RuntimeState::Running);
+
+        let state = runtime
+            .stop(&Unit::Workload(
+                WorkloadUnitBuilder::new().with_id(id).build(),
+            ))
+            .expect("stop should succeed");
+        assert_eq!(state, RuntimeState::Stopped);
+    }
+
+    #[test]
+    fn test_native_runtime_failed_process() {
+        let runtime = NativeRuntime::new();
+        let id = UnitId(uuid::Uuid::new_v4());
+
+        let mut unit = WorkloadUnitBuilder::new().with_id(id).build();
+        unit.artifact = Artifact {
+            artifact_type: ArtifactType::Native,
+            artifact_ref: "/nonexistent/binary".to_string(),
+            digest: ContentDigest("sha256:".to_string()),
+            requires: Vec::new(),
+            kernel_ref: None,
+            rootfs_ref: None,
+        };
+
+        let result = runtime.start(&Unit::Workload(unit));
+        assert!(result.is_err(), "starting non-existent binary should fail");
+    }
+
+    #[test]
+    fn test_native_runtime_check_state_unknown() {
+        let runtime = NativeRuntime::new();
+        let id = UnitId(uuid::Uuid::new_v4());
+
+        let unit = Unit::Workload(WorkloadUnitBuilder::new().with_id(id).build());
+        assert_eq!(runtime.check_state(&unit), RuntimeState::Unknown);
+    }
+
+    // -----------------------------------------------------------------------
+    // WasmRuntime tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_wasm_runtime_start_stop() {
+        let runtime = WasmRuntime::new();
+        let id = UnitId(uuid::Uuid::new_v4());
+
+        let mut unit = WorkloadUnitBuilder::new().with_id(id).build();
+        unit.artifact = Artifact {
+            artifact_type: ArtifactType::Wasm,
+            artifact_ref: "/tmp/test.wasm".to_string(),
+            digest: ContentDigest("sha256:".to_string()),
+            requires: Vec::new(),
+            kernel_ref: None,
+            rootfs_ref: None,
+        };
+
+        let state = runtime
+            .start(&Unit::Workload(unit))
+            .expect("start should succeed");
+        assert_eq!(state, RuntimeState::Running);
+
+        let state = runtime.check_state(&Unit::Workload(
+            WorkloadUnitBuilder::new().with_id(id).build(),
+        ));
+        assert_eq!(state, RuntimeState::Running);
+
+        let state = runtime
+            .stop(&Unit::Workload(
+                WorkloadUnitBuilder::new().with_id(id).build(),
+            ))
+            .expect("stop should succeed");
+        assert_eq!(state, RuntimeState::Stopped);
+    }
+
+    #[test]
+    fn test_wasm_runtime_check_state_unknown() {
+        let runtime = WasmRuntime::new();
+        let id = UnitId(uuid::Uuid::new_v4());
+
+        let unit = Unit::Workload(WorkloadUnitBuilder::new().with_id(id).build());
+        assert_eq!(runtime.check_state(&unit), RuntimeState::Unknown);
+    }
+
+    // -----------------------------------------------------------------------
+    // RuntimeSelector tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_runtime_selector_available() {
+        let selector = RuntimeSelector::new();
+        let available = selector.available();
+
+        // Native and Wasm are always available.
+        assert!(
+            available.contains(&RuntimeCapability::Native),
+            "Native should always be available: {available:?}"
+        );
+        assert!(
+            available.contains(&RuntimeCapability::Wasm),
+            "Wasm should always be available: {available:?}"
+        );
+    }
+
+    #[test]
+    fn test_runtime_selector_select_native() {
+        let selector = RuntimeSelector::new();
+        let id = UnitId(uuid::Uuid::new_v4());
+
+        let mut unit = WorkloadUnitBuilder::new().with_id(id).build();
+        unit.artifact = Artifact {
+            artifact_type: ArtifactType::Native,
+            artifact_ref: "/bin/sleep".to_string(),
+            digest: ContentDigest("sha256:".to_string()),
+            requires: Vec::new(),
+            kernel_ref: None,
+            rootfs_ref: None,
+        };
+
+        let selected = selector.runtime_type(&Unit::Workload(unit));
+        assert_eq!(selected, Some(SelectedRuntime::Native));
+    }
+
+    #[test]
+    fn test_runtime_selector_select_wasm() {
+        let selector = RuntimeSelector::new();
+        let id = UnitId(uuid::Uuid::new_v4());
+
+        let mut unit = WorkloadUnitBuilder::new().with_id(id).build();
+        unit.artifact = Artifact {
+            artifact_type: ArtifactType::Wasm,
+            artifact_ref: "/tmp/test.wasm".to_string(),
+            digest: ContentDigest("sha256:".to_string()),
+            requires: Vec::new(),
+            kernel_ref: None,
+            rootfs_ref: None,
+        };
+
+        let selected = selector.runtime_type(&Unit::Workload(unit));
+        assert_eq!(selected, Some(SelectedRuntime::Wasm));
+    }
+
+    #[test]
+    fn test_runtime_selector_select_microvm_unavailable() {
+        let selector = RuntimeSelector::new();
+        let id = UnitId(uuid::Uuid::new_v4());
+
+        let mut unit = WorkloadUnitBuilder::new().with_id(id).build();
+        unit.artifact = Artifact {
+            artifact_type: ArtifactType::MicroVm,
+            artifact_ref: "vmlinux-5.10".to_string(),
+            digest: ContentDigest("sha256:".to_string()),
+            requires: Vec::new(),
+            kernel_ref: Some("/opt/vmlinux".to_string()),
+            rootfs_ref: Some("/opt/rootfs.ext4".to_string()),
+        };
+
+        // If no VM monitor is installed, selector should return None.
+        let selected = selector.runtime_type(&Unit::Workload(unit));
+        if selector.microvm.is_none() {
+            assert_eq!(
+                selected, None,
+                "MicroVm should not be selected without a VM monitor"
+            );
+        } else {
+            assert_eq!(selected, Some(SelectedRuntime::MicroVm));
+        }
+    }
+
+    #[test]
+    fn test_runtime_selector_start_native() {
+        let selector = RuntimeSelector::new();
+        let id = UnitId(uuid::Uuid::new_v4());
+
+        let mut unit = WorkloadUnitBuilder::new().with_id(id).build();
+        unit.artifact = Artifact {
+            artifact_type: ArtifactType::Native,
+            artifact_ref: "/bin/sleep".to_string(),
+            digest: ContentDigest("sha256:".to_string()),
+            requires: Vec::new(),
+            kernel_ref: None,
+            rootfs_ref: None,
+        };
+
+        let state = selector
+            .start(&Unit::Workload(unit))
+            .expect("native start should succeed");
+        assert_eq!(state, RuntimeState::Running);
+
+        let mut check_wl = WorkloadUnitBuilder::new().with_id(id).build();
+        check_wl.artifact = Artifact {
+            artifact_type: ArtifactType::Native,
+            artifact_ref: "/bin/sleep".to_string(),
+            digest: ContentDigest("sha256:".to_string()),
+            requires: Vec::new(),
+            kernel_ref: None,
+            rootfs_ref: None,
+        };
+        let check_unit = Unit::Workload(check_wl);
+        assert_eq!(selector.check_state(&check_unit), RuntimeState::Running);
+
+        selector
+            .stop(&check_unit)
+            .expect("native stop should succeed");
+        let final_state = selector.check_state(&check_unit);
+        assert!(
+            final_state == RuntimeState::Stopped || final_state == RuntimeState::Unknown,
+            "native stop should result in Stopped or Unknown, got {final_state:?}"
+        );
     }
 }
