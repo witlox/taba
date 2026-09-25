@@ -2,11 +2,11 @@
 
 ## Current State
 
-- 20 feature files, 265 scenarios, 1707 unique step texts
+- 20 feature files, 268 scenarios, 1720 unique step texts
 - **30 steps** have real implementations (smoke.rs + critical.rs)
 - **1677 steps** are no-ops in common.rs (function called, no assertion)
 - **20 step files** (one per feature) are empty 8-line stubs
-- The BDD infrastructure compiles and all 265 scenarios "pass" —
+- The BDD infrastructure compiles and all 268 scenarios "pass" —
   but only 1 scenario (@smoke) has real assertions on observable artifacts
 
 ## Goal
@@ -276,7 +276,7 @@ TabaWorld methods:
 3. **Batches B-F** in parallel — each is independent once Batch A
    establishes the shared step patterns
 4. **After all batches**: remove all remaining no-ops from common.rs,
-   run full BDD suite, verify 265 scenarios pass with real assertions
+   run full BDD suite, verify 268 scenarios pass with real assertions
 
 ## What "real assertions" means per batch
 

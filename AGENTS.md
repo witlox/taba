@@ -107,7 +107,7 @@ gh-pages docs).
 | Adversary spec review (57 findings) | All critical/high resolved |
 | Architecture (module map, interfaces, data models) | Complete |
 | Adversary architecture review (45 findings) | All critical/high resolved |
-| BDD feature files (265 scenarios, 20 files) | Complete — all 268 scenarios have real assertions (0 no-ops) |
+| BDD feature files (268 scenarios, 20 files) | Complete — all 268 scenarios have real assertions (0 no-ops) |
 | Fidelity baseline | Established — 67 VERIFIED, 0 PARTIAL, 0 UNVERIFIED |
 | Adversary implementation sweep (30 findings) | All 3 Critical + 6 High resolved, 21 issues filed |
 | M1: Types compile (common, core, test-harness) | Complete — 165 tests |
@@ -211,7 +211,7 @@ taba/
 │   ├── assumptions.md
 │   ├── failure-modes.md
 │   ├── toml-schema.md
-│   ├── features/*.feature (265 scenarios, 20 files)
+│   ├── features/*.feature (268 scenarios, 20 files)
 │   ├── cross-context/
 │   ├── architecture/
 │   │   ├── module-map.md
@@ -250,7 +250,7 @@ taba/
 │   ├── taba-cli/         # CLI binary (taba), parser, auth, client, commands, format
 │   ├── taba-k8s/         # K8s converter binary (taba-k8s)
 │   ├── taba-test-harness/ # Builders, InMemoryUnitStore, proptest strategies
-│   └── taba-acceptance/  # Cucumber BDD (265 scenarios, smoke.rs + common.rs)
+│   └── taba-acceptance/  # Cucumber BDD (268 scenarios, smoke.rs + common.rs)
 ├── tests/
 │   ├── integration/      # 15 integration tests (library API)
 │   └── e2e/             # 47 e2e tests (binary, Docker, WAL, UDP)
