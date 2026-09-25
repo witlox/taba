@@ -122,8 +122,8 @@ async fn step_12(world: &mut TabaWorld) {
 
 #[then("the score for node-aaa is computed using integer arithmetic at ppm scale")]
 async fn step_13(world: &mut TabaWorld) {
-    use taba_solver::scorer::DefaultPlacementScorer;
     use taba_solver::PlacementScorer;
+    use taba_solver::scorer::DefaultPlacementScorer;
 
     let snapshot = world.graph.snapshot().await.expect("snapshot");
     let scorer = DefaultPlacementScorer::new();
