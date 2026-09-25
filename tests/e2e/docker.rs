@@ -1611,3 +1611,341 @@ fn test_docker_all_four_unit_types() {
 
     cleanup_taba_containers();
 }
+
+// ===========================================================================
+// Multi-runtime e2e tests — Native, Wasm, MicroVm
+// ===========================================================================
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_native_runtime_lifecycle() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a native binary workload (alpine:latest with sleep)
+    let path = tmp.path().join("native-job.taba.toml");
+    std::fs::write(
+        &path,
+        r#"[unit]
+name = "native-job"
+binary = "/bin/sleep 300"
+"#,
+    )
+    .expect("write toml");
+
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&path)
+        .output()
+        .expect("apply");
+
+    assert!(
+        output.status.success(),
+        "apply native-job failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Verify in graph.json
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("Native") || json.contains("native"),
+        "graph.json should contain Native artifact type: {json}"
+    );
+
+    // Status should show 2 units (1 workload + 1 governance)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('2'),
+        "should have 2 units after native apply: {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_wasm_runtime_lifecycle() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a Wasm module workload
+    let path = tmp.path().join("wasm-job.taba.toml");
+    std::fs::write(
+        &path,
+        r#"[unit]
+name = "wasm-job"
+wasm = "/opt/module.wasm"
+"#,
+    )
+    .expect("write toml");
+
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&path)
+        .output()
+        .expect("apply");
+
+    assert!(
+        output.status.success(),
+        "apply wasm-job failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Verify in graph.json
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("Wasm") || json.contains("wasm"),
+        "graph.json should contain Wasm artifact type: {json}"
+    );
+
+    // Status should show 2 units (1 workload + 1 governance)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('2'),
+        "should have 2 units after wasm apply: {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_microvm_runtime_lifecycle() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a MicroVM workload
+    let path = tmp.path().join("vm-job.taba.toml");
+    std::fs::write(
+        &path,
+        r#"[unit]
+name = "vm-job"
+microvm = "vmlinux-5.10"
+kernel = "/opt/vmlinux"
+rootfs = "/opt/rootfs.ext4"
+"#,
+    )
+    .expect("write toml");
+
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&path)
+        .output()
+        .expect("apply");
+
+    assert!(
+        output.status.success(),
+        "apply vm-job failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Verify in graph.json
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("MicroVm") || json.contains("microvm"),
+        "graph.json should contain MicroVm artifact type: {json}"
+    );
+
+    // Verify kernel_ref and rootfs_ref are stored
+    assert!(
+        json.contains("/opt/vmlinux"),
+        "graph.json should contain kernel path: {json}"
+    );
+    assert!(
+        json.contains("/opt/rootfs.ext4"),
+        "graph.json should contain rootfs path: {json}"
+    );
+
+    // Status should show 2 units (1 workload + 1 governance)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('2'),
+        "should have 2 units after microvm apply: {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_all_four_runtimes_apply() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply OCI workload
+    let oci = write_workload(tmp.path(), "oci-web");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&oci)
+        .output()
+        .expect("apply oci");
+
+    // Apply Native workload
+    let native = tmp.path().join("native-svc.taba.toml");
+    std::fs::write(
+        &native,
+        r#"[unit]
+name = "native-svc"
+binary = "/bin/sleep 300"
+"#,
+    )
+    .expect("write native toml");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&native)
+        .output()
+        .expect("apply native");
+
+    // Apply Wasm workload
+    let wasm = tmp.path().join("wasm-svc.taba.toml");
+    std::fs::write(
+        &wasm,
+        r#"[unit]
+name = "wasm-svc"
+wasm = "/opt/module.wasm"
+"#,
+    )
+    .expect("write wasm toml");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&wasm)
+        .output()
+        .expect("apply wasm");
+
+    // Apply MicroVM workload
+    let microvm = tmp.path().join("vm-svc.taba.toml");
+    std::fs::write(
+        &microvm,
+        r#"[unit]
+name = "vm-svc"
+microvm = "vmlinux-5.10"
+kernel = "/opt/vmlinux"
+rootfs = "/opt/rootfs.ext4"
+"#,
+    )
+    .expect("write microvm toml");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&microvm)
+        .output()
+        .expect("apply microvm");
+
+    // Verify all four artifact types in graph.json
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("Oci"),
+        "graph.json should contain Oci: {json}"
+    );
+    assert!(
+        json.contains("Native"),
+        "graph.json should contain Native: {json}"
+    );
+    assert!(
+        json.contains("Wasm"),
+        "graph.json should contain Wasm: {json}"
+    );
+    assert!(
+        json.contains("MicroVm"),
+        "graph.json should contain MicroVm: {json}"
+    );
+
+    // Status should show 5 units (4 workloads + 1 governance)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('5'),
+        "should have 5 units (all four runtimes + governance): {stdout}"
+    );
+
+    // Compose — solver should evaluate all four
+    let output = Command::new(bin_path("taba"))
+        .args(["compose", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("compose");
+    assert!(
+        output.status.success(),
+        "compose with all four runtimes failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    cleanup_taba_containers();
+}
