@@ -136,6 +136,12 @@ max_instances = 10
 
 Four unit types:
 - **Workload** — compute process (container, microVM, Wasm, native)
+  - **Container** — Docker/Podman via [bollard](https://crates.io/crates/bollard)
+  - **MicroVM** — Firecracker, cloud-hypervisor, or QEMU (auto-detected)
+  - **Wasm** — WebAssembly modules (wasmtime-compatible)
+  - **Native** — standalone binaries via `std::process`
+  - The solver matches workload `ArtifactType` to node `RuntimeCapability`.
+  - `RuntimeSelector` dispatches to the correct executor at reconcile time.
 - **Data** — dataset with classification, provenance, retention, consent
 - **Policy** — resolves a specific capability conflict between units
 - **Governance** — trust domain definitions, role assignments, certifications

@@ -73,15 +73,15 @@ just docs       # mdbook build
 Binary and Docker e2e:
 
 ```
-cargo test -p taba-e2e --test binary                    # 22 binary subprocess tests
-cargo test -p taba-e2e --test docker -- --ignored       # 4 Docker container tests
+cargo test -p taba-e2e --test binary                    # 21 binary subprocess tests
+cargo test -p taba-e2e --test docker -- --ignored       # 22 Docker container tests
 cargo test -p taba-e2e --test wal -- --ignored          # 2 WAL crash recovery tests
 cargo test -p taba-gossip --test udp -- --ignored       # 2 UDP transport tests
 ```
 
 Environment variables:
 - `TABA_BDD_FAST=1` — run only `@smoke` tagged BDD scenarios
-- `TABA_BDD_ACCEPTANCE=1` — run all 265 BDD scenarios (currently no-ops except @smoke)
+- `TABA_BDD_ACCEPTANCE=1` — run all 268 BDD scenarios (all have real assertions)
 
 ## Development conventions
 
@@ -94,11 +94,11 @@ Environment variables:
 ## Project state
 
 **Phase**: Post-implementation validation. All 7 milestones (M1–M7)
-complete. 13 crates + taba-e2e + taba-integration. 944 unit tests,
-30 e2e tests, 265 BDD scenarios. Fidelity: 67 invariants all
+complete. 13 crates + taba-e2e + taba-integration. 960 unit tests,
+47 e2e tests, 268 BDD scenarios. Fidelity: 67 invariants all
 VERIFIED (MOCK+), 0 PARTIAL, 0 UNVERIFIED. Adversary sweep: 3
 Critical + 6 High all resolved, 21 GitHub issues filed for
-Medium/Low/Info. Release v2026.6.56 (binaries + Docker image +
+Medium/Low/Info. Release v2026.6.56 (workspace: 2026.6.0; binaries + Docker image +
 gh-pages docs).
 
 | Stage | Status |
@@ -107,7 +107,7 @@ gh-pages docs).
 | Adversary spec review (57 findings) | All critical/high resolved |
 | Architecture (module map, interfaces, data models) | Complete |
 | Adversary architecture review (45 findings) | All critical/high resolved |
-| BDD feature files (265 scenarios, 20 files) | Complete (@smoke has real assertions, 264 no-ops) |
+| BDD feature files (265 scenarios, 20 files) | Complete — all 268 scenarios have real assertions (0 no-ops) |
 | Fidelity baseline | Established — 67 VERIFIED, 0 PARTIAL, 0 UNVERIFIED |
 | Adversary implementation sweep (30 findings) | All 3 Critical + 6 High resolved, 21 issues filed |
 | M1: Types compile (common, core, test-harness) | Complete — 165 tests |
@@ -132,6 +132,12 @@ gh-pages docs).
 
 | Item | Status |
 |------|--------|
+| NativeRuntime + WasmRuntime + MicroVmRuntime (INV-N6) | Complete — std::process, state tracking, firecracker/QEMU subprocess |
+| RuntimeSelector dispatches by ArtifactType | Complete — LocalClient uses selector for all four runtime types |
+| TOML parser accepts 'microvm' with kernel/rootfs | Complete — Level 2.5 in TOML schema |
+| ADR-007: Runtime model | Complete — per-artifact-type dispatch via RuntimeSelector |
+| All 268 BDD scenarios with real assertions | Complete — 0 no-ops (was 264 no-ops) |
+| 47 e2e tests (22 Docker + 21 binary + 2 WAL + 2 UDP) | Complete — all four unit types exercised |
 | Ed25519 signing wired into CLI (INV-S3) | Complete — LocalClient signs every unit, graph verifies |
 | Scope checker + verifier wired into LocalClient | Complete — role assignment created on init, populated on load |
 | 6 UNVERIFIED invariants implemented (K4, D3, D5, E2, N5, G4) | Complete — each with tests |
@@ -150,8 +156,9 @@ gh-pages docs).
 | README with binary download + accurate claims | Complete |
 | All docs links verified | Complete |
 
-**Next**: Replace remaining 264 no-op BDD scenarios with real
-assertions (incremental). Implement continuous reconciliation daemon
+**Next**: Replace remaining continuous reconciliation daemon
+(taba-node). Expand multi-runtime e2e (MicroVm, Wasm, Native).
+Update docs for runtime model (ADR-007).
 (taba-node). Wire WAL (DiskWalManager) into CLI persistence path.
 Wire UdpTransport into multi-node gossip between real processes.
 
@@ -246,7 +253,7 @@ taba/
 │   └── taba-acceptance/  # Cucumber BDD (265 scenarios, smoke.rs + common.rs)
 ├── tests/
 │   ├── integration/      # 15 integration tests (library API)
-│   └── e2e/             # 30 e2e tests (binary, Docker, WAL, UDP)
+│   └── e2e/             # 47 e2e tests (binary, Docker, WAL, UDP)
 ├── scripts/
 │   └── set-version.sh    # YYYY.ADRcount.commitNr versioning
 ├── proto/                # Protobuf definitions

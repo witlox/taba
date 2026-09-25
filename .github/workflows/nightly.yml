@@ -10,7 +10,7 @@ env:
   RUSTFLAGS: "-Dwarnings"
 
 # Tier 2 — slow-marked unit tests (`#[ignore = "slow:…"]`) + full BDD
-# suite (all 265 scenarios, no @smoke filter). Runs nightly and on
+# suite (all 268 scenarios, no @smoke filter). Runs nightly and on
 # manual dispatch.
 
 jobs:
