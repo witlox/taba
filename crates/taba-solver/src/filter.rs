@@ -86,6 +86,9 @@ impl DefaultCapabilityFilter {
             ArtifactType::K8sManifest => {
                 runtimes.iter().any(|r| matches!(r, RuntimeCapability::K8s))
             }
+            ArtifactType::MicroVm => runtimes
+                .iter()
+                .any(|r| matches!(r, RuntimeCapability::MicroVm)),
             _ => false,
         }
     }
@@ -207,6 +210,7 @@ impl CapabilityFilter for DefaultCapabilityFilter {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::redundant_clone)]
     use super::*;
     use taba_common::{AuthorId, UnitId};
     use taba_test_harness::{NodeCapabilitySetBuilder, WorkloadUnitBuilder};
@@ -519,6 +523,45 @@ mod tests {
             result,
             vec![id_low, id_high],
             "output should be sorted by NodeId"
+        );
+    }
+    #[test]
+    fn test_filter_microvm_match() {
+        let node_id = test_node_id();
+        let caps = NodeCapabilitySetBuilder::new()
+            .with_runtimes(vec![RuntimeCapability::MicroVm])
+            .build();
+        let mut unit = WorkloadUnitBuilder::new().build();
+        unit.artifact.artifact_type = ArtifactType::MicroVm;
+        unit.artifact.artifact_ref = "vmlinux-5.10".to_string();
+        unit.artifact.kernel_ref = Some("/opt/vmlinux".to_string());
+        unit.artifact.rootfs_ref = Some("/opt/rootfs.ext4".to_string());
+
+        let filter = DefaultCapabilityFilter::new();
+        let result = filter.filter(&Unit::Workload(unit), &[(node_id, caps)], &[]);
+
+        assert!(
+            result.contains(&node_id),
+            "node with MicroVm runtime should be eligible for MicroVm workload"
+        );
+    }
+
+    #[test]
+    fn test_filter_microvm_no_match() {
+        let node_id = test_node_id();
+        let caps = NodeCapabilitySetBuilder::new()
+            .with_runtimes(vec![RuntimeCapability::Oci])
+            .build();
+        let mut unit = WorkloadUnitBuilder::new().build();
+        unit.artifact.artifact_type = ArtifactType::MicroVm;
+        unit.artifact.artifact_ref = "vmlinux-5.10".to_string();
+
+        let filter = DefaultCapabilityFilter::new();
+        let result = filter.filter(&Unit::Workload(unit), &[(node_id, caps)], &[]);
+
+        assert!(
+            !result.contains(&node_id),
+            "node without MicroVm runtime should not be eligible for MicroVm workload"
         );
     }
 }

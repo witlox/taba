@@ -120,6 +120,7 @@ impl DefaultPlacementScorer {
             ArtifactType::Native => runtimes.contains(&RuntimeCapability::Native),
             ArtifactType::Wasm => runtimes.contains(&RuntimeCapability::Wasm),
             ArtifactType::K8sManifest => runtimes.contains(&RuntimeCapability::K8s),
+            ArtifactType::MicroVm => runtimes.contains(&RuntimeCapability::MicroVm),
             _ => false,
         }
     }
@@ -140,6 +141,9 @@ impl DefaultPlacementScorer {
             ArtifactType::K8sManifest => {
                 runtimes.iter().any(|r| matches!(r, RuntimeCapability::K8s))
             }
+            ArtifactType::MicroVm => runtimes
+                .iter()
+                .any(|r| matches!(r, RuntimeCapability::MicroVm)),
             _ => false,
         }
     }
@@ -379,6 +383,7 @@ impl PlacementScorer for DefaultPlacementScorer {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::redundant_clone)]
     use super::*;
     use std::collections::BTreeMap;
     use taba_common::NodeId;
@@ -447,7 +452,7 @@ mod tests {
             .build();
 
         let mem_active = membership_with(node, caps.clone(), NodeHealth::Active);
-        let mem_suspected = membership_with(node, caps, NodeHealth::Suspected);
+        let mem_suspected = membership_with(node, caps.clone(), NodeHealth::Suspected);
 
         let scorer = DefaultPlacementScorer::new();
         let unit = oci_workload();
@@ -472,7 +477,7 @@ mod tests {
         let caps = NodeCapabilitySetBuilder::new()
             .with_runtimes(vec![RuntimeCapability::Wasm])
             .build();
-        let membership = membership_with(node, caps, NodeHealth::Active);
+        let membership = membership_with(node, caps.clone(), NodeHealth::Active);
 
         let scorer = DefaultPlacementScorer::new();
         let unit = oci_workload();
@@ -496,7 +501,7 @@ mod tests {
         let caps = NodeCapabilitySetBuilder::new()
             .with_runtimes(vec![RuntimeCapability::Oci])
             .build();
-        let membership = membership_with(other, caps, NodeHealth::Active);
+        let membership = membership_with(other, caps.clone(), NodeHealth::Active);
 
         let scorer = DefaultPlacementScorer::new();
         let unit = oci_workload();
@@ -613,7 +618,7 @@ mod tests {
     fn test_score_non_workload_unit() {
         let node = test_node_id();
         let caps = NodeCapabilitySetBuilder::new().build();
-        let membership = membership_with(node, caps, NodeHealth::Active);
+        let membership = membership_with(node, caps.clone(), NodeHealth::Active);
 
         let scorer = DefaultPlacementScorer::new();
         let policy = taba_core::PolicyUnit {
@@ -770,7 +775,7 @@ mod tests {
         };
         let unit = Unit::Workload(workload);
 
-        let membership = membership_with(node, caps, NodeHealth::Active);
+        let membership = membership_with(node, caps.clone(), NodeHealth::Active);
         let scorer = DefaultPlacementScorer::new();
         let graph = empty_graph();
 
@@ -785,6 +790,74 @@ mod tests {
             score,
             Ppm(1_200_000),
             "neutral tolerance (no info) should produce score 1,200,000, got {score:?}"
+        );
+    }
+    #[test]
+    fn test_score_microvm_exact_match() {
+        let node_id = test_node_id();
+        let caps = NodeCapabilitySetBuilder::new()
+            .with_runtimes(vec![RuntimeCapability::MicroVm])
+            .build();
+        let mut unit = WorkloadUnitBuilder::new().build();
+        unit.artifact.artifact_type = ArtifactType::MicroVm;
+
+        let scorer = DefaultPlacementScorer;
+        let score = scorer.score(
+            &Unit::Workload(unit),
+            &node_id,
+            &empty_graph(),
+            &membership_with(node_id, caps.clone(), NodeHealth::Active),
+        );
+
+        assert!(
+            score.expect("score should succeed").as_raw() > 0,
+            "exact MicroVm match should produce non-zero score"
+        );
+    }
+
+    #[test]
+    fn test_score_wasm_exact_match() {
+        let node_id = test_node_id();
+        let caps = NodeCapabilitySetBuilder::new()
+            .with_runtimes(vec![RuntimeCapability::Wasm])
+            .build();
+        let mut unit = WorkloadUnitBuilder::new().build();
+        unit.artifact.artifact_type = ArtifactType::Wasm;
+
+        let scorer = DefaultPlacementScorer;
+        let score = scorer.score(
+            &Unit::Workload(unit),
+            &node_id,
+            &empty_graph(),
+            &membership_with(node_id, caps.clone(), NodeHealth::Active),
+        );
+
+        assert!(
+            score.expect("score should succeed").as_raw() > 0,
+            "exact Wasm match should produce non-zero score"
+        );
+    }
+
+    #[test]
+    fn test_score_native_exact_match() {
+        let node_id = test_node_id();
+        let caps = NodeCapabilitySetBuilder::new()
+            .with_runtimes(vec![RuntimeCapability::Native])
+            .build();
+        let mut unit = WorkloadUnitBuilder::new().build();
+        unit.artifact.artifact_type = ArtifactType::Native;
+
+        let scorer = DefaultPlacementScorer;
+        let score = scorer.score(
+            &Unit::Workload(unit),
+            &node_id,
+            &empty_graph(),
+            &membership_with(node_id, caps.clone(), NodeHealth::Active),
+        );
+
+        assert!(
+            score.expect("score should succeed").as_raw() > 0,
+            "exact Native match should produce non-zero score"
         );
     }
 }
