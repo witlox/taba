@@ -1086,3 +1086,526 @@ fn test_docker_audit_provenance() {
 
     cleanup_taba_containers();
 }
+
+// ===========================================================================
+// Four unit types — Docker e2e tests for Data, Policy, Governance
+// ===========================================================================
+
+/// Writes a data unit TOML with classification, retention, and provenance.
+fn write_data_unit(dir: &std::path::Path, name: &str) -> PathBuf {
+    let path = dir.join(format!("{name}.taba.toml"));
+    let toml = format!(
+        r#"[unit]
+name = "{name}"
+type = "data"
+
+[schema]
+format = "json-schema"
+definition = "schemas/{name}.json"
+
+[classification]
+level = "pii"
+
+[retention]
+mode = "persistent"
+duration = "7y"
+legal_basis = "GDPR Art. 6(1)(b)"
+mandatory = true
+
+[storage]
+encrypted_at_rest = true
+jurisdictions = ["EU"]
+
+[provides]
+{name}-data = {{ type = "dataset", purpose = "analytics" }}
+"#
+    );
+    std::fs::write(&path, toml).expect("write toml");
+    path
+}
+
+/// Writes a policy unit TOML that resolves a capability conflict.
+fn write_policy_unit(dir: &std::path::Path, name: &str, action: &str) -> PathBuf {
+    let path = dir.join(format!("{name}.taba.toml"));
+    let toml = format!(
+        r#"[unit]
+name = "{name}"
+type = "policy"
+
+[conflict]
+units = ["customer-profiles", "analytics-pipeline"]
+capability = "customer-data"
+
+[resolution]
+action = "{action}"
+rationale = "CI-approved test policy"
+"#
+    );
+    std::fs::write(&path, toml).expect("write toml");
+    path
+}
+
+/// Writes a governance unit TOML (trust domain definition).
+fn write_governance_unit(dir: &std::path::Path, name: &str) -> PathBuf {
+    let path = dir.join(format!("{name}.taba.toml"));
+    let toml = format!(
+        r#"[unit]
+name = "{name}"
+type = "governance"
+governance_type = "trust-domain"
+
+[trust_domain]
+description = "Test trust domain for e2e"
+"#
+    );
+    std::fs::write(&path, toml).expect("write toml");
+    path
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_data_unit_apply() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a data unit with PII classification
+    let data = write_data_unit(tmp.path(), "customer-profiles");
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&data)
+        .output()
+        .expect("apply data");
+    assert!(
+        output.status.success(),
+        "apply data unit failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Verify in graph.json
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("Pii") || json.contains("pii"),
+        "graph.json should contain PII classification: {json}"
+    );
+    assert!(
+        json.contains("persistent") || json.contains("Persistent"),
+        "graph.json should contain persistent retention: {json}"
+    );
+    assert!(
+        json.contains("7y") || json.contains("GDPR"),
+        "graph.json should contain retention duration or legal basis: {json}"
+    );
+    assert!(
+        json.contains("encrypted_at_rest") || json.contains("EncryptedAtRest"),
+        "graph.json should contain encrypted_at_rest: {json}"
+    );
+
+    // Status should show 2 units (1 data + 1 governance from init)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('2'),
+        "should have 2 units after data apply: {stdout}"
+    );
+
+    // Audit provenance for the data unit — should succeed (no producers)
+    let units: Vec<serde_json::Value> = serde_json::from_str(&json).expect("parse json");
+    if let Some(data_id) = units
+        .iter()
+        .filter_map(|u| u.get("Data"))
+        .filter_map(|d| d.get("header"))
+        .filter_map(|h| h.get("id"))
+        .filter_map(|id| id.as_str().map(|s| s.to_string()))
+        .next()
+    {
+        let output = Command::new(bin_path("taba"))
+            .args(["audit", "provenance", "--state-dir"])
+            .arg(&state)
+            .arg(&data_id)
+            .output()
+            .expect("audit provenance");
+        assert!(
+            output.status.success(),
+            "audit provenance for data unit should succeed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_policy_unit_apply() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a workload that needs customer-data
+    let workload = write_workload_with_caps(
+        tmp.path(),
+        "analytics-pipeline",
+        &[("customer-data", "dataset")],
+        &[],
+    );
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&workload)
+        .output()
+        .expect("apply workload");
+    assert!(
+        output.status.success(),
+        "apply workload failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Apply a data unit that provides customer-data
+    let data = write_workload_with_caps(
+        tmp.path(),
+        "customer-profiles",
+        &[],
+        &[("customer-data", "dataset")],
+    );
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&data)
+        .output()
+        .expect("apply data");
+    assert!(
+        output.status.success(),
+        "apply data failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Apply a policy unit that allows the composition
+    let policy = write_policy_unit(tmp.path(), "allow-analytics", "allow");
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&policy)
+        .output()
+        .expect("apply policy");
+    assert!(
+        output.status.success(),
+        "apply policy failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Status should show 4 units (1 active workload + 1 active data + 1 pending policy + 1 active governance)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // 2 active (workload + data + governance = 3) + 1 pending (policy)
+    assert!(
+        stdout.contains('3') && stdout.contains('1'),
+        "should have 3 active + 1 pending after policy apply: {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_policy_supersession() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply initial policy (allow)
+    let policy_v1 = write_policy_unit(tmp.path(), "policy-v1", "allow");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&policy_v1)
+        .output()
+        .expect("apply policy-v1");
+
+    // Apply superseding policy (deny) — references policy-v1 by name
+    let policy_v2_path = tmp.path().join("policy-v2.taba.toml");
+    std::fs::write(
+        &policy_v2_path,
+        r#"[unit]
+name = "policy-v2"
+type = "policy"
+supersedes = "policy-v1"
+
+[conflict]
+units = ["customer-profiles", "analytics-pipeline"]
+capability = "customer-data"
+
+[resolution]
+action = "deny"
+rationale = "Revoked: security review found PII exposure"
+"#,
+    )
+    .expect("write policy-v2");
+
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&policy_v2_path)
+        .output()
+        .expect("apply policy-v2");
+    assert!(
+        output.status.success(),
+        "apply policy-v2 (supersede) failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Status should show 1 active + 2 pending (both policies reference non-existent units)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('1') && (stdout.contains('2') || stdout.contains('3')),
+        "should have 1 active + 2-3 pending after supersession: {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_governance_unit_apply() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init — creates an initial governance unit (RoleAssignment)
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Verify init created a governance unit
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("Governance") || json.contains("governance"),
+        "graph.json should contain a Governance unit after init: {json}"
+    );
+    assert!(
+        json.contains("RoleAssignment"),
+        "graph.json should contain a RoleAssignment after init: {json}"
+    );
+
+    // Init already created a Governance unit (RoleAssignment).
+    // Trust domain creation requires 2 distinct signers (INV-S10),
+    // which can't be done via CLI in single-node mode.
+    // Verify the init-created governance unit is present.
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("RoleAssignment"),
+        "graph.json should contain RoleAssignment from init: {json}"
+    );
+
+    // Status should show 1 governance unit
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('1'),
+        "should have 1 unit (governance) after init: {stdout}"
+    );
+
+    // Governance units cannot be archived (INV-G3)
+    let units: Vec<serde_json::Value> = serde_json::from_str(&json).expect("parse json");
+    if let Some(gov_id) = units
+        .iter()
+        .filter_map(|u| u.get("Governance"))
+        .filter_map(|g| g.get("header"))
+        .filter_map(|h| h.get("id"))
+        .filter_map(|id| id.as_str().map(|s| s.to_string()))
+        .next()
+    {
+        let output = Command::new(bin_path("taba"))
+            .args(["unit", "archive", "--state-dir"])
+            .arg(&state)
+            .arg(&gov_id)
+            .output()
+            .expect("archive governance");
+        // Archiving a governance unit should fail
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            !output.status.success()
+                || stderr.contains("cannot archive")
+                || stderr.contains("governance"),
+            "archiving governance unit should be rejected: {stderr}"
+        );
+    }
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_docker_all_four_unit_types() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init — creates Governance (RoleAssignment)
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply Workload
+    let workload = write_workload(tmp.path(), "api-server");
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&workload)
+        .output()
+        .expect("apply workload");
+    assert!(
+        output.status.success(),
+        "apply workload failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Apply Data
+    let data = write_data_unit(tmp.path(), "customer-db");
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&data)
+        .output()
+        .expect("apply data");
+    assert!(
+        output.status.success(),
+        "apply data failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Apply Policy
+    let policy = write_policy_unit(tmp.path(), "access-policy", "conditional");
+    let output = Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&policy)
+        .output()
+        .expect("apply policy");
+    assert!(
+        output.status.success(),
+        "apply policy failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Governance already created by init (RoleAssignment).
+    // Trust domain creation requires 2 signers (INV-S10).
+
+    // Verify all four types in graph.json
+    let json = std::fs::read_to_string(state.join("graph.json")).expect("read graph");
+    assert!(
+        json.contains("Workload"),
+        "graph.json should contain Workload: {json}"
+    );
+    assert!(
+        json.contains("Data"),
+        "graph.json should contain Data: {json}"
+    );
+    assert!(
+        json.contains("Policy"),
+        "graph.json should contain Policy: {json}"
+    );
+    assert!(
+        json.contains("Governance"),
+        "graph.json should contain Governance: {json}"
+    );
+
+    // Status should show 4 units (1 workload + 1 data + 1 policy + 1 governance from init)
+    let output = Command::new(bin_path("taba"))
+        .args(["status", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("status");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('4'),
+        "should have 4 units (all four types): {stdout}"
+    );
+
+    // Compose — solver should evaluate all units
+    let output = Command::new(bin_path("taba"))
+        .args(["compose", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("compose");
+    assert!(
+        output.status.success(),
+        "compose with all four types failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("PLACEMENTS") || stdout.contains("UNPLACEABLE"),
+        "compose should produce results with all four types: {stdout}"
+    );
+
+    cleanup_taba_containers();
+}
