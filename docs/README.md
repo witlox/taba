@@ -147,7 +147,7 @@ Supported K8s resources: Deployment, StatefulSet, DaemonSet, Pod, Service, Confi
 | 2 (slow) | Tier 1 + slow-marked tests + full BDD | Pre-PR | `just test-slow` |
 | 3 (full) | Tier 2 + slow integration tests | Pre-merge / nightly | `just test-full` |
 
-867 tests across 14 crates. Property tests (proptest, 10k+ cases) for CRDT merge laws, solver determinism, Shamir secret sharing, and capability matching.
+960 tests across 13 crates + taba-e2e + taba-acceptance. Property tests (proptest, 10k+ cases) for CRDT merge laws, solver determinism, Shamir secret sharing, and capability matching.
 
 ## Ecosystem
 

@@ -67,3 +67,4 @@
   - [ADR-004: No Masters](decisions/ADR-004-no-masters.md)
   - [ADR-005: Erasure Coding](decisions/ADR-005-erasure-coding.md)
   - [ADR-006: Role Model](decisions/ADR-006-role-model.md)
+  - [ADR-007: Runtime Model](decisions/ADR-007-runtime-model.md)

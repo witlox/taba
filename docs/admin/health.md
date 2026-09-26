@@ -60,12 +60,16 @@ to re-place units elsewhere.
 
 ## Runtime executors
 
-taba supports two runtime backends:
+taba supports five runtime backends, dispatched by
+`RuntimeSelector` based on the unit's `ArtifactType`:
 
-| Executor | Use case | Requires |
-|----------|----------|----------|
-| `SimulatedRuntime` | Tests, dev | Nothing (in-memory state machine) |
-| `DockerRuntime` | Real workloads | Docker daemon (via `bollard` crate) |
+| Executor | ArtifactType | Use case | Requires |
+|----------|-------------|----------|----------|
+| `SimulatedRuntime` | — | Tests, dev | Nothing (in-memory state machine) |
+| `DockerRuntime` | `Oci` | Containers | Docker daemon (via `bollard` crate) |
+| `NativeRuntime` | `Native` | Standalone binaries | Nothing (`std::process`) |
+| `WasmRuntime` | `Wasm` | WebAssembly modules | Nothing (state tracking) |
+| `MicroVmRuntime` | `MicroVm` | MicroVMs | Firecracker, cloud-hypervisor, or QEMU |
 
 The `SimulatedRuntime` transitions units through
 `Pending → Starting → Running → Draining → Stopped` (or `Failed`)
@@ -75,3 +79,20 @@ dependency.
 The `DockerRuntime` pulls images, creates containers, starts/stops
 them, and inspects container state. Tests using Docker are marked
 `#[ignore = "slow: requires Docker"]`.
+
+The `NativeRuntime` spawns binaries via `std::process::Command` and
+monitors them with `kill(pid, 0)`. No external dependencies.
+
+The `WasmRuntime` tracks lifecycle state in memory. Full wasmtime
+execution is deferred — sufficient for testing placement and
+lifecycle without requiring a real WASM module.
+
+The `MicroVmRuntime` auto-detects the VM monitor (Firecracker,
+cloud-hypervisor, or QEMU) at runtime. It generates the appropriate
+VM configuration (JSON for Firecracker, CLI args for cloud-hypervisor
+or QEMU) from the unit's `kernel_ref` and `rootfs_ref` (INV-N6).
+
+The `RuntimeSelector` is created once at node startup. It detects
+all available runtimes and dispatches `start()`, `stop()`,
+`check_state()`, and `drain()` to the correct executor based on
+the unit's `ArtifactType`.

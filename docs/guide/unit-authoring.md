@@ -288,6 +288,10 @@ conditions = "Bilateral policy required. Read-only access."
 | `binary` | Native binary | `binary = "bin/myapp"` |
 | `wasm` | WebAssembly module | `wasm = "module.wasm"` |
 | `k8s` | Kubernetes manifest | `k8s = "pod-spec.yaml"` |
+| `microvm` | MicroVM kernel | `microvm = "vmlinux-5.10"` |
+
+MicroVM workloads also require `kernel` and `rootfs` paths (INV-N6).
+See [Runtime Matching](runtime-matching.md) for details.
 
 Only one artifact key per unit. `digest` (SHA256) is always recommended
 and required for production environments (INV-A1).

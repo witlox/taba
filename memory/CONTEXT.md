@@ -36,7 +36,7 @@
 
 ## Current phase
 
-M1 through M7 complete. Fourteen crates implemented with 867 tests:
+M1 through M7 complete. Thirteen crates + taba-e2e + taba-acceptance. 960 unit tests, 268 BDD scenarios (all with real assertions), 47 e2e tests.
 - taba-common: identity newtypes, Ppm arithmetic, clocks, config
 - taba-core: unit model, capabilities, validation, contracts
 - taba-security: Ed25519, scope, taint, delegation, Shamir, SLSA

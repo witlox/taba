@@ -642,7 +642,12 @@ CapabilityDiscoveryFailed)
 - `health_check` -- health check orchestration (OS-level, HTTP, TCP, command)
 - `mode` -- operational mode state machine, transition rules, degraded-mode
   freeze (no new placements), recovery throttling
-- `runtime` -- workload execution (process, container, Wasm dispatch)
+- `runtime` -- workload execution via `RuntimeSelector` which dispatches
+  to `DockerRuntime` (Oci), `NativeRuntime` (Native, std::process),
+  `WasmRuntime` (Wasm, state tracking), or `MicroVmRuntime` (MicroVm,
+  Firecracker/cloud-hypervisor/QEMU subprocess). `RuntimeSelector::new()`
+  auto-detects available runtimes and advertises `RuntimeCapability`
+  to the solver.
 - `discovery` -- auto-discovery probes (Docker, Podman, K8s, Wasm, TPM, GPU),
   capability set construction, refresh on command
 - `artifact` -- artifact fetching (peer cache → external), digest verification,

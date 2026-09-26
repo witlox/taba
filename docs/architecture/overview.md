@@ -75,19 +75,19 @@ multi-node (progressive complexity).
 | taba-common | Identity newtypes, Ppm arithmetic, clocks, config | 31 |
 | taba-core | Unit model, capabilities, validation, contracts | 86 |
 | taba-security | Ed25519, scope, taint, delegation, ceremony, SLSA | 106 |
-| taba-graph | δ-state CRDT composition graph, merge, policy chains | 150 |
-| taba-solver | Deterministic placement, conflict detection, cycles | 119 |
+| taba-graph | δ-state CRDT composition graph, merge, policy chains | 162 |
+| taba-solver | Deterministic placement, conflict detection, cycles | 143 |
 | taba-observe | Decision trails, structured events, health, Prometheus | 45 |
-| taba-node | WAL, reconciler, runtime, health, mode, discovery | 80 |
-| taba-gossip | SWIM membership, signed messages, failure detection | 38 |
+| taba-node | WAL, reconciler, runtime (Docker, Native, Wasm, MicroVm), health, mode, discovery | 97 |
+| taba-gossip | SWIM membership, signed messages, failure detection | 41 |
 | taba-erasure | Reed-Solomon GF(2^8), shard distribution, reconstruction | 78 |
-| taba-cli | clap CLI (init, apply, unit, status, compose, audit) | 55 |
+| taba-cli | clap CLI (init, apply, unit, status, compose, audit, reconcile, daemon) | 55 |
 | taba-k8s | K8s manifest converter | 31 |
-| taba-acceptance | BDD acceptance tests (cucumber-rs) | — |
+| taba-acceptance | BDD acceptance tests (cucumber-rs, 268 scenarios) | — |
 | taba-test-harness | Builders, InMemoryUnitStore, proptest strategies | 33 |
 | taba-integration | End-to-end integration tests | 15 |
 
-**Total: 867 tests.**
+**Total: 960 unit tests + 47 e2e tests + 268 BDD scenarios.**
 
 ## Key invariants
 
