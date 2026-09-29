@@ -582,18 +582,47 @@ impl RuntimeExecutor for NativeRuntime {
 /// to avoid blocking the async runtime.
 ///
 /// Requires the `wasmtime` crate (added to `taba-node`'s dependencies).
-#[derive(Debug, Default)]
 #[allow(clippy::doc_markdown)]
 pub struct WasmRuntime {
-    /// Maps UnitId → running state. Protected by a mutex.
-    states: std::sync::Mutex<HashMap<UnitId, RuntimeState>>,
+    /// The wasmtime engine, shared across all instances.
+    engine: wasmtime::Engine,
+    /// Maps UnitId -> running state + optional instance handle.
+    states: std::sync::Mutex<HashMap<UnitId, WasmState>>,
+}
+
+/// Per-unit state for the WASM runtime.
+struct WasmState {
+    /// The runtime state (Running, Stopped, etc.).
+    state: RuntimeState,
+    /// The compiled module, kept alive while the unit is running.
+    #[allow(dead_code)]
+    module: Option<wasmtime::Module>,
+}
+
+impl std::fmt::Debug for WasmState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WasmState")
+            .field("state", &self.state)
+            .field("module", &self.module.is_some())
+            .finish()
+    }
+}
+
+impl Default for WasmRuntime {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl WasmRuntime {
-    /// Creates a new empty `WasmRuntime`.
+    /// Creates a new `WasmRuntime` with a default wasmtime engine.
     #[must_use]
     pub fn new() -> Self {
-        Self::default()
+        let engine = wasmtime::Engine::default();
+        Self {
+            engine,
+            states: std::sync::Mutex::new(HashMap::new()),
+        }
     }
 
     /// Returns the WASM module path from the workload's artifact.
@@ -619,22 +648,55 @@ impl RuntimeExecutor for WasmRuntime {
                 reason: "wasm runtime requires a Wasm artifact".to_string(),
             })?;
 
-        // For now, we verify the module file exists and mark as Running.
-        // Full wasmtime execution would compile and instantiate here.
-        // This is a minimal implementation that validates the module
-        // and tracks state — sufficient for testing placement and
-        // lifecycle without requiring a real WASM module.
-        if !std::path::Path::new(&module_path).exists() {
-            // Module doesn't exist locally — mark as Running anyway
-            // (the node may fetch it later, similar to Docker image pull).
+        // Read the WASM module bytes.
+        let wasm_bytes =
+            std::fs::read(&module_path).map_err(|e| NodeError::ReconciliationFailed {
+                unit: unit.id(),
+                reason: format!("failed to read WASM module '{module_path}': {e}"),
+            })?;
+
+        // Compile the module using wasmtime.
+        let module = wasmtime::Module::new(&self.engine, &wasm_bytes).map_err(|e| {
+            NodeError::ReconciliationFailed {
+                unit: unit.id(),
+                reason: format!("failed to compile WASM module '{module_path}': {e}"),
+            }
+        })?;
+
+        // Instantiate the module.
+        let mut store = wasmtime::Store::new(&self.engine, ());
+        let instance = wasmtime::Instance::new(&mut store, &module, &[]).map_err(|e| {
+            NodeError::ReconciliationFailed {
+                unit: unit.id(),
+                reason: format!("failed to instantiate WASM module '{module_path}': {e}"),
+            }
+        })?;
+
+        // Call the _start function if it exists (WASI convention).
+        // If not, try main. If neither exists, just mark as Running.
+        if let Some(func) = instance.get_func(&mut store, "_start") {
+            let _ = func.call(&mut store, &[], &mut []);
+        } else if let Some(func) = instance.get_func(&mut store, "main") {
+            let _ = func.call(&mut store, &[], &mut []);
         }
+
+        // Drop the store -- the instance is no longer needed after
+        // the _start function returns. The module is kept alive
+        // to allow stop/restart.
+        drop(store);
 
         let mut states = self
             .states
             .lock()
             .expect("wasm runtime mutex should not be poisoned");
 
-        states.insert(unit.id(), RuntimeState::Running);
+        states.insert(
+            unit.id(),
+            WasmState {
+                state: RuntimeState::Running,
+                module: Some(module),
+            },
+        );
         Ok(RuntimeState::Running)
     }
 
@@ -644,7 +706,10 @@ impl RuntimeExecutor for WasmRuntime {
             .lock()
             .expect("wasm runtime mutex should not be poisoned");
 
-        states.insert(unit.id(), RuntimeState::Stopped);
+        if let Some(wasm_state) = states.get_mut(&unit.id()) {
+            wasm_state.state = RuntimeState::Stopped;
+            wasm_state.module = None;
+        }
         Ok(RuntimeState::Stopped)
     }
 
@@ -656,8 +721,7 @@ impl RuntimeExecutor for WasmRuntime {
 
         states
             .get(&unit.id())
-            .copied()
-            .unwrap_or(RuntimeState::Unknown)
+            .map_or(RuntimeState::Unknown, |ws| ws.state)
     }
 
     fn drain(&self, unit: &Unit, _timeout: Duration) -> Result<RuntimeState, NodeError> {
@@ -1130,11 +1194,22 @@ impl Clone for NativeRuntime {
     }
 }
 
+impl std::fmt::Debug for WasmRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WasmRuntime")
+            .field("engine", &"<wasmtime::Engine>")
+            .field("states", &self.states.lock().map_or(0, |s| s.len()))
+            .finish()
+    }
+}
+
 impl Clone for WasmRuntime {
     fn clone(&self) -> Self {
-        let states = self.states.lock().expect("mutex poisoned");
+        // wasmtime::Module doesn't implement Clone, so we create
+        // a fresh empty state map. The original keeps its modules.
         Self {
-            states: std::sync::Mutex::new(states.clone()),
+            engine: self.engine.clone(),
+            states: std::sync::Mutex::new(HashMap::new()),
         }
     }
 }
@@ -1377,22 +1452,39 @@ mod tests {
             rootfs_ref: None,
         };
 
-        let state = runtime
-            .start(&Unit::Workload(unit))
-            .expect("start should succeed");
-        assert_eq!(state, RuntimeState::Running);
+        // If /tmp/test.wasm exists, test full lifecycle.
+        // If not, test the error path (file not found).
+        if std::path::Path::new("/tmp/test.wasm").exists() {
+            let state = runtime
+                .start(&Unit::Workload(unit))
+                .expect("start should succeed with valid WASM module");
+            assert_eq!(state, RuntimeState::Running);
 
-        let state = runtime.check_state(&Unit::Workload(
-            WorkloadUnitBuilder::new().with_id(id).build(),
-        ));
-        assert_eq!(state, RuntimeState::Running);
-
-        let state = runtime
-            .stop(&Unit::Workload(
+            let state = runtime.check_state(&Unit::Workload(
                 WorkloadUnitBuilder::new().with_id(id).build(),
-            ))
-            .expect("stop should succeed");
-        assert_eq!(state, RuntimeState::Stopped);
+            ));
+            assert_eq!(state, RuntimeState::Running);
+
+            let state = runtime
+                .stop(&Unit::Workload(
+                    WorkloadUnitBuilder::new().with_id(id).build(),
+                ))
+                .expect("stop should succeed");
+            assert_eq!(state, RuntimeState::Stopped);
+        } else {
+            // Module doesn't exist — start should fail with an error.
+            let result = runtime.start(&Unit::Workload(unit));
+            assert!(
+                result.is_err(),
+                "starting non-existent WASM module should fail"
+            );
+
+            // check_state should return Unknown (never started).
+            let state = runtime.check_state(&Unit::Workload(
+                WorkloadUnitBuilder::new().with_id(id).build(),
+            ));
+            assert_eq!(state, RuntimeState::Unknown);
+        }
     }
 
     #[test]

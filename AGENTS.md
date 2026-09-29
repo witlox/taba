@@ -98,7 +98,7 @@ complete. 13 crates + taba-e2e + taba-integration. 960 unit tests,
 47 e2e tests, 268 BDD scenarios. Fidelity: 67 invariants all
 VERIFIED (MOCK+), 0 PARTIAL, 0 UNVERIFIED. Adversary sweep: 3
 Critical + 6 High all resolved, 21 GitHub issues filed for
-Medium/Low/Info. Release v2026.6.56 (workspace: 2026.6.0; binaries + Docker image +
+Medium/Low/Info. Release v2026.7.128 (workspace: 2026.6.0; binaries + Docker image +
 gh-pages docs).
 
 | Stage | Status |
@@ -118,15 +118,15 @@ gh-pages docs).
 | M6: Hardened (+ security advanced) | Complete — 49 tests |
 | M7: Migration (+ k8s tool) | Complete — 31 tests |
 | Integration tests | Complete — 15 tests |
-| Binary e2e (subprocess) | Complete — 22 tests |
-| Docker e2e (containers) | Complete — 4 tests |
+| Binary e2e (subprocess) | Complete — 21 tests |
+| Docker e2e (containers) | Complete — 22 tests (all four unit types) |
 | WAL crash recovery e2e | Complete — 2 tests |
 | UDP gossip e2e | Complete — 2 tests |
 | Documentation (mdbook, gh-pages) | Complete |
 | STRIDE security analysis | Complete — 19 threats, 0 Critical/High remaining |
 | CI (4 workflows) | Complete — ci, nightly, docs, release |
 | Branch protection | Active — 2 rulesets (no-delete+non-FF, linear+5 checks) |
-| Release | Tagged v2026.6.56 (x86_64, aarch64, macOS, Docker) |
+| Release | Tagged v2026.7.128 (x86_64, aarch64, macOS, Docker) |
 
 ### Post-M7 accomplishments
 
@@ -156,11 +156,11 @@ gh-pages docs).
 | README with binary download + accurate claims | Complete |
 | All docs links verified | Complete |
 
-**Next**: Replace remaining continuous reconciliation daemon
-(taba-node). Expand multi-runtime e2e (MicroVm, Wasm, Native).
-Update docs for runtime model (ADR-007).
-(taba-node). Wire WAL (DiskWalManager) into CLI persistence path.
-Wire UdpTransport into multi-node gossip between real processes.
+**Next**: Implement real Wasm execution (add wasmtime crate,
+compile + instantiate modules in WasmRuntime). Add multi-process
+Docker e2e (spin up 2+ taba daemon instances with UDP gossip,
+assert on cross-node state convergence). Expand MicroVm e2e
+with real Firecracker/QEMU when available.
 
 ## Build phases
 

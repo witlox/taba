@@ -5,7 +5,7 @@
 //! send, fanout, recv, bind. It does **not** interpret message semantics
 //! — that is [`crate::swim::MembershipProtocol`]. For M4, the primary
 //! implementation is [`InMemoryTransport`] (using `tokio::sync::mpsc`).
-//! A [`UdpTransport`] stub is provided for future use.
+//! A [`UdpTransport`] implementation using `tokio::net::UdpSocket`.
 
 use std::collections::HashMap;
 use std::fmt;

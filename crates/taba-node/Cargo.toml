@@ -29,6 +29,8 @@ bollard = { workspace = true }
 sha2 = { workspace = true }
 uuid = { workspace = true }
 libc = "0.2"
+wasmtime = { version = "29", default-features = false, features = ["cranelift", "runtime"] }
+
 futures = { workspace = true }
 
 [dev-dependencies]

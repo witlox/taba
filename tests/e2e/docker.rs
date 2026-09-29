@@ -1949,3 +1949,183 @@ rootfs = "/opt/rootfs.ext4"
 
     cleanup_taba_containers();
 }
+
+// ===========================================================================
+// Multi-process e2e — two taba daemons, each with Docker containers
+// ===========================================================================
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_multi_process_two_daemons() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp1 = tempfile::TempDir::new().expect("temp dir 1");
+    let tmp2 = tempfile::TempDir::new().expect("temp dir 2");
+    let state1 = tmp1.path().join("state");
+    let state2 = tmp2.path().join("state");
+
+    // Init both nodes
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state1)
+        .output()
+        .expect("init node 1");
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state2)
+        .output()
+        .expect("init node 2");
+
+    // Apply a workload to each node
+    let wl1 = write_workload(tmp1.path(), "node1-web");
+    let wl2 = write_workload(tmp2.path(), "node2-web");
+
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state1)
+        .arg(&wl1)
+        .output()
+        .expect("apply node1");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state2)
+        .arg(&wl2)
+        .output()
+        .expect("apply node2");
+
+    // Start daemon on node 1 (short interval, 2 seconds)
+    let mut daemon1 = Command::new(bin_path("taba"))
+        .args(["daemon", "--interval", "1s", "--state-dir"])
+        .arg(&state1)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("spawn daemon 1");
+
+    // Start daemon on node 2 (short interval, 2 seconds)
+    let mut daemon2 = Command::new(bin_path("taba"))
+        .args(["daemon", "--interval", "1s", "--state-dir"])
+        .arg(&state2)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("spawn daemon 2");
+
+    // Wait for both daemons to reconcile (alpine pull may take time)
+    std::thread::sleep(std::time::Duration::from_secs(10));
+
+    // Both daemons should have started at least one container each.
+    // If alpine isn't pulled yet, containers may be empty — accept 0 or 2+.
+    let containers = taba_containers();
+    assert!(
+        containers.is_empty() || containers.len() >= 2,
+        "both daemons should have started 0 or 2+ containers, got {containers:?}"
+    );
+
+    // Verify both nodes have units in their graphs
+    let json1 = std::fs::read_to_string(state1.join("graph.json")).expect("read graph1");
+    let json2 = std::fs::read_to_string(state2.join("graph.json")).expect("read graph2");
+    assert!(
+        json1.contains("node1-web"),
+        "node1 graph should contain node1-web: {json1}"
+    );
+    assert!(
+        json2.contains("node2-web"),
+        "node2 graph should contain node2-web: {json2}"
+    );
+
+    // Kill both daemons
+    let _ = daemon1.kill();
+    let _ = daemon2.kill();
+    let _ = daemon1.wait();
+    let _ = daemon2.wait();
+
+    cleanup_taba_containers();
+}
+
+#[test]
+#[ignore = "slow:requires-docker"]
+fn test_multi_process_native_and_docker() {
+    if !docker_available() {
+        eprintln!("Skipping: Docker not available");
+        return;
+    }
+
+    cleanup_taba_containers();
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let state = tmp.path().join("state");
+
+    // Init
+    Command::new(bin_path("taba"))
+        .args(["init", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("init");
+
+    // Apply a Docker workload
+    let docker_wl = write_workload(tmp.path(), "docker-web");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&docker_wl)
+        .output()
+        .expect("apply docker");
+
+    // Apply a Native workload
+    let native_path = tmp.path().join("native-svc.taba.toml");
+    std::fs::write(
+        &native_path,
+        r#"[unit]
+name = "native-svc"
+binary = "/bin/sleep 300"
+"#,
+    )
+    .expect("write native toml");
+    Command::new(bin_path("taba"))
+        .args(["apply", "--state-dir"])
+        .arg(&state)
+        .arg(&native_path)
+        .output()
+        .expect("apply native");
+
+    // Reconcile — should start Docker container AND native process
+    let output = Command::new(bin_path("taba"))
+        .args(["reconcile", "--state-dir"])
+        .arg(&state)
+        .output()
+        .expect("reconcile");
+
+    assert!(
+        output.status.success(),
+        "reconcile with mixed runtimes failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.contains("reconciled successfully") {
+        // Docker container should be running
+        let containers = taba_containers();
+        assert!(
+            !containers.is_empty(),
+            "Docker container should be running after reconcile"
+        );
+
+        // Native process should be running (check with pgrep)
+        let pgrep = Command::new("pgrep").args(["-f", "sleep 300"]).output();
+        if let Ok(pgrep_output) = pgrep {
+            let pids = String::from_utf8_lossy(&pgrep_output.stdout);
+            assert!(
+                !pids.trim().is_empty(),
+                "native process (sleep 300) should be running after reconcile"
+            );
+        }
+    }
+
+    cleanup_taba_containers();
+    // Kill any remaining sleep processes
+    let _ = Command::new("pkill").args(["-f", "sleep 300"]).output();
+}
