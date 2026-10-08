@@ -98,7 +98,7 @@ complete. 13 crates + taba-e2e + taba-integration. 960 unit tests,
 47 e2e tests, 268 BDD scenarios. Fidelity: 67 invariants all
 VERIFIED (MOCK+), 0 PARTIAL, 0 UNVERIFIED. Adversary sweep: 3
 Critical + 6 High all resolved, 21 GitHub issues filed for
-Medium/Low/Info. Release v2026.7.128 (workspace: 2026.6.0; binaries + Docker image +
+Medium/Low/Info. Release v2026.7.131 (workspace: 2026.6.0; binaries + Docker image +
 gh-pages docs).
 
 | Stage | Status |
@@ -126,7 +126,7 @@ gh-pages docs).
 | STRIDE security analysis | Complete — 19 threats, 0 Critical/High remaining |
 | CI (4 workflows) | Complete — ci, nightly, docs, release |
 | Branch protection | Active — 2 rulesets (no-delete+non-FF, linear+5 checks) |
-| Release | Tagged v2026.7.128 (x86_64, aarch64, macOS, Docker) |
+| Release | Tagged v2026.7.131 (x86_64, aarch64, macOS, Docker) |
 
 ### Post-M7 accomplishments
 
@@ -156,11 +156,11 @@ gh-pages docs).
 | README with binary download + accurate claims | Complete |
 | All docs links verified | Complete |
 
-**Next**: Implement real Wasm execution (add wasmtime crate,
-compile + instantiate modules in WasmRuntime). Add multi-process
-Docker e2e (spin up 2+ taba daemon instances with UDP gossip,
-assert on cross-node state convergence). Expand MicroVm e2e
-with real Firecracker/QEMU when available.
+**Next**: Expand MicroVm e2e with real Firecracker/QEMU
+when available. Add multi-node gossip e2e (2+ taba daemon
+processes with UdpTransport, assert on cross-node graph
+convergence via CRDT merge). Implement taba-node multi-node
+binary (gRPC server, cluster membership).
 
 ## Build phases
 
