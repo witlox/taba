@@ -32,6 +32,9 @@ module_name_repetitions = "allow"
 must_use_candidate = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
+# New lints in Rust 1.99+ that we can't test locally (1.98)
+assert_is_empty = "allow"
+branches_sharing_code = "allow"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

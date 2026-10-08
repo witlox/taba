@@ -1,4 +1,3 @@
-#![allow(clippy::branches_sharing_code)]
 //! SWIM-based membership protocol, failure detection, and signed
 //! gossip transport for taba.
 //!
